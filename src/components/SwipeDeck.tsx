@@ -92,10 +92,14 @@ function SwipeDeckInner<T>(
     swipeTop: () => fling("save"),
   }));
 
+  // Vertical "save" swipe is only enabled when a top label is supplied;
+  // otherwise the deck is locked to horizontal (left/right) swipes only.
+  const saveEnabled = !!labels?.top;
+
   const pan = Gesture.Pan()
     .onUpdate((e) => {
       translateX.value = e.translationX;
-      translateY.value = e.translationY;
+      translateY.value = saveEnabled ? e.translationY : 0;
     })
     .onEnd((e) => {
       const x = translateX.value;
@@ -104,13 +108,17 @@ function SwipeDeckInner<T>(
         translateX.value = withTiming(OUT_DISTANCE, { duration: 280 }, () => runOnJS(complete)("right"));
       } else if (x < -SWIPE_THRESHOLD || e.velocityX < -VELOCITY_THRESHOLD) {
         translateX.value = withTiming(-OUT_DISTANCE, { duration: 280 }, () => runOnJS(complete)("left"));
-      } else if (y < -SWIPE_THRESHOLD || e.velocityY < -VELOCITY_THRESHOLD) {
+      } else if (saveEnabled && (y < -SWIPE_THRESHOLD || e.velocityY < -VELOCITY_THRESHOLD)) {
         translateY.value = withTiming(-OUT_DISTANCE, { duration: 280 }, () => runOnJS(complete)("save"));
       } else {
         translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
         translateY.value = withSpring(0, { damping: 18, stiffness: 180 });
       }
     });
+
+  // When the deck is horizontal-only, require horizontal intent so vertical
+  // drags never start a swipe.
+  if (!saveEnabled) pan.activeOffsetX([-12, 12]);
 
   // Render the next two cards behind the active one for a stacked look.
   const visible = [2, 1, 0]

@@ -119,7 +119,6 @@ export default function MatchScreen() {
               labels={{
                 left: { text: "PASS", color: "#e25555" },
                 right: { text: "MATCH", color: "#3fbf6a" },
-                top: { text: "SAVED", color: "#d8b45a" },
               }}
             />
           ) : (
@@ -132,23 +131,38 @@ export default function MatchScreen() {
         </View>
 
         {/* actions */}
-        <View className="flex-row items-center justify-center gap-6 mt-6">
-          <Pressable onPress={() => swiperRef.current?.swipeLeft()} className="w-[62px] h-[62px] rounded-full items-center justify-center bg-surface2" style={{ borderWidth: 1, borderColor: "rgba(226,85,85,0.4)" }}>
-            <Feather name="x" size={24} color={colors.danger} />
-          </Pressable>
-          <Pressable onPress={() => swiperRef.current?.swipeTop()} className="w-[54px] h-[54px] rounded-full items-center justify-center bg-surface2" style={{ borderWidth: 1, borderColor: "rgba(216,180,90,0.4)" }}>
-            <Ionicons name="star" size={22} color={colors.gold} />
-          </Pressable>
-          <Pressable onPress={() => swiperRef.current?.swipeRight()}>
-            <LinearGradient colors={["#46c873", "#2f9c53"]} className="w-[62px] h-[62px] rounded-full items-center justify-center">
-              <Ionicons name="heart" size={26} color="#fff" />
-            </LinearGradient>
-          </Pressable>
-        </View>
-        <View className="flex-row justify-center gap-7 mt-3">
-          <Text className="font-mono text-[9.5px] tracking-[1.5px] text-mut uppercase">← Pass</Text>
-          <Text className="font-mono text-[9.5px] tracking-[1.5px] text-mut uppercase">Swipe or tap</Text>
-          <Text className="font-mono text-[9.5px] tracking-[1.5px] text-mut uppercase">Match →</Text>
+        <View className="flex-row items-end mt-7">
+          {/* Pass */}
+          <View className="flex-1 items-center gap-[10px]">
+            <Pressable onPress={() => swiperRef.current?.swipeLeft()} className="w-16 h-16 rounded-full items-center justify-center bg-surface2" style={{ borderWidth: 1, borderColor: "rgba(226,85,85,0.45)" }}>
+              <Feather name="x" size={26} color={colors.danger} />
+            </Pressable>
+            <View className="flex-row items-center gap-[5px]">
+              <Feather name="arrow-left" size={12} color={colors.danger} />
+              <Text className="font-mono text-[10px] tracking-[1.5px] text-dim uppercase">Pass</Text>
+            </View>
+          </View>
+
+          {/* Swipe or tap hint */}
+          <View className="flex-1 items-center gap-[10px]">
+            <View className="w-11 h-11 rounded-full items-center justify-center bg-white/5" style={{ borderWidth: 1, borderColor: colors.line }}>
+              <Ionicons name="swap-horizontal" size={20} color={colors.dim} />
+            </View>
+            <Text className="font-mono text-[10px] tracking-[1.5px] text-mut uppercase">Swipe or tap</Text>
+          </View>
+
+          {/* Match */}
+          <View className="flex-1 items-center gap-[10px]">
+            <Pressable onPress={() => swiperRef.current?.swipeRight()}>
+              <LinearGradient colors={["#46c873", "#2f9c53"]} className="w-16 h-16 rounded-full items-center justify-center">
+                <Ionicons name="heart" size={26} color="#fff" />
+              </LinearGradient>
+            </Pressable>
+            <View className="flex-row items-center gap-[5px]">
+              <Text className="font-mono text-[10px] tracking-[1.5px] text-dim uppercase">Match</Text>
+              <Feather name="arrow-right" size={12} color={colors.ok} />
+            </View>
+          </View>
         </View>
       </View>
     </ScreenBg>
