@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Mango",
+    "slug": "mango-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "mango",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#0a0e1b",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mango.app"
+    },
+    "android": {
+      "package": "com.mango.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0e1b"
+      }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
