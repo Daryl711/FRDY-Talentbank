@@ -153,10 +153,8 @@ export default function MatchScreen() {
 
           {/* Match */}
           <View className="flex-1 items-center gap-[10px]">
-            <Pressable onPress={() => swiperRef.current?.swipeRight()}>
-              <LinearGradient colors={["#46c873", "#2f9c53"]} className="w-16 h-16 rounded-full items-center justify-center">
-                <Ionicons name="heart" size={26} color="#fff" />
-              </LinearGradient>
+            <Pressable onPress={() => swiperRef.current?.swipeRight()} className="w-16 h-16 rounded-full items-center justify-center bg-surface2" style={{ borderWidth: 1, borderColor: "rgba(63,191,106,0.45)" }}>
+              <Feather name="check" size={26} color={colors.ok} />
             </Pressable>
             <View className="flex-row items-center gap-[5px]">
               <Text className="font-mono text-[10px] tracking-[1.5px] text-dim uppercase">Match</Text>
