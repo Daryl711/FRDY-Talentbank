@@ -23,7 +23,6 @@ Make sure to download **Expo Go** in your mobile phone
 
 ```bash
 npm install
-npx expo install babel-preset-expo
 npm run start
 ```
 

@@ -1,14 +1,22 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 import { Eyebrow, ScreenBg } from "@/components/ui";
 import { SwipeDeck, SwipeDeckHandle } from "@/components/SwipeDeck";
 import { getSwipeDeck, recordSwipe } from "@/data/repo";
 import { SwipeCompany, SwipeDirection } from "@/data/types";
 import { colors, gradients } from "@/theme/colors";
 
-function CompanyCard({ c }: { c: SwipeCompany }) {
+function CompanyCard({
+  c,
+  onCreateResume,
+  onAddResume,
+}: {
+  c: SwipeCompany;
+  onCreateResume?: (c: SwipeCompany) => void;
+  onAddResume?: (c: SwipeCompany) => void;
+}) {
   return (
     <LinearGradient
       colors={gradients.matchCard}
@@ -72,6 +80,26 @@ function CompanyCard({ c }: { c: SwipeCompany }) {
           ))}
         </View>
       </View>
+
+      {/* Resume actions */}
+      <View className="flex-row gap-[10px] mt-[14px]">
+        <Pressable
+          onPress={() => onCreateResume?.(c)}
+          className="flex-1 flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]"
+          style={{ backgroundColor: "rgba(216,180,90,0.16)", borderWidth: 1, borderColor: "rgba(216,180,90,0.45)" }}
+        >
+          <Ionicons name="sparkles" size={14} color={colors.goldbright} />
+          <Text className="font-mono text-[10.5px] tracking-[1px] text-goldbright uppercase">Create Specific Resume</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onAddResume?.(c)}
+          className="flex-1 flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]"
+          style={{ backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" }}
+        >
+          <Feather name="file-text" size={14} color="#cfe6d2" />
+          <Text className="font-mono text-[10.5px] tracking-[1px] uppercase" style={{ color: "#cfe6d2" }}>Add Existing Resume</Text>
+        </Pressable>
+      </View>
     </LinearGradient>
   );
 }
@@ -97,6 +125,14 @@ export default function MatchScreen() {
     setRemaining((r) => Math.max(0, r - 1));
   }
 
+  function onCreateResume(c: SwipeCompany) {
+    Alert.alert("Create Specific Resume", `Tailor a new resume for ${c.role} at ${c.name}.`);
+  }
+
+  function onAddExistingResume(c: SwipeCompany) {
+    Alert.alert("Add Existing Resume", `Attach one of your saved resumes to ${c.name}.`);
+  }
+
   return (
     <ScreenBg>
       <View className="flex-1 px-[22px] pb-[110px]">
@@ -113,7 +149,9 @@ export default function MatchScreen() {
               ref={swiperRef}
               data={deck}
               keyExtractor={(c) => c.id}
-              renderCard={(c) => <CompanyCard c={c} />}
+              renderCard={(c) => (
+                <CompanyCard c={c} onCreateResume={onCreateResume} onAddResume={onAddExistingResume} />
+              )}
               onSwiped={(i, dir) => onSwiped(i, dir)}
               onSwipedAll={() => setDone(true)}
               labels={{
