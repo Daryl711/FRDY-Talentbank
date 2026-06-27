@@ -8,6 +8,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts as usePlayfair, PlayfairDisplay_600SemiBold, PlayfairDisplay_700Bold } from "@expo-google-fonts/playfair-display";
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
+import { AuthProvider } from "@/auth/AuthContext";
+import AuthGate from "@/auth/AuthGate";
 import BottomTabs from "@/navigation/BottomTabs";
 import { colors } from "@/theme/colors";
 
@@ -36,7 +38,11 @@ export default function App() {
       <SafeAreaProvider>
         <StatusBar style="light" />
         <NavigationContainer theme={navTheme}>
-          <BottomTabs />
+          <AuthProvider>
+            <AuthGate>
+              <BottomTabs />
+            </AuthGate>
+          </AuthProvider>
         </NavigationContainer>
       </SafeAreaProvider>
     </GestureHandlerRootView>

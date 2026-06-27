@@ -59,5 +59,54 @@ export async function getConnections(kind: Connection["kind"]): Promise<Connecti
   return data as unknown as Connection[];
 }
 
+// ---------------------------------------------------------------------------
+// AUTH — sign up writes a new user to Supabase, sign in reads it back.
+// ---------------------------------------------------------------------------
+
+export interface SignUpResult {
+  /** A session exists immediately (email confirmation is OFF in the project). */
+  session: boolean;
+  /** True when Supabase created the user but is waiting on email confirmation. */
+  needsConfirmation: boolean;
+}
+
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  name: string,
+): Promise<SignUpResult> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase isn't configured. Add EXPO_PUBLIC_SUPABASE_URL and _ANON_KEY to .env.");
+  }
+  const { data, error } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+    // The handle_new_user trigger reads raw_user_meta_data->>'name' to seed
+    // the profiles row, so pass the name through here.
+    options: { data: { name: name.trim() } },
+  });
+  if (error) throw error;
+  return {
+    session: !!data.session,
+    needsConfirmation: !data.session && !!data.user,
+  };
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<void> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase isn't configured. Add EXPO_PUBLIC_SUPABASE_URL and _ANON_KEY to .env.");
+  }
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password,
+  });
+  if (error) throw error;
+}
+
+export async function signOut(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  await supabase.auth.signOut();
+}
+
 export const trendingSectors = mock.trendingSectors;
 export const careerInsights = mock.careerInsights;

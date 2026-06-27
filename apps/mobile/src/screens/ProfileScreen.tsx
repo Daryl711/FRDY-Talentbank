@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Avatar, ScreenBg } from "@/components/ui";
 import { me } from "@/data/mock";
+import { signOut } from "@/data/repo";
 import { colors } from "@/theme/colors";
 
 const experience = [
@@ -26,11 +27,18 @@ export default function ProfileScreen() {
   return (
     <ScreenBg>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
-        {/* edit */}
-        <View className="flex-row justify-end pt-[10px]">
+        {/* edit / log out */}
+        <View className="flex-row justify-end gap-[10px] pt-[10px]">
           <Pressable className="flex-row items-center gap-[7px] bg-surface2 border border-line rounded-[11px] px-[15px] py-[9px]">
             <Feather name="edit-2" size={14} color={colors.gold} />
             <Text className="text-gold text-[13px] font-medium">Edit</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => signOut()}
+            className="flex-row items-center gap-[7px] bg-surface2 border border-line rounded-[11px] px-[15px] py-[9px]"
+          >
+            <Feather name="log-out" size={14} color={colors.danger} />
+            <Text className="text-danger text-[13px] font-medium">Log Out</Text>
           </Pressable>
         </View>
 
@@ -106,12 +114,19 @@ export default function ProfileScreen() {
           </>
         ) : (
           <View className="mt-6 gap-3">
-            {["Account & Security", "Notifications", "Privacy & Visibility", "Resume Manager", "Persona Assessment", "Sign Out"].map((row) => (
-              <Pressable key={row} className="flex-row items-center justify-between bg-surface border border-line rounded-[14px] px-4 py-[16px]">
-                <Text className="text-ink text-[14.5px]">{row}</Text>
-                <Feather name="chevron-right" size={18} color={colors.mut} />
-              </Pressable>
-            ))}
+            {["Account & Security", "Notifications", "Privacy & Visibility", "Resume Manager", "Persona Assessment", "Sign Out"].map((row) => {
+              const isSignOut = row === "Sign Out";
+              return (
+                <Pressable
+                  key={row}
+                  onPress={isSignOut ? () => signOut() : undefined}
+                  className="flex-row items-center justify-between bg-surface border border-line rounded-[14px] px-4 py-[16px]"
+                >
+                  <Text className={`text-[14.5px] ${isSignOut ? "text-danger" : "text-ink"}`}>{row}</Text>
+                  <Feather name={isSignOut ? "log-out" : "chevron-right"} size={18} color={isSignOut ? colors.danger : colors.mut} />
+                </Pressable>
+              );
+            })}
           </View>
         )}
       </ScrollView>
