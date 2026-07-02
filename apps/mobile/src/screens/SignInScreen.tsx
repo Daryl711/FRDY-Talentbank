@@ -64,7 +64,7 @@ export default function SignInScreen({ onSwitch }: { onSwitch: () => void }) {
           {error && <Text className="text-danger text-[13px] mt-4">{error}</Text>}
 
           <View className="mt-7">
-            <GoldButton label="Sign In" icon="arrow-right" pill compact block={false} onPress={submit} loading={busy} disabled={!canSubmit} />
+            <GoldButton label="Sign In" icon="arrow-right" pill onPress={submit} loading={busy} disabled={!canSubmit} />
           </View>
 
           <View className="flex-row justify-center items-center gap-1 mt-8">

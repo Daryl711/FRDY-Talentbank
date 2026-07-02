@@ -159,6 +159,7 @@ export function Avatar({
   color = colors.surface2,
   online = false,
   textClass = "",
+  icon = false,
 }: {
   initials: string;
   size?: number;
@@ -166,6 +167,8 @@ export function Avatar({
   color?: string;
   online?: boolean;
   textClass?: string;
+  /** Show the default person icon instead of the initials. */
+  icon?: boolean;
 }) {
   const dot = (
     <View
@@ -182,14 +185,21 @@ export function Avatar({
       }}
     />
   );
-  const content = (
+  const iconStyle = { includeFontPadding: false, textAlign: "center" as const, textAlignVertical: "center" as const, lineHeight: size * 0.5, height: size * 0.5 };
+  const content = icon ? (
+    <Feather name="user" size={size * 0.5} color={colors.mut} style={iconStyle} />
+  ) : (
     <Text style={{ fontSize: size * 0.32, textAlign: "center", includeFontPadding: false }} className={`font-bold ${textClass}`}>{initials}</Text>
   );
   if (gradient) {
     return (
       <View style={{ width: size, height: size }} className="items-center justify-center">
         <LinearGradient colors={gradients.gold} style={{ width: size, height: size, borderRadius: 999 }} className="items-center justify-center">
-          <Text style={{ fontSize: size * 0.32, color: "#3a2d08", textAlign: "center", includeFontPadding: false }} className="font-bold">{initials}</Text>
+          {icon ? (
+            <Feather name="user" size={size * 0.5} color="#3a2d08" style={iconStyle} />
+          ) : (
+            <Text style={{ fontSize: size * 0.32, color: "#3a2d08", textAlign: "center", includeFontPadding: false }} className="font-bold">{initials}</Text>
+          )}
         </LinearGradient>
         {online && dot}
       </View>

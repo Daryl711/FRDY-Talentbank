@@ -1,9 +1,9 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Avatar, ScreenBg } from "@/components/ui";
-import { me } from "@/data/mock";
-import { signOut } from "@/data/repo";
+import { getMyProfile, signOut } from "@/data/repo";
+import { Profile } from "@/data/types";
 import { colors } from "@/theme/colors";
 
 const experience = [
@@ -23,6 +23,21 @@ function PStat({ icon, value, label }: { icon: React.ReactNode; value: string; l
 
 export default function ProfileScreen() {
   const [tab, setTab] = useState<"profile" | "settings">("profile");
+  const [me, setMe] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    getMyProfile().then(setMe);
+  }, []);
+
+  if (!me) {
+    return (
+      <ScreenBg>
+        <View className="flex-1 items-center justify-center">
+          <Text className="font-mono text-[11px] tracking-[1.5px] text-mut uppercase">Loading…</Text>
+        </View>
+      </ScreenBg>
+    );
+  }
 
   return (
     <ScreenBg>
@@ -44,7 +59,7 @@ export default function ProfileScreen() {
 
         {/* identity */}
         <View className="flex-row items-center gap-2 -mt-2">
-          <Avatar initials={me.initials} size={80} gradient online />
+          <Avatar initials={me.initials} size={80} gradient online icon />
           <View className="rounded-[12px] px-[11px] py-[5px]" style={{ backgroundColor: "rgba(216,180,90,0.13)", borderWidth: 1, borderColor: "rgba(216,180,90,0.3)" }}>
             <Text className="font-mono text-[10px] tracking-[1px] text-goldbright">EXECUTIVE PRO</Text>
           </View>
