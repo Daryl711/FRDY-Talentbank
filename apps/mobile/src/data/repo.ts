@@ -16,6 +16,23 @@ export async function getMyProfile(): Promise<Profile> {
   return data as unknown as Profile;
 }
 
+// Persist edits to the signed-in user's profile. Only the passed fields are
+// written; returns the updated row so callers can refresh their state.
+export async function updateMyProfile(patch: Partial<Profile>): Promise<Profile | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return null;
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(patch)
+    .eq("id", uid)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as unknown as Profile;
+}
+
 export async function getFeaturedRoles(): Promise<Role[]> {
   if (!isSupabaseConfigured) return mock.featuredRoles;
   const { data, error } = await supabase

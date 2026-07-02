@@ -1,8 +1,8 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Avatar, ScreenBg } from "@/components/ui";
-import { getMyProfile, signOut } from "@/data/repo";
+import { getMyProfile, signOut, updateMyProfile } from "@/data/repo";
 import { Profile } from "@/data/types";
 import { colors } from "@/theme/colors";
 
@@ -25,6 +25,13 @@ export default function ProfileScreen() {
   const [tab, setTab] = useState<"profile" | "settings">("profile");
   const [me, setMe] = useState<Profile | null>(null);
 
+  const [editing, setEditing] = useState(false);
+  const [about, setAbout] = useState("");
+  const [skills, setSkills] = useState<string[]>([]);
+  const [skillInput, setSkillInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     getMyProfile().then(setMe);
   }, []);
@@ -39,22 +46,95 @@ export default function ProfileScreen() {
     );
   }
 
+  function startEdit() {
+    setAbout(me!.about ?? "");
+    setSkills(me!.skills ?? []);
+    setSkillInput("");
+    setError(null);
+    setEditing(true);
+  }
+
+  function addSkill() {
+    const s = skillInput.trim();
+    if (!s) return;
+    // Skip duplicates (case-insensitive).
+    if (!skills.some((k) => k.toLowerCase() === s.toLowerCase())) {
+      setSkills([...skills, s]);
+    }
+    setSkillInput("");
+  }
+
+  function removeSkill(skill: string) {
+    setSkills(skills.filter((s) => s !== skill));
+  }
+
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    // Fold any half-typed skill into the list before saving.
+    const pending = skillInput.trim();
+    const finalSkills = pending && !skills.some((k) => k.toLowerCase() === pending.toLowerCase())
+      ? [...skills, pending]
+      : skills;
+    const patch = { about: about.trim(), skills: finalSkills };
+    try {
+      const updated = await updateMyProfile(patch);
+      // updateMyProfile returns null in mock mode (no Supabase) — keep the
+      // local edits either way so the UI reflects the change.
+      setMe(updated ?? { ...me!, ...patch });
+      setSkillInput("");
+      setEditing(false);
+    } catch (e: any) {
+      setError(e?.message ?? "Couldn't save your changes. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <ScreenBg>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
         {/* edit / log out */}
         <View className="flex-row justify-end gap-[10px] pt-[10px]">
-          <Pressable className="flex-row items-center gap-[7px] bg-surface2 border border-line rounded-[11px] px-[15px] py-[9px]">
-            <Feather name="edit-2" size={14} color={colors.gold} />
-            <Text className="text-gold text-[13px] font-medium">Edit</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => signOut()}
-            className="flex-row items-center gap-[7px] bg-surface2 border border-line rounded-[11px] px-[15px] py-[9px]"
-          >
-            <Feather name="log-out" size={14} color={colors.danger} />
-            <Text className="text-danger text-[13px] font-medium">Log Out</Text>
-          </Pressable>
+          {editing ? (
+            <>
+              <Pressable
+                onPress={() => setEditing(false)}
+                disabled={saving}
+                className="flex-row items-center gap-[7px] bg-surface2 border border-line rounded-[11px] px-[15px] py-[9px]"
+              >
+                <Feather name="x" size={14} color={colors.mut} />
+                <Text className="text-mut text-[13px] font-medium">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={save}
+                disabled={saving}
+                className="flex-row items-center gap-[7px] rounded-[11px] px-[15px] py-[9px]"
+                style={{ backgroundColor: colors.gold, opacity: saving ? 0.6 : 1 }}
+              >
+                <Feather name="check" size={14} color="#3a2d08" />
+                <Text className="text-[13px] font-semibold" style={{ color: "#3a2d08" }}>{saving ? "Saving…" : "Save"}</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Pressable
+                onPress={startEdit}
+                className="flex-row items-center gap-[7px] bg-surface2 border border-line rounded-[11px] px-[15px] py-[9px]"
+              >
+                <Feather name="edit-2" size={14} color={colors.gold} />
+                <Text className="text-gold text-[13px] font-medium">Edit</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => signOut()}
+                className="flex-row items-center gap-[7px] bg-surface2 border border-line rounded-[11px] px-[15px] py-[9px]"
+              >
+                <Feather name="log-out" size={14} color={colors.danger} />
+                <Text className="text-danger text-[13px] font-medium">Log Out</Text>
+              </Pressable>
+            </>
+          )}
         </View>
 
         {/* identity */}
@@ -101,17 +181,65 @@ export default function ProfileScreen() {
 
         {tab === "profile" ? (
           <>
+            {error && <Text className="text-danger text-[13px] mt-6">{error}</Text>}
+
             <Text className="font-serif text-[20px] text-ink mt-6 mb-3">About</Text>
-            <Text className="text-dim text-[14px] leading-[23px]">{me.about}</Text>
+            {editing ? (
+              <TextInput
+                value={about}
+                onChangeText={setAbout}
+                multiline
+                placeholder="Write something about yourself…"
+                placeholderTextColor={colors.mut}
+                className="bg-surface border border-line rounded-[14px] p-[14px] text-ink text-[14px]"
+                style={{ minHeight: 120, lineHeight: 22, textAlignVertical: "top" }}
+              />
+            ) : (
+              <Text className="text-dim text-[14px] leading-[23px]">
+                {me.about?.trim() ? me.about : "No about yet. Tap Edit to introduce yourself."}
+              </Text>
+            )}
 
             <Text className="font-serif text-[20px] text-ink mt-6 mb-3">Skills</Text>
-            <View className="flex-row flex-wrap gap-[10px]">
-              {me.skills.map((s) => (
-                <View key={s} className="bg-surface border border-line2 rounded-[13px] px-[15px] py-[10px]">
-                  <Text className="text-ink text-[13px]">{s}</Text>
+            {!editing && me.skills.length === 0 ? (
+              <Text className="text-dim text-[14px] leading-[23px]">No skill yet. Tap Edit to add your skills.</Text>
+            ) : (
+              <View className="flex-row flex-wrap gap-[10px]">
+                {(editing ? skills : me.skills).map((s) => (
+                  <Pressable
+                    key={s}
+                    onPress={editing ? () => removeSkill(s) : undefined}
+                    className="flex-row items-center gap-[8px] bg-surface border border-line2 rounded-[13px] px-[15px] py-[10px]"
+                  >
+                    <Text className="text-ink text-[13px]">{s}</Text>
+                    {editing && <Feather name="x" size={13} color={colors.mut} />}
+                  </Pressable>
+                ))}
+                {editing && skills.length === 0 && (
+                  <Text className="text-mut text-[13px] py-[10px]">Add a few skills below.</Text>
+                )}
+              </View>
+            )}
+            {editing && (
+              <View className="flex-row items-center gap-[10px] mt-3">
+                <View className="flex-1 flex-row items-center bg-surface2 border border-line rounded-[13px] px-[14px]">
+                  <Feather name="tag" size={15} color={colors.mut} />
+                  <TextInput
+                    value={skillInput}
+                    onChangeText={setSkillInput}
+                    onSubmitEditing={addSkill}
+                    placeholder="Add a skill"
+                    placeholderTextColor={colors.mut}
+                    returnKeyType="done"
+                    autoCapitalize="words"
+                    className="flex-1 text-ink text-[14px] py-[12px] px-[10px]"
+                  />
                 </View>
-              ))}
-            </View>
+                <Pressable onPress={addSkill} className="bg-surface2 border border-line rounded-[13px] px-[16px] py-[12px]">
+                  <Feather name="plus" size={18} color={colors.gold} />
+                </Pressable>
+              </View>
+            )}
 
             <Text className="font-serif text-[20px] text-ink mt-6 mb-3">Experience</Text>
             {experience.map((e) => (
