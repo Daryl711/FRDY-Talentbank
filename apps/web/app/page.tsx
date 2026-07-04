@@ -1,65 +1,132 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Building2, GraduationCap, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { OrgType } from "@/lib/types";
+
+export default function SignInPage() {
+  const router = useRouter();
+  const [org, setOrg] = useState<OrgType>("employer");
+  const [email, setEmail] = useState("hiring@gmail.com");
+  const [password, setPassword] = useState("password");
+  const [show, setShow] = useState(false);
+
+  function signIn() {
+    // Prototype: route straight into the portal. Wire to supabase.auth here later when we the web app is ready to connect to the backend.
+    router.push("/dashboard");
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen flex items-center justify-center px-6 py-16">
+      <div className="w-full max-w-[440px]">
+        <h1 className="font-serif text-4xl font-bold text-ink">Sign in to your portal</h1>
+        <p className="text-dim text-[15px] mt-3">Select your organisation type to continue</p>
+
+        {/* org type cards */}
+        <div className="grid grid-cols-2 gap-4 mt-8">
+          <OrgCard
+            active={org === "employer"}
+            onClick={() => setOrg("employer")}
+            icon={<Building2 size={20} />}
+            title="Employer"
+            sub="Hiring & talent analytics"
+          />
+          <OrgCard
+            active={org === "university"}
+            onClick={() => setOrg("university")}
+            icon={<GraduationCap size={20} />}
+            title="University"
+            sub="Graduate outcomes"
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        {/* email */}
+        <div className="mt-8">
+          <label className="eyebrow">Email Address</label>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            className="mt-2 w-full bg-surface2 border border-line rounded-xl px-4 py-[14px] text-ink text-[15px] outline-none focus:border-gold/50 transition-colors"
+          />
+        </div>
+
+        {/* password */}
+        <div className="mt-5">
+          <label className="eyebrow">Password</label>
+          <div className="mt-2 relative">
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type={show ? "text" : "password"}
+              className="w-full bg-surface2 border border-line rounded-xl px-4 py-[14px] pr-12 text-ink text-[15px] outline-none focus:border-gold/50 transition-colors"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <button
+              type="button"
+              onClick={() => setShow((s) => !s)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-mut hover:text-dim"
+              aria-label={show ? "Hide password" : "Show password"}
+            >
+              {show ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
         </div>
-      </main>
-    </div>
+
+        <div className="flex justify-end mt-3">
+          <a className="text-gold text-[13px] hover:text-goldbright cursor-pointer">Forgot password?</a>
+        </div>
+
+        {/* submit */}
+        <button
+          onClick={signIn}
+          className="mt-6 w-full bg-gradient-to-r from-goldbright to-golddeep rounded-xl py-[15px] flex items-center justify-center gap-2 font-semibold text-[15px] transition-opacity hover:opacity-90"
+          style={{ color: "#2b2106" }}
+        >
+          Sign In <ArrowRight size={18} />
+        </button>
+
+        <p className="text-center text-dim text-[13px] mt-6">
+          Don&apos;t have an account?{" "}
+          <a className="text-gold hover:text-goldbright cursor-pointer">Request access</a>
+        </p>
+
+        <p className="text-center eyebrow mt-12">Elevate Enterprise v2.4 · Terms · Privacy</p>
+      </div>
+    </main>
   );
 }
+
+function OrgCard({
+  active, 
+  onClick,
+  icon,
+  title,
+  sub,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-left rounded-2xl p-5 border transition-colors ${
+        active ? "border-gold bg-gold/[0.06]" : "border-line bg-surface hover:border-line2"
+      }`}
+    >
+      <div
+        className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+          active ? "bg-gold/15 text-gold" : "bg-surface2 text-mut"
+        }`}
+      >
+        {icon}
+      </div>
+      <div className={`font-semibold mt-4 ${active ? "text-ink" : "text-dim"}`}>{title}</div>
+      <div className="text-mut text-[12.5px] mt-1">{sub}</div>
+    </button>
+  );
+}
+
