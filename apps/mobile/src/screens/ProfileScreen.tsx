@@ -3,13 +3,25 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Avatar, ScreenBg } from "@/components/ui";
 import { getMyProfile, signOut, updateMyProfile } from "@/data/repo";
-import { Profile } from "@/data/types";
+import { Experience, Profile } from "@/data/types";
 import { colors } from "@/theme/colors";
 
-const experience = [
-  { initials: "MC", color: "#2563c4", title: "Senior Product Manager", company: "Meridian Capital", dates: "2021 — Present" },
-  { initials: "SV", color: "#6d49d6", title: "Product Manager", company: "Stratos Ventures", dates: "2018 — 2021" },
-];
+// Experience cards show a colored company monogram. Since users type a free-form
+// company name, derive both the initials and a stable accent color from it.
+const expColors = ["#2563c4", "#6d49d6", "#2f8f5b", "#b8553f", "#7c4dab", "#4a6d8c", "#9a6b34", "#3a6ea5"];
+
+function expColor(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return expColors[h % expColors.length];
+}
+
+function expInitials(company: string) {
+  const words = company.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "•";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
 
 function PStat({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
   return (
@@ -29,6 +41,7 @@ export default function ProfileScreen() {
   const [about, setAbout] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
+  const [experience, setExperience] = useState<Experience[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,8 +63,25 @@ export default function ProfileScreen() {
     setAbout(me!.about ?? "");
     setSkills(me!.skills ?? []);
     setSkillInput("");
+    // Clone so per-field edits don't mutate the saved profile until we save.
+    setExperience((me!.experience ?? []).map((e) => ({ ...e })));
     setError(null);
     setEditing(true);
+  }
+
+  function addExperience() {
+    setExperience([
+      ...experience,
+      { id: `exp-${Date.now()}`, title: "", company: "", dates: "", description: "" },
+    ]);
+  }
+
+  function updateExperience(id: string, patch: Partial<Experience>) {
+    setExperience(experience.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }
+
+  function removeExperience(id: string) {
+    setExperience(experience.filter((e) => e.id !== id));
   }
 
   function addSkill() {
@@ -77,7 +107,17 @@ export default function ProfileScreen() {
     const finalSkills = pending && !skills.some((k) => k.toLowerCase() === pending.toLowerCase())
       ? [...skills, pending]
       : skills;
-    const patch = { about: about.trim(), skills: finalSkills };
+    // Trim every field, and drop rows the user added but left effectively empty.
+    const finalExperience = experience
+      .map((e) => ({
+        ...e,
+        title: e.title.trim(),
+        company: e.company.trim(),
+        dates: e.dates.trim(),
+        description: e.description.trim(),
+      }))
+      .filter((e) => e.title || e.company || e.description);
+    const patch = { about: about.trim(), skills: finalSkills, experience: finalExperience };
     try {
       const updated = await updateMyProfile(patch);
       // updateMyProfile returns null in mock mode (no Supabase) — keep the
@@ -242,18 +282,77 @@ export default function ProfileScreen() {
             )}
 
             <Text className="font-serif text-[20px] text-ink mt-6 mb-3">Experience</Text>
-            {experience.map((e) => (
-              <View key={e.company} className="flex-row gap-[13px] bg-surface border border-line rounded-[14px] p-[15px] mb-[11px]">
-                <View style={{ backgroundColor: e.color }} className="w-[44px] h-[44px] rounded-[11px] items-center justify-center">
-                  <Text className="font-bold text-[13px] text-white">{e.initials}</Text>
+            {editing ? (
+              <>
+                {experience.map((e, idx) => (
+                  <View key={e.id} className="bg-surface border border-line rounded-[14px] p-[15px] mb-[11px]">
+                    <View className="flex-row items-center justify-between mb-[11px]">
+                      <Text className="font-mono text-[10px] tracking-[1.5px] text-mut uppercase">Role {idx + 1}</Text>
+                      <Pressable onPress={() => removeExperience(e.id)} hitSlop={8} className="flex-row items-center gap-[5px]">
+                        <Feather name="trash-2" size={14} color={colors.danger} />
+                        <Text className="text-danger text-[12px]">Remove</Text>
+                      </Pressable>
+                    </View>
+                    <TextInput
+                      value={e.title}
+                      onChangeText={(t) => updateExperience(e.id, { title: t })}
+                      placeholder="Job title"
+                      placeholderTextColor={colors.mut}
+                      autoCapitalize="words"
+                      className="bg-surface2 border border-line rounded-[11px] px-[13px] py-[11px] text-ink text-[14px] mb-[9px]"
+                    />
+                    <TextInput
+                      value={e.company}
+                      onChangeText={(t) => updateExperience(e.id, { company: t })}
+                      placeholder="Company"
+                      placeholderTextColor={colors.mut}
+                      autoCapitalize="words"
+                      className="bg-surface2 border border-line rounded-[11px] px-[13px] py-[11px] text-ink text-[14px] mb-[9px]"
+                    />
+                    <TextInput
+                      value={e.dates}
+                      onChangeText={(t) => updateExperience(e.id, { dates: t })}
+                      placeholder="Dates — e.g. 2021 — Present"
+                      placeholderTextColor={colors.mut}
+                      className="bg-surface2 border border-line rounded-[11px] px-[13px] py-[11px] text-ink text-[14px] mb-[9px]"
+                    />
+                    <TextInput
+                      value={e.description}
+                      onChangeText={(t) => updateExperience(e.id, { description: t })}
+                      multiline
+                      placeholder="Description — what you did, your impact and achievements…"
+                      placeholderTextColor={colors.mut}
+                      className="bg-surface2 border border-line rounded-[11px] px-[13px] py-[11px] text-ink text-[14px]"
+                      style={{ minHeight: 84, lineHeight: 21, textAlignVertical: "top" }}
+                    />
+                  </View>
+                ))}
+                <Pressable
+                  onPress={addExperience}
+                  className="flex-row items-center justify-center gap-[8px] bg-surface2 border border-line rounded-[14px] py-[14px] mb-[11px]"
+                  style={{ borderStyle: "dashed" }}
+                >
+                  <Feather name="plus" size={17} color={colors.gold} />
+                  <Text className="text-gold text-[13.5px] font-medium">Add experience</Text>
+                </Pressable>
+              </>
+            ) : (me.experience ?? []).length === 0 ? (
+              <Text className="text-dim text-[14px] leading-[23px]">No experience yet. Tap Edit to add your work history.</Text>
+            ) : (
+              (me.experience ?? []).map((e) => (
+                <View key={e.id} className="flex-row gap-[13px] bg-surface border border-line rounded-[14px] p-[15px] mb-[11px]">
+                  <View style={{ backgroundColor: expColor(e.company) }} className="w-[44px] h-[44px] rounded-[11px] items-center justify-center">
+                    <Text className="font-bold text-[13px] text-white">{expInitials(e.company)}</Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-semibold text-[14.5px] text-ink">{e.title}</Text>
+                    <Text className="text-dim text-[12.5px] mt-[2px]">{e.company}</Text>
+                    {e.dates ? <Text className="font-mono text-[10.5px] text-mut mt-[5px]">{e.dates}</Text> : null}
+                    {e.description ? <Text className="text-dim text-[13px] leading-[20px] mt-[9px]">{e.description}</Text> : null}
+                  </View>
                 </View>
-                <View className="flex-1">
-                  <Text className="font-semibold text-[14.5px] text-ink">{e.title}</Text>
-                  <Text className="text-dim text-[12.5px] mt-[2px]">{e.company}</Text>
-                  <Text className="font-mono text-[10.5px] text-mut mt-[5px]">{e.dates}</Text>
-                </View>
-              </View>
-            ))}
+              ))
+            )}
           </>
         ) : (
           <View className="mt-6 gap-3">

@@ -10,6 +10,24 @@ export const me: Profile = {
   about:
     "Strategic product leader with 8 years driving B2B SaaS and fintech platforms from concept to scale. Proven record of aligning cross-functional teams around high-impact roadmaps and delivering measurable revenue outcomes.",
   skills: ["Product Strategy", "Roadmapping", "Agile", "Stakeholder Mgmt", "Data Analytics", "OKRs"],
+  experience: [
+    {
+      id: "exp1",
+      title: "Senior Product Manager",
+      company: "Meridian Capital",
+      dates: "2021 — Present",
+      description:
+        "Lead product strategy for a B2B fintech platform serving 40+ institutional clients. Shipped a self-serve onboarding flow that cut activation time by 60% and drove $4M in incremental ARR.",
+    },
+    {
+      id: "exp2",
+      title: "Product Manager",
+      company: "Stratos Ventures",
+      dates: "2018 — 2021",
+      description:
+        "Owned the analytics suite from 0→1, partnering with design and engineering to launch dashboards adopted by 12k monthly active users.",
+    },
+  ],
   initials: "AC",
   profile_score: 94,
   views: 347,
