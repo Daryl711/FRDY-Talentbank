@@ -25,7 +25,7 @@ export default function Sidebar() {
             <Sparkles size={18} style={{ color: "#2b2106" }} />
             </div>
             <div>
-            <div className="font-serif text-[19px] font-bold text-ink leading-none">Elevate</div>
+            <div className="font-serif text-[19px] font-bold text-ink leading-none">Mango</div>
             <div className="eyebrow mt-1 !text-gold">Employer</div>
             </div>
         </div>

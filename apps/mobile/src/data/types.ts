@@ -1,5 +1,13 @@
 export type Persona = "The Builder" | "The Strategist" | "The Explorer" | "The Connector";
 
+export interface Experience {
+  id: string;
+  title: string;
+  company: string;
+  dates: string;
+  description: string;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -9,6 +17,7 @@ export interface Profile {
   persona: Persona;
   about: string;
   skills: string[];
+  experience: Experience[];
   initials: string;
   profile_score: number;
   views: number;

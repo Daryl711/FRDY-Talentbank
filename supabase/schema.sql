@@ -32,12 +32,18 @@ create table if not exists profiles (
   persona       persona,
   about         text,
   skills        text[] default '{}',
+  experience    jsonb default '[]',        -- [{id,title,company,dates,description}]
   profile_score int default 0,
   views         int default 0,
   matches       int default 0,
   embedding     vector(384),               -- persona/profile embedding
   created_at    timestamptz default now()
 );
+
+-- Backfill columns onto profiles tables created before this column existed.
+-- `create table if not exists` above is a no-op on an existing table, so new
+-- columns must be added explicitly for the app's profile edits to persist.
+alter table profiles add column if not exists experience jsonb default '[]';
 
 -- ----------------------------------------------------------------------------
 -- COMPANIES
@@ -231,34 +237,51 @@ alter table connections enable row level security;
 alter table messages    enable row level security;
 alter table resumes     enable row level security;
 
+-- Policies are dropped first so this whole script can be re-run safely
+-- (create policy is not idempotent and errors if the policy already exists).
+
 -- profiles: anyone signed in can read; you edit only your own
+drop policy if exists "profiles read"   on profiles;
 create policy "profiles read"   on profiles for select to authenticated using (true);
+drop policy if exists "profiles write"  on profiles;
 create policy "profiles write"  on profiles for update to authenticated using (auth.uid() = id);
+drop policy if exists "profiles insert" on profiles;
 create policy "profiles insert" on profiles for insert to authenticated with check (auth.uid() = id);
 
 -- companies & roles: readable by all signed-in users
+drop policy if exists "companies read" on companies;
 create policy "companies read" on companies for select to authenticated using (true);
+drop policy if exists "roles read"     on roles;
 create policy "roles read"     on roles     for select to authenticated using (true);
+drop policy if exists "companies own"  on companies;
 create policy "companies own"  on companies for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
 -- swipes: you only see and create your own
+drop policy if exists "swipes own" on swipes;
 create policy "swipes own" on swipes for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- matches: you see matches you're part of
+drop policy if exists "matches own" on matches;
 create policy "matches own" on matches for select to authenticated using (auth.uid() = user_id);
 
 -- connections: you see rows you're part of; create requests as yourself
+drop policy if exists "connections read"   on connections;
 create policy "connections read"   on connections for select to authenticated using (auth.uid() in (requester_id, addressee_id));
+drop policy if exists "connections create" on connections;
 create policy "connections create" on connections for insert to authenticated with check (auth.uid() = requester_id);
+drop policy if exists "connections update" on connections;
 create policy "connections update" on connections for update to authenticated using (auth.uid() = addressee_id);
 
 -- messages: only participants of the match can read/send
+drop policy if exists "messages read" on messages;
 create policy "messages read" on messages for select to authenticated
   using (exists (select 1 from matches m where m.id = match_id and m.user_id = auth.uid()));
+drop policy if exists "messages send" on messages;
 create policy "messages send" on messages for insert to authenticated
   with check (sender_id = auth.uid());
 
 -- resumes: private to the owner
+drop policy if exists "resumes own" on resumes;
 create policy "resumes own" on resumes for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- ============================================================================
