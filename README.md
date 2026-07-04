@@ -163,8 +163,6 @@ management. See [`apps/web/README.md`](apps/web/README.md) for full detail.
 | Fonts     | Playfair Display, Inter, Space Mono (`next/font`)  |
 | Backend   | Supabase (Postgres + Auth), with mock fallback    |
 
-> ⚠️ This is Next.js **16**, which has breaking changes from earlier versions.
-> See `apps/web/AGENTS.md` before writing code.
 
 ## Prerequisites
 
