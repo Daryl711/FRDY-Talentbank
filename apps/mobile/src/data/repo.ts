@@ -1,5 +1,7 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import * as mock from "./mock";
+import { AnimalTrait, PersonaScores } from "./persona";
 import { Connection, Profile, Role, SwipeCompany, SwipeDirection } from "./types";
 
 // Each function tries Supabase when configured, otherwise returns local mock
@@ -123,6 +125,63 @@ export async function signInWithEmail(email: string, password: string): Promise<
 export async function signOut(): Promise<void> {
   if (!isSupabaseConfigured) return;
   await supabase.auth.signOut();
+}
+
+// ---------------------------------------------------------------------------
+// ANIMAL PERSONA — the onboarding quiz result gates entry into the app.
+// Live: stored on profiles.animal_trait / animal_scores. Demo (no Supabase):
+// persisted to AsyncStorage so it only blocks the first run.
+// ---------------------------------------------------------------------------
+
+const TRAIT_KEY = "mango.animal_trait";
+const SCORES_KEY = "mango.animal_scores";
+
+/** Returns the user's animal persona if they've completed the quiz, else null. */
+export async function getMyAnimalTrait(): Promise<string | null> {
+  if (!isSupabaseConfigured) {
+    return AsyncStorage.getItem(TRAIT_KEY);
+  }
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return null;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("animal_trait")
+    .eq("id", uid)
+    .single();
+  if (error || !data) return null;
+  return (data as { animal_trait: string | null }).animal_trait ?? null;
+}
+
+/** Persist the quiz result. Flows to the employer dashboard's Animal Trait column. */
+export async function saveMyAnimalTrait(trait: AnimalTrait, scores: PersonaScores): Promise<void> {
+  if (!isSupabaseConfigured) {
+    await AsyncStorage.multiSet([
+      [TRAIT_KEY, trait],
+      [SCORES_KEY, JSON.stringify(scores)],
+    ]);
+    return;
+  }
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return;
+  const { error } = await supabase
+    .from("profiles")
+    .update({ animal_trait: trait, animal_scores: scores })
+    .eq("id", uid);
+  if (error) throw error;
+}
+
+/** Clear the saved persona (used by "Retake quiz" and for re-demoing onboarding). */
+export async function resetMyAnimalTrait(): Promise<void> {
+  if (!isSupabaseConfigured) {
+    await AsyncStorage.multiRemove([TRAIT_KEY, SCORES_KEY]);
+    return;
+  }
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return;
+  await supabase.from("profiles").update({ animal_trait: null }).eq("id", uid);
 }
 
 export const trendingSectors = mock.trendingSectors;

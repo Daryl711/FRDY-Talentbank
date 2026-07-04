@@ -10,6 +10,7 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } f
 import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import { AuthProvider } from "@/auth/AuthContext";
 import AuthGate from "@/auth/AuthGate";
+import PersonaGate from "@/auth/PersonaGate";
 import BottomTabs from "@/navigation/BottomTabs";
 import { colors } from "@/theme/colors";
 
@@ -40,7 +41,9 @@ export default function App() {
         <NavigationContainer theme={navTheme}>
           <AuthProvider>
             <AuthGate>
-              <BottomTabs />
+              <PersonaGate>
+                <BottomTabs />
+              </PersonaGate>
             </AuthGate>
           </AuthProvider>
         </NavigationContainer>

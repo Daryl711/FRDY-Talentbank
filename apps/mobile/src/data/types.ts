@@ -1,4 +1,7 @@
-export type Persona = "The Builder" | "The Strategist" | "The Explorer" | "The Connector";
+import type { AnimalTrait } from "./persona";
+
+// Persona is the taker's animal trait from the quiz (see persona.ts).
+export type Persona = AnimalTrait;
 
 export interface Experience {
   id: string;

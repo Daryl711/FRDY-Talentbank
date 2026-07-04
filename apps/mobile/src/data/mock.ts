@@ -6,7 +6,7 @@ export const me: Profile = {
   headline: "Senior Product Manager",
   location: "New York, NY",
   years_exp: 8,
-  persona: "The Strategist",
+  persona: "Fox",
   about:
     "Strategic product leader with 8 years driving B2B SaaS and fintech platforms from concept to scale. Proven record of aligning cross-functional teams around high-impact roadmaps and delivering measurable revenue outcomes.",
   skills: ["Product Strategy", "Roadmapping", "Agile", "Stakeholder Mgmt", "Data Analytics", "OKRs"],

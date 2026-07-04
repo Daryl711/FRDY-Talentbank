@@ -11,7 +11,7 @@ create extension if not exists vector;  -- pgvector, for persona-based matching
 -- ----------------------------------------------------------------------------
 do $$ begin
   create type user_type   as enum ('individual','company');
-  create type persona      as enum ('The Builder','The Strategist','The Explorer','The Connector');
+  create type persona      as enum ('Lion','Eagle','Wolf','Owl','Octopus','Elephant','Cheetah','Fox','Ant','Horse','Dolphin','Peacock');
   create type swipe_dir    as enum ('left','right','save');
   create type target_kind  as enum ('company','candidate');
   create type conn_status  as enum ('pending','accepted','declined');
@@ -44,6 +44,10 @@ create table if not exists profiles (
 -- `create table if not exists` above is a no-op on an existing table, so new
 -- columns must be added explicitly for the app's profile edits to persist.
 alter table profiles add column if not exists experience jsonb default '[]';
+-- Animal Persona quiz result (onboarding). animal_trait feeds the employer
+-- dashboard's "Animal Trait" column; animal_scores keeps the full breakdown.
+alter table profiles add column if not exists animal_trait text;
+alter table profiles add column if not exists animal_scores jsonb default '{}';
 
 -- ----------------------------------------------------------------------------
 -- COMPANIES
