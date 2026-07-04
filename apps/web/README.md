@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mango — Employer & University Portal (web)
 
-## Getting Started
+The web companion to the Mango Career OS mobile app. Where the mobile client is
+the candidate-facing experience (persona matching + swipe deck), this portal is
+the **employer/university dashboard**: hiring analytics, an applicant pipeline,
+and candidate management — wired to the same Supabase backend.
 
-First, run the development server:
+## Stack
+
+| Layer     | Tech                                              |
+| --------- | ------------------------------------------------- |
+| Framework | Next.js 16 (App Router) + React 19                |
+| Styling   | Tailwind CSS v4                                   |
+| Charts    | Recharts                                          |
+| Icons     | lucide-react                                      |
+| Fonts     | Playfair Display, Inter, Space Mono (`next/font`) |
+| Backend   | Supabase (Postgres + Auth), with mock fallback    |
+
+> ⚠️ This is Next.js **16**, which has breaking changes from earlier versions.
+> See `AGENTS.md` — read the guides in `node_modules/next/dist/docs/` before
+> writing code.
+
+## Run it
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The dashboard lives at
+[/dashboard](http://localhost:3000/dashboard).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Other scripts: `npm run build`, `npm run start` (serve the production build),
+`npm run lint`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+> The portal runs immediately with built-in mock data — no backend needed.
+> Add Supabase credentials (below) to make it live.
 
-## Learn More
+## Wire up Supabase
 
-To learn more about Next.js, take a look at the following resources:
+1. Create `.env.local` and fill in:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+   ```
+2. Restart the dev server. `lib/supabase.ts` exposes `isSupabaseConfigured`,
+   which flips the dashboard from mock data to live queries when both vars are
+   present.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## How the data flows
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`lib/mock.ts` seeds the dashboard today — org name, stat cards, a 6-month
+applications/hires trend, the pipeline funnel, and a shortlist of applicants.
+`lib/types.ts` defines the shapes (`StatCard`, `Applicant`, `PipelineStage`,
+`MonthPoint`), aligned with `supabase/schema.sql` and the mobile app's types.
+When Supabase is configured, these same shapes are meant to be filled from live
+queries instead.
 
-## Deploy on Vercel
+## Project structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+app/
+  layout.tsx            root layout, font variables, metadata
+  page.tsx              landing page
+  dashboard/
+    layout.tsx          dashboard shell (sidebar + content)
+    page.tsx            hiring overview: stats, trend, pipeline, applicants
+  globals.css           Tailwind + Mango color/font tokens
+components/
+  Sidebar.tsx           dashboard navigation
+lib/
+  types.ts              portal data types
+  mock.ts               mock seed data
+  supabase.ts           client + isSupabaseConfigured flag
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Status
+
+Scaffolding is in place; the dashboard UI (`app/dashboard/*`, `components/Sidebar.tsx`)
+is still being built out against the mock data in `lib/`.
