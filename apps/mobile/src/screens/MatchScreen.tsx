@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { Eyebrow, ScreenBg } from "@/components/ui";
 import { SwipeDeck, SwipeDeckHandle } from "@/components/SwipeDeck";
 import { getSwipeDeck, recordSwipe } from "@/data/repo";
@@ -17,6 +17,11 @@ function CompanyCard({
   onCreateResume?: (c: SwipeCompany) => void;
   onAddResume?: (c: SwipeCompany) => void;
 }) {
+  // The resume-action labels are long; on a phone the card isn't wide enough to
+  // fit both side-by-side without the text wrapping, so stack them vertically on
+  // narrow screens and only go side-by-side on tablets.
+  const { width } = useWindowDimensions();
+  const stacked = width < 500;
   return (
     <LinearGradient
       colors={gradients.matchCard}
@@ -82,22 +87,22 @@ function CompanyCard({
       </View>
 
       {/* Resume actions */}
-      <View className="flex-row gap-[10px] mt-[14px]">
+      <View className={`${stacked ? "flex-col" : "flex-row"} gap-[10px] mt-[14px] mb-[6px]`}>
         <Pressable
           onPress={() => onCreateResume?.(c)}
-          className="flex-1 flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]"
+          className={`${stacked ? "w-full" : "flex-1"} flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]`}
           style={{ backgroundColor: "rgba(216,180,90,0.16)", borderWidth: 1, borderColor: "rgba(216,180,90,0.45)" }}
         >
           <Ionicons name="sparkles" size={14} color={colors.goldbright} />
-          <Text className="font-mono text-[10.5px] tracking-[1px] text-goldbright uppercase">Create Specific Resume</Text>
+          <Text numberOfLines={1} className="font-mono text-[10.5px] tracking-[1px] text-goldbright uppercase">Create Specific Resume</Text>
         </Pressable>
         <Pressable
           onPress={() => onAddResume?.(c)}
-          className="flex-1 flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]"
+          className={`${stacked ? "w-full" : "flex-1"} flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]`}
           style={{ backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" }}
         >
           <Feather name="file-text" size={14} color="#cfe6d2" />
-          <Text className="font-mono text-[10.5px] tracking-[1px] uppercase" style={{ color: "#cfe6d2" }}>Add Existing Resume</Text>
+          <Text numberOfLines={1} className="font-mono text-[10.5px] tracking-[1px] uppercase" style={{ color: "#cfe6d2" }}>Add Existing Resume</Text>
         </Pressable>
       </View>
     </LinearGradient>
