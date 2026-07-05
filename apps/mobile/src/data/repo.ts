@@ -164,12 +164,19 @@ export async function saveMyAnimalTrait(trait: AnimalTrait, scores: PersonaScore
   }
   const { data: auth } = await supabase.auth.getUser();
   const uid = auth.user?.id;
-  if (!uid) return;
-  const { error } = await supabase
+  if (!uid) throw new Error("Cannot save persona: no signed-in user.");
+  // .select() so we can tell an UPDATE that matched zero rows (e.g. the profile
+  // row is missing) apart from a real write — a silent no-op here is exactly what
+  // caused the quiz to reappear on every sign-in.
+  const { data, error } = await supabase
     .from("profiles")
     .update({ animal_trait: trait, animal_scores: scores })
-    .eq("id", uid);
+    .eq("id", uid)
+    .select("id");
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error("Persona not saved: no profile row for this user.");
+  }
 }
 
 /** Clear the saved persona (used by "Retake quiz" and for re-demoing onboarding). */

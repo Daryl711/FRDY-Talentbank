@@ -28,8 +28,10 @@ export default function PersonaGate({ children }: { children: React.ReactNode })
   const handleComplete = useCallback(async (result: PersonaResult) => {
     try {
       await saveMyAnimalTrait(result.trait, result.scores);
-    } catch {
-      // Even if the write fails, let the user in — their result is computed.
+    } catch (e) {
+      // Let the user in either way — their result is computed — but never hide
+      // the failure: if the write doesn't land, the quiz reappears next sign-in.
+      console.warn("Failed to save animal persona:", e);
     }
     setStatus("done");
   }, []);
