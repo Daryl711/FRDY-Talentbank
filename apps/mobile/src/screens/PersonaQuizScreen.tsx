@@ -100,28 +100,28 @@ export default function PersonaQuizScreen({
               </Pressable>
             );
           })}
-        </ScrollView>
 
-        {/* nav */}
-        <View className="flex-row gap-3 py-3">
-          {idx > 0 && (
-            <Pressable
-              onPress={() => setIdx((i) => Math.max(0, i - 1))}
-              className="flex-row items-center justify-center gap-2 bg-surface2 border border-line rounded-[14px] px-5 py-[15px]"
-            >
-              <Feather name="arrow-left" size={16} color={colors.dim} />
-              <Text className="text-dim text-[14px] font-medium">Back</Text>
-            </Pressable>
-          )}
-          <View className="flex-1">
-            <GoldButton
-              label={idx === QUESTIONS.length - 1 ? "See my persona" : "Next"}
-              icon={idx === QUESTIONS.length - 1 ? "star" : "arrow-right"}
-              disabled={!answered}
-              onPress={goNext}
-            />
+          {/* nav — sits directly below the answer options, scrolls with them */}
+          <View className="flex-row gap-3 pt-4">
+            {idx > 0 && (
+              <Pressable
+                onPress={() => setIdx((i) => Math.max(0, i - 1))}
+                className="flex-row items-center justify-center gap-2 bg-surface2 border border-line rounded-[14px] px-5 py-[15px]"
+              >
+                <Feather name="arrow-left" size={16} color={colors.dim} />
+                <Text className="text-dim text-[14px] font-medium">Back</Text>
+              </Pressable>
+            )}
+            <View className="flex-1">
+              <GoldButton
+                label={idx === QUESTIONS.length - 1 ? "See my persona" : "Next"}
+                icon={idx === QUESTIONS.length - 1 ? "star" : "arrow-right"}
+                disabled={!answered}
+                onPress={goNext}
+              />
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </View>
     </ScreenBg>
   );
