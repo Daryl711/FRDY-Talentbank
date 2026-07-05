@@ -39,8 +39,6 @@ export function GoldButton({
   loading = false,
   disabled = false,
   icon,
-  pill = false,
-  compact = false,
   block = true,
   className = "",
 }: {
@@ -49,51 +47,28 @@ export function GoldButton({
   loading?: boolean;
   disabled?: boolean;
   icon?: React.ComponentProps<typeof Feather>["name"];
-  /** Fully rounded pill shape instead of the default rounded rectangle. */
-  pill?: boolean;
-  /** Tighter padding / smaller text. */
-  compact?: boolean;
   /** Stretch to fill the parent width (default). Set false to size to content. */
   block?: boolean;
   className?: string;
 }) {
   const off = disabled || loading;
+  // Dark ink so the label/icon stay legible on the gold fill.
   const ink = "#3a2d08";
-  const radius = pill ? "rounded-full" : "rounded-[14px]";
-  const pad = compact ? "px-[22px] py-[11px]" : "px-5 py-[15px]";
-  const textSize = compact ? "text-[13px]" : "text-[14.5px]";
-  const iconSize = compact ? 15 : 17;
   return (
     <Pressable
       onPress={off ? undefined : onPress}
       disabled={off}
-      style={({ pressed }) => ({
-        alignSelf: block ? "stretch" : "center",
-        opacity: off ? 0.5 : pressed ? 0.92 : 1,
-        transform: [{ scale: pressed && !off ? 0.985 : 1 }],
-        // Soft gold glow so the button lifts off the dark background.
-        shadowColor: colors.gold,
-        shadowOpacity: off ? 0 : 0.45,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 6 },
-        elevation: off ? 0 : 8,
-      })}
+      style={{ alignSelf: block ? "stretch" : "center", opacity: off ? 0.5 : 1 }}
+      className={`flex-row items-center justify-center gap-2 bg-gold border border-gold rounded-[14px] px-5 py-[15px] ${className}`}
     >
-      <LinearGradient
-        colors={gradients.goldBtn}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        className={`flex-row items-center justify-center gap-[8px] ${radius} ${pad} ${className}`}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color={ink} />
-        ) : (
-          <>
-            <Text className={`font-bold ${textSize} tracking-[0.3px]`} style={{ color: ink }}>{label}</Text>
-            {icon && <Feather name={icon} size={iconSize} color={ink} />}
-          </>
-        )}
-      </LinearGradient>
+      {loading ? (
+        <ActivityIndicator size="small" color={ink} />
+      ) : (
+        <>
+          {icon && <Feather name={icon} size={16} color={ink} />}
+          <Text className="text-[14px] font-medium" style={{ color: ink }}>{label}</Text>
+        </>
+      )}
     </Pressable>
   );
 }

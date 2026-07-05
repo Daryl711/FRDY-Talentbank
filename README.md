@@ -193,3 +193,22 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
 
 `lib/supabase.ts` exposes `isSupabaseConfigured`, which flips the dashboard from
 mock data (`lib/mock.ts`) to live queries when both vars are present.
+
+# Deployment
+## Mobile App
+
+One-time setup:
+
+```bash
+npm install -g eas-cli
+eas login          
+cd apps/mobile
+eas build:configure
+```
+
+Build a standalone file with EAS (Expo Application Service):
+```bash
+eas build --platform android --profile preview
+```
+
+## Web App

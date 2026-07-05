@@ -79,7 +79,7 @@ export default function SignUpScreen({ onSwitch }: { onSwitch: () => void }) {
           {notice && <Text className="text-ok text-[13px] mt-4">{notice}</Text>}
 
           <View className="mt-7">
-            <GoldButton label="Create Account" icon="arrow-right" pill onPress={submit} loading={busy} disabled={!canSubmit} />
+            <GoldButton label="Create Account" icon="arrow-right" onPress={submit} loading={busy} disabled={!canSubmit} />
           </View>
 
           <View className="flex-row justify-center items-center gap-1 mt-8">
