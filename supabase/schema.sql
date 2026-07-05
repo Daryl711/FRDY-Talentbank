@@ -330,3 +330,9 @@ insert into roles (company_id, title, salary_min, salary_max, type, tags, packag
   ('44444444-4444-4444-4444-444444444444','Chief of Staff',160000,190000,'Hybrid','{Operations,Strategy}','$175K','{Bonus,Hybrid,Pension}'),
   ('55555555-5555-5555-5555-555555555555','VP Strategy',210000,250000,'Hybrid','{Strategy,Consulting}','$230K','{Equity,Travel,Health}')
 on conflict do nothing;
+
+-- ============================================================================
+-- Refresh the PostgREST schema cache so the API reflects any DDL above (new
+-- columns/tables/functions) immediately, instead of waiting on an auto-reload.
+-- ============================================================================
+notify pgrst, 'reload schema';

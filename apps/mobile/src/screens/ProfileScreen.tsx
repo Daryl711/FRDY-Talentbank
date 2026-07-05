@@ -1,10 +1,12 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Avatar, ScreenBg } from "@/components/ui";
 import { getMyProfile, signOut, updateMyProfile } from "@/data/repo";
+import { ANIMALS, AnimalTrait, PersonaScores } from "@/data/persona";
 import { Experience, Profile } from "@/data/types";
-import { colors } from "@/theme/colors";
+import { colors, gradients } from "@/theme/colors";
 
 // Experience cards show a colored company monogram. Since users type a free-form
 // company name, derive both the initials and a stable accent color from it.
@@ -36,6 +38,7 @@ function PStat({ icon, value, label }: { icon: React.ReactNode; value: string; l
 export default function ProfileScreen() {
   const [tab, setTab] = useState<"profile" | "settings">("profile");
   const [me, setMe] = useState<Profile | null>(null);
+  const [personaOpen, setPersonaOpen] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [about, setAbout] = useState("");
@@ -223,6 +226,30 @@ export default function ProfileScreen() {
           <>
             {error && <Text className="text-danger text-[13px] mt-6">{error}</Text>}
 
+            {/* Animal Persona — tap to open the full stats card */}
+            {me.animal_trait && ANIMALS[me.animal_trait] && (
+              <Pressable
+                onPress={() => setPersonaOpen(true)}
+                className="flex-row items-center gap-[14px] bg-surface border border-line rounded-[16px] p-[16px] mt-6"
+              >
+                <View
+                  className="w-[52px] h-[52px] rounded-[14px] items-center justify-center"
+                  style={{ backgroundColor: "rgba(216,180,90,0.12)", borderWidth: 1, borderColor: "rgba(216,180,90,0.28)" }}
+                >
+                  <Text style={{ fontSize: 30, lineHeight: 36 }}>{ANIMALS[me.animal_trait].emoji}</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="font-mono text-[9.5px] tracking-[1.5px] text-mut uppercase mb-[3px]">Animal Persona</Text>
+                  <Text className="font-serif text-[19px] text-ink">{me.animal_trait}</Text>
+                  <Text className="text-gold text-[12.5px] font-semibold mt-[1px]">{ANIMALS[me.animal_trait].archetype}</Text>
+                </View>
+                <View className="flex-row items-center gap-[5px]">
+                  <Text className="font-mono text-[9.5px] tracking-[1px] text-mut uppercase">Stats</Text>
+                  <Feather name="chevron-right" size={18} color={colors.mut} />
+                </View>
+              </Pressable>
+            )}
+
             <Text className="font-serif text-[20px] text-ink mt-6 mb-3">About</Text>
             {editing ? (
               <TextInput
@@ -372,6 +399,94 @@ export default function ProfileScreen() {
           </View>
         )}
       </ScrollView>
+
+      {me.animal_trait && ANIMALS[me.animal_trait] && (
+        <PersonaStatsModal
+          trait={me.animal_trait}
+          scores={me.animal_scores}
+          visible={personaOpen}
+          onClose={() => setPersonaOpen(false)}
+        />
+      )}
     </ScreenBg>
+  );
+}
+
+/* -------------------------------------------------- animal persona stats card */
+function PersonaStatsModal({
+  trait,
+  scores,
+  visible,
+  onClose,
+}: {
+  trait: AnimalTrait;
+  scores?: PersonaScores | null;
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const meta = ANIMALS[trait];
+  const ranked = scores
+    ? (Object.keys(scores) as AnimalTrait[]).sort((a, b) => (scores[b] ?? 0) - (scores[a] ?? 0))
+    : [];
+  const top = ranked.filter((a) => (scores?.[a] ?? 0) > 0).slice(0, 5);
+  const max = top.length ? scores?.[top[0]] ?? 1 : 1;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onPress={onClose}>
+        {/* stop propagation so taps inside the sheet don't close it */}
+        <Pressable
+          onPress={() => {}}
+          className="border-t border-line rounded-t-[24px] px-6 pt-4 pb-9"
+          style={{ backgroundColor: colors.bg }}
+        >
+          <View className="self-center w-[42px] h-[5px] rounded-full mb-5" style={{ backgroundColor: colors.line2 }} />
+
+          <View className="items-center">
+            <Text style={{ fontSize: 60, lineHeight: 70 }}>{meta.emoji}</Text>
+            <Text className="font-serif text-[28px] text-ink">{trait}</Text>
+            <Text className="text-gold text-[14px] font-semibold mt-1">{meta.archetype}</Text>
+            <View className="flex-row flex-wrap gap-[9px] justify-center mt-4">
+              {meta.tags.map((t) => (
+                <View key={t} className="bg-surface2 border border-line2 rounded-[12px] px-[13px] py-[8px]">
+                  <Text className="text-ink text-[12.5px]">{t}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <Text className="text-dim text-[14px] leading-[23px] mt-5">{meta.description}</Text>
+
+          {top.length > 0 && (
+            <View className="mt-7">
+              <Text className="font-mono text-[10.5px] tracking-[1.8px] text-mut uppercase mb-4">Your top matches</Text>
+              {top.map((a, i) => {
+                const pct = Math.round(((scores?.[a] ?? 0) / max) * 100);
+                const isTop = i === 0;
+                return (
+                  <View key={a} className="flex-row items-center gap-[11px] mb-3">
+                    <Text style={{ fontSize: 18, width: 24, textAlign: "center" }}>{ANIMALS[a].emoji}</Text>
+                    <Text className="text-dim text-[13px]" style={{ width: 74 }}>{a}</Text>
+                    <View className="flex-1 h-[8px] bg-surface3 rounded-full overflow-hidden">
+                      <LinearGradient
+                        colors={isTop ? (["#2f9c53", colors.ok] as const) : gradients.bar}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={{ width: `${pct}%`, height: "100%" }}
+                      />
+                    </View>
+                    <Text className="font-mono text-[11px] text-dim" style={{ width: 22, textAlign: "right" }}>{scores?.[a] ?? 0}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          <Pressable onPress={onClose} className="mt-7 items-center bg-surface2 border border-line rounded-[14px] py-[14px]">
+            <Text className="text-ink text-[14px] font-medium">Close</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }

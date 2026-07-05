@@ -1,4 +1,4 @@
-import type { AnimalTrait } from "./persona";
+import type { AnimalTrait, PersonaScores } from "./persona";
 
 // Persona is the taker's animal trait from the quiz (see persona.ts).
 export type Persona = AnimalTrait;
@@ -25,6 +25,9 @@ export interface Profile {
   profile_score: number;
   views: number;
   matches: number;
+  // Animal Persona quiz result (onboarding). Present once the quiz is completed.
+  animal_trait?: AnimalTrait | null;
+  animal_scores?: PersonaScores | null;
 }
 
 export interface Role {

@@ -32,6 +32,11 @@ export const me: Profile = {
   profile_score: 94,
   views: 347,
   matches: 28,
+  animal_trait: "Fox",
+  animal_scores: {
+    Fox: 11, Owl: 9, Eagle: 8, Cheetah: 6, Lion: 6, Octopus: 5,
+    Ant: 5, Wolf: 4, Dolphin: 4, Elephant: 3, Horse: 3, Peacock: 2,
+  },
 };
 
 export const featuredRoles: Role[] = [
