@@ -3,9 +3,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Avatar, Card, Eyebrow, GoldButton, ScreenBg, SectionTitle } from "@/components/ui";
-import { careerInsights, getFeaturedRoles, trendingSectors } from "@/data/repo";
-import { me } from "@/data/mock";
-import { Role } from "@/data/types";
+import { careerInsights, getFeaturedRoles, getMyProfile, trendingSectors } from "@/data/repo";
+import { Profile, Role } from "@/data/types";
 import { colors, gradients } from "@/theme/colors";
 
 const fmtK = (n: number) => `$${Math.round(n / 1000)}K`;
@@ -22,8 +21,12 @@ function StatTile({ icon, value, label }: { icon: React.ReactNode; value: string
 
 export default function HomeScreen() {
   const [roles, setRoles] = useState<Role[]>([]);
+  const [me, setMe] = useState<Profile | null>(null);
   useEffect(() => {
     getFeaturedRoles().then(setRoles);
+    // The signed-in user's real profile (name + avatar). Featured roles,
+    // insights and trending sectors below stay on mock/dummy data.
+    getMyProfile().then(setMe);
   }, []);
 
   const featured = roles[0];
@@ -36,14 +39,14 @@ export default function HomeScreen() {
         <View className="flex-row items-start justify-between pt-2">
           <View>
             <Eyebrow className="mb-1">Good Morning</Eyebrow>
-            <Text className="font-serif text-[27px] text-ink">{me.name}</Text>
+            <Text className="font-serif text-[27px] text-ink">{me?.name ?? ""}</Text>
           </View>
           <View className="flex-row items-center gap-[10px]">
             <View className="w-[42px] h-[42px] rounded-full bg-surface2 border border-line items-center justify-center">
               <Feather name="bell" size={19} color={colors.dim} />
               <View className="absolute top-[9px] right-[10px] w-[7px] h-[7px] rounded-full bg-gold" />
             </View>
-            <Avatar initials="AC" size={44} gradient />
+            <Avatar initials={me?.initials ?? ""} size={44} gradient />
           </View>
         </View>
 

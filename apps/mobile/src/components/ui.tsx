@@ -129,61 +129,84 @@ export function Pill({ label, tone = "neutral" }: { label: string; tone?: "neutr
 
 export function Avatar({
   initials,
-  size = 50,
+  size,
+  color,
   gradient = false,
-  color = colors.surface2,
   online = false,
-  textClass = "",
   icon = false,
+  textClass = "text-ink",
 }: {
   initials: string;
-  size?: number;
-  gradient?: boolean;
+  size: number;
+  /** Solid background color (used when not a gradient avatar). */
   color?: string;
+  /** Gold gradient fill (initials shown in dark ink for contrast). */
+  gradient?: boolean;
+  /** Show the online status dot at the bottom-right. */
   online?: boolean;
-  textClass?: string;
-  /** Show the default person icon instead of the initials. */
+  /** Render the default gold avatar glyph instead of initials. */
   icon?: boolean;
+  /** className for the initials text (ignored for the icon/gradient variants). */
+  textClass?: string;
 }) {
-  const dot = (
-    <View
-      style={{
-        position: "absolute",
-        bottom: size * 0.045,
-        right: size * 0.045,
-        width: size * 0.24,
-        height: size * 0.24,
-        borderRadius: 999,
-        backgroundColor: colors.ok,
-        borderWidth: 2.5,
-        borderColor: colors.surface,
-      }}
-    />
-  );
-  const iconStyle = { includeFontPadding: false, textAlign: "center" as const, textAlignVertical: "center" as const, lineHeight: size * 0.5, height: size * 0.5 };
-  const content = icon ? (
-    <Feather name="user" size={size * 0.5} color={colors.mut} style={iconStyle} />
+  const dotSize = Math.max(10, Math.round(size * 0.2));
+  const iconSize = Math.round(size * 0.52);
+  const fontSize = Math.round(size * 0.36);
+
+  // Default-avatar variant: a gold person glyph on a subtly gold-tinted,
+  // gold-ringed circle — matches the app's gold accent system.
+  const inner = icon ? (
+    <Feather name="user" size={iconSize} color={colors.gold} />
   ) : (
-    <Text style={{ fontSize: size * 0.32, textAlign: "center", includeFontPadding: false }} className={`font-bold ${textClass}`}>{initials}</Text>
+    <Text
+      className={gradient ? "font-bold" : `font-semibold ${textClass}`}
+      style={{ fontSize, ...(gradient ? { color: "#3a2d08" } : null) }}
+    >
+      {initials}
+    </Text>
   );
-  if (gradient) {
-    return (
-      <View style={{ width: size, height: size }} className="items-center justify-center">
-        <LinearGradient colors={gradients.gold} style={{ width: size, height: size, borderRadius: 999 }} className="items-center justify-center">
-          {icon ? (
-            <Feather name="user" size={size * 0.5} color="#3a2d08" style={iconStyle} />
-          ) : (
-            <Text style={{ fontSize: size * 0.32, color: "#3a2d08", textAlign: "center", includeFontPadding: false }} className="font-bold">{initials}</Text>
-          )}
-        </LinearGradient>
-        {online && dot}
-      </View>
-    );
-  }
+
   return (
-    <View style={{ width: size, height: size, backgroundColor: color, borderRadius: 999 }} className="items-center justify-center">
-      {content}
-      {online && dot}
+    <View style={{ width: size, height: size }}>
+      {icon ? (
+        <View
+          className="flex-1 items-center justify-center rounded-full border"
+          style={{ backgroundColor: "rgba(216,180,90,0.12)", borderColor: "rgba(216,180,90,0.45)" }}
+        >
+          {inner}
+        </View>
+      ) : gradient ? (
+        <LinearGradient
+          colors={gradients.gold}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ flex: 1, borderRadius: size / 2, alignItems: "center", justifyContent: "center" }}
+        >
+          {inner}
+        </LinearGradient>
+      ) : (
+        <View
+          className="flex-1 items-center justify-center rounded-full"
+          style={{ backgroundColor: color ?? colors.surface2 }}
+        >
+          {inner}
+        </View>
+      )}
+
+      {online && (
+        <View
+          className="absolute rounded-full"
+          style={{
+            width: dotSize,
+            height: dotSize,
+            backgroundColor: colors.ok,
+            borderWidth: 2,
+            borderColor: colors.bg,
+            right: 0,
+            bottom: 0,
+          }}
+        />
+      )}
     </View>
   );
 }
