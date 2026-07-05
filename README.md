@@ -197,18 +197,67 @@ mock data (`lib/mock.ts`) to live queries when both vars are present.
 # Deployment
 ## Mobile App
 
-One-time setup:
+The mobile app is an Expo project, so it deploys through **EAS Build** — Expo's
+cloud build service. You don't compile the app on your own machine; EAS builds
+it on Expo's servers and hands back a downloadable artifact. For the prototype we
+build a standalone Android **`.apk`** that can be sideloaded onto a phone for
+demos.
+
+**One-time setup:**
 
 ```bash
-npm install -g eas-cli
-eas login          
+npm install -g eas-cli    # install the EAS command-line tool
+eas login                 # sign in to your Expo account
 cd apps/mobile
-eas build:configure
+eas build:configure       # generates apps/mobile/eas.json with build profiles
 ```
 
-Build a standalone file with EAS (Expo Application Service):
+`eas build:configure` creates `eas.json`, which defines the build profiles the
+next command references. It only needs to be run once.
+
+**Build the APK:**
+
 ```bash
 eas build --platform android --profile preview
 ```
 
+- `--platform android` → produces an Android artifact.
+- `--profile preview` → an internal-distribution profile that outputs an
+  installable **`.apk`** (ideal for sideloading and demos), as opposed to a
+  `production` profile that would output an `.aab` for the Play Store.
+
+The build runs in the cloud; when it finishes, EAS prints a URL to download the
+`.apk`. No iOS build is configured for the prototype — on iOS, development runs
+through Expo Go (see **Run it** above).
+
 ## Web App
+
+The web app is a standard Next.js 16 project, so it deploys to any host that
+runs Node. The native target is **Vercel** (auto-detects Next.js, handles the
+build, and redeploys on every push).
+
+**Deploy on Vercel:**
+
+1. Import the repo into Vercel and set the **Root Directory** to `apps/web`
+   (this is a monorepo, so Vercel needs to know which app to build).
+2. Add the Supabase environment variables under **Settings → Environment
+   Variables**:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+   ```
+   Without these, the portal still deploys and runs on built-in mock data.
+3. Deploy. Vercel runs `npm run build` and serves the app; pushes to the branch
+   trigger automatic redeploys.
+
+**Self-host anywhere else** (any Node 20+ server):
+
+```bash
+cd apps/web
+npm install
+npm run build     # production build
+npm run start     # serve on port 3000
+```
+
+Set the same `NEXT_PUBLIC_SUPABASE_*` vars in the environment before building to
+switch from mock data to live Supabase queries.
