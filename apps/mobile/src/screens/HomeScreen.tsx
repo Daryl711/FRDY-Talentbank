@@ -46,7 +46,7 @@ export default function HomeScreen() {
               <Feather name="bell" size={19} color={colors.dim} />
               <View className="absolute top-[9px] right-[10px] w-[7px] h-[7px] rounded-full bg-gold" />
             </View>
-            <Avatar initials={me?.initials ?? ""} size={44} gradient />
+            <Avatar initials={me?.initials ?? ""} size={44} gradient online icon />
           </View>
         </View>
 
