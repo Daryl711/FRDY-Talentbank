@@ -5,7 +5,9 @@ export type OrgType = "employer" | "university";
 
 export type Stage = "Applied" | "Screening" | "Interview" | "Offer" | "Hired";
 
-export type AnimalTrait = "Lion" | "Owl" | "Eagle" | "Bear" | "Dolphin";
+export type AnimalTrait = 
+  | "Lion" | "Eagle" | "Wolf" | "Owl" | "Octopus" | "Elephant"
+  | "Cheetah" | "Fox" | "Ant" | "Horse" | "Dolphin" | "Peacock";
 
 export interface StatCard {
   label: string;
@@ -34,4 +36,29 @@ export interface MonthPoint {
   month: string;
   applications: number;
   hired: number;
+}
+
+// Animal Traits page types
+export interface TraitStat {
+  trait: AnimalTrait;
+  pct: number;
+  count: number;
+  color: string;
+}
+
+export interface RadarAxis {
+  axis: string;
+  value: number;
+}
+
+export interface TraitCandidate {
+  id: string;
+  name: string;
+  initials: string;
+  role: string;
+  trait: AnimalTrait;
+  match: number;
+  archetype: string;
+  tags: string[];
+  radar: RadarAxis[];
 }

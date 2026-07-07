@@ -1,21 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { LayoutGrid, PawPrint, TrendingUp, Briefcase, BarChart3, Sparkles, ChevronRight, LogOut } from "lucide-react";
 import { orgName } from "@/lib/mock";
 
 const NAV = [
-    { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
-    { key: "traits", label: "Animal Traits", icon: PawPrint },
-    { key: "trajectory", label: "Trajectory", icon: TrendingUp, badge: "ML" },
-    { key: "hiring", label: "Hiring", icon: Briefcase },
-    { key: "rate", label: "Hiring Rate", icon: BarChart3 },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+    { href: "/dashboard/traits", label: "Animal Traits", icon: PawPrint },
+    { href: "/dashboard/trajectory", label: "Trajectory", icon: TrendingUp, badge: "ML" },
+    { href: "/dashboard/hiring", label: "Hiring", icon: Briefcase },
+    { href: "/dashboard/rate", label: "Hiring Rate", icon: BarChart3 },
 ];
 
 export default function Sidebar() {
     const router = useRouter();
-    const [active, setActive] = useState("dashboard");
+    const pathname = usePathname();
 
     return (
         <aside className="w-[230px] shrink-0 bg-bgtop border-r border-line flex flex-col min-h-screen sticky top-0">
@@ -45,11 +45,11 @@ export default function Sidebar() {
         <nav className="px-3 flex flex-col gap-1">
             {NAV.map((item) => {
             const Icon = item.icon;
-            const on = active === item.key;
+            const on = item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href);
             return (
-                <button
-                key={item.key}
-                onClick={() => setActive(item.key)}
+                <Link
+                key={item.href}
+                href={item.href}
                 className={`flex items-center gap-3 px-3 py-[11px] rounded-xl text-[14px] transition-colors ${
                     on ? "bg-gold/[0.13] text-ink border border-gold/25" : "text-dim hover:text-ink hover:bg-surface/60 border border-transparent"
                 }`}
@@ -62,7 +62,7 @@ export default function Sidebar() {
                     </span>
                 )}
                 {on && <ChevronRight size={15} className="text-gold" />}
-                </button>
+                </Link>
             );
             })}
         </nav>
