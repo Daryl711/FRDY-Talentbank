@@ -1,4 +1,4 @@
-import { Applicant, MonthPoint, PipelineStage, StatCard, TraitCandidate, TraitStat} from "./types";
+import { Applicant, MonthPoint, PipelineStage, StatCard, TraitCandidate, TraitStat, TrajProfile,} from "./types";
 
 export const orgName = "Meridian Capital";
 export const periodLabel = "Hiring overview for June 2026";
@@ -88,5 +88,77 @@ export const traitCandidates: TraitCandidate[] = [
     archetype: "Eagle Archetype",
     tags: ["Vision", "Strategy", "Innovation", "Foresight", "Independence"],
     radar: radar([78, 76, 95, 58, 66]),
+  },
+];
+
+// Trajectory page
+export const trajModelVersion = "v3.1";
+export const trajStats = [
+  { label: "Model Accuracy", value: "91.4%", icon: "target" as const },
+  { label: "Avg. Confidence", value: "87%", icon: "zap" as const },
+  { label: "Paths Modelled", value: "2,841", icon: "trending" as const },
+  { label: "Correct Predictions", value: "1,820", icon: "arrow" as const },
+];
+
+export const trajProfiles: TrajProfile[] = [
+  {
+    id: "t1", name: "Victoria Harmon", initials: "VH", trait: "Lion", role: "Senior PM",
+    currentSalary: "$145K", arrowTarget: "Product", score: 92,
+    targetRole: "VP of Product", targetSalary: "$210K", confidence: 92, horizonMonths: 18,
+    trajectory: [
+      { label: "Now", value: 78 }, { label: "6mo", value: 82 }, { label: "12mo", value: 86 },
+      { label: "18mo", value: 91 }, { label: "24mo", value: 95 },
+    ],
+    nextRoles: [
+      { role: "VP of Product", context: "Series B–D SaaS", pct: 92 },
+      { role: "Director of Product", context: "Enterprise Tech", pct: 85 },
+      { role: "Chief Product Officer", context: "Startup (2yr+)", pct: 41 },
+    ],
+    skills: [
+      { name: "Executive Presence", current: 72, required: 90 },
+      { name: "P&L Management", current: 65, required: 85 },
+      { name: "Board Communication", current: 55, required: 80 },
+      { name: "Team Scaling", current: 80, required: 88 },
+    ],
+  },
+  {
+    id: "t2", name: "James Whitfield", initials: "JW", trait: "Owl", role: "VP Engineering",
+    currentSalary: "$185K", arrowTarget: "CTO", score: 87,
+    targetRole: "Chief Technology Officer", targetSalary: "$260K", confidence: 87, horizonMonths: 24,
+    trajectory: [
+      { label: "Now", value: 82 }, { label: "6mo", value: 84 }, { label: "12mo", value: 87 },
+      { label: "18mo", value: 90 }, { label: "24mo", value: 93 },
+    ],
+    nextRoles: [
+      { role: "Chief Technology Officer", context: "Series C SaaS", pct: 87 },
+      { role: "VP of Platform", context: "Enterprise Tech", pct: 79 },
+      { role: "Technical Co-founder", context: "Startup", pct: 38 },
+    ],
+    skills: [
+      { name: "Org Design", current: 68, required: 88 },
+      { name: "Budget Ownership", current: 60, required: 82 },
+      { name: "Executive Comms", current: 64, required: 85 },
+      { name: "Vision Setting", current: 78, required: 90 },
+    ],
+  },
+  {
+    id: "t3", name: "Sophia Laurent", initials: "SL", trait: "Eagle", role: "Director Strategy",
+    currentSalary: "$160K", arrowTarget: "Officer", score: 84,
+    targetRole: "Chief Strategy Officer", targetSalary: "$240K", confidence: 84, horizonMonths: 24,
+    trajectory: [
+      { label: "Now", value: 76 }, { label: "6mo", value: 80 }, { label: "12mo", value: 84 },
+      { label: "18mo", value: 88 }, { label: "24mo", value: 92 },
+    ],
+    nextRoles: [
+      { role: "Chief Strategy Officer", context: "Growth-stage", pct: 84 },
+      { role: "VP Corporate Development", context: "Enterprise", pct: 80 },
+      { role: "General Manager", context: "Business Unit", pct: 45 },
+    ],
+    skills: [
+      { name: "P&L Ownership", current: 66, required: 88 },
+      { name: "Executive Presence", current: 74, required: 90 },
+      { name: "Capital Allocation", current: 58, required: 82 },
+      { name: "Stakeholder Mgmt", current: 82, required: 88 },
+    ],
   },
 ];

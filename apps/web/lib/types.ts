@@ -62,3 +62,38 @@ export interface TraitCandidate {
   tags: string[];
   radar: RadarAxis[];
 }
+
+// Trajectory page
+export interface TrajPoint {
+  label: string;
+  value: number;
+}
+
+export interface NextRole {
+  role: string;
+  context: string;
+  pct: number;
+} 
+
+export interface SkillGap {
+  name: string;
+  current: number;
+  required: number;
+}
+
+export interface TrajProfile {
+  id: string;
+  name: string;
+  initials: string;
+  role: string;
+  currentSalary: string;
+  arrowTarget: string;
+  score: number;
+  targetRole: string;
+  targetSalary: string;
+  confidence: number;
+  horizonMonths: number;
+  trajectory: TrajPoint[];
+  nextRoles: NextRole[];
+  skills: SkillGap[];
+}
