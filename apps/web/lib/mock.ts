@@ -1,4 +1,4 @@
-import { Applicant, MonthPoint, PipelineStage, StatCard, TraitCandidate, TraitStat, TrajProfile,} from "./types";
+import { Applicant, MonthPoint, PipelineStage, StatCard, TraitCandidate, TraitStat, TrajProfile, JobRole} from "./types";
 
 export const orgName = "Meridian Capital";
 export const periodLabel = "Hiring overview for June 2026";
@@ -159,6 +159,65 @@ export const trajProfiles: TrajProfile[] = [
       { name: "Executive Presence", current: 74, required: 90 },
       { name: "Capital Allocation", current: 58, required: 82 },
       { name: "Stakeholder Mgmt", current: 82, required: 88 },
+    ],
+  },
+];
+
+// Hiring Page
+export const jobRoles: JobRole[] = [
+  {
+    id: "j1", title: "Senior Product Manager", dept: "Product", status: "Active",
+    applicants: 214, daysOpen: 8, location: "New York, NY", type: "Full-time",
+    pipeline: [
+      { stage: "Applied", candidates: [{ name: "Nathan Blake", trait: "Lion", match: 85 }] },
+      { stage: "Screening", candidates: [{ name: "Eleanor Voss", trait: "Dolphin", match: 87 }] },
+      { stage: "Interview", candidates: [{ name: "Victoria Harmon", trait: "Lion", match: 94 }] },
+      { stage: "Final Round", candidates: [{ name: "Isabelle Fontaine", trait: "Eagle", match: 93 }] },
+      { stage: "Offer", candidates: [{ name: "Robert Sterling", trait: "Owl", match: 89 }] },
+    ],
+  },
+  {
+    id: "j2", title: "VP of Engineering", dept: "Engineering", status: "Active",
+    applicants: 98, daysOpen: 14, location: "San Francisco, CA", type: "Full-time",
+    pipeline: [
+      { stage: "Applied", candidates: [{ name: "Derek Alvarez", trait: "Octopus", match: 81 }] },
+      { stage: "Screening", candidates: [{ name: "James Whitfield", trait: "Owl", match: 88 }] },
+      { stage: "Interview", candidates: [{ name: "Priya Nair", trait: "Fox", match: 90 }] },
+      { stage: "Final Round", candidates: [] },
+      { stage: "Offer", candidates: [] },
+    ],
+  },
+  {
+    id: "j3", title: "Chief of Staff", dept: "Executive", status: "Active",
+    applicants: 177, daysOpen: 5, location: "New York, NY", type: "Full-time",
+    pipeline: [
+      { stage: "Applied", candidates: [{ name: "Eleanor Voss", trait: "Dolphin", match: 87 }] },
+      { stage: "Screening", candidates: [{ name: "Grace Bennett", trait: "Horse", match: 79 }] },
+      { stage: "Interview", candidates: [] },
+      { stage: "Final Round", candidates: [] },
+      { stage: "Offer", candidates: [] },
+    ],
+  },
+  {
+    id: "j4", title: "Director of Finance", dept: "Finance", status: "Active",
+    applicants: 143, daysOpen: 21, location: "Chicago, IL", type: "Full-time",
+    pipeline: [
+      { stage: "Applied", candidates: [{ name: "Marcus Chen", trait: "Bear", match: 82 }] },
+      { stage: "Screening", candidates: [] },
+      { stage: "Interview", candidates: [{ name: "Lena Ortiz", trait: "Ant", match: 84 }] },
+      { stage: "Final Round", candidates: [] },
+      { stage: "Offer", candidates: [] },
+    ],
+  },
+  {
+    id: "j5", title: "Head of Marketing", dept: "Marketing", status: "Draft",
+    applicants: 89, daysOpen: 3, location: "Remote", type: "Full-time",
+    pipeline: [
+      { stage: "Applied", candidates: [{ name: "Chloe Rivera", trait: "Peacock", match: 86 }] },
+      { stage: "Screening", candidates: [] },
+      { stage: "Interview", candidates: [] },
+      { stage: "Final Round", candidates: [] },
+      { stage: "Offer", candidates: [] },
     ],
   },
 ];
