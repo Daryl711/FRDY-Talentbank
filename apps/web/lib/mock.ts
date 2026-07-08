@@ -221,3 +221,21 @@ export const jobRoles: JobRole[] = [
     ],
   },
 ];
+
+// Hiring Rate page
+export const hiringRateByDept = [
+  { dept: "Product", rate: 8.2 },
+  { dept: "Engineering", rate: 6.1 },
+  { dept: "Finance", rate: 9.4 },
+  { dept: "Executive", rate: 4.7 },
+  { dept: "Marketing", rate: 7.8 },
+];
+
+export const hiringRateTrend = [
+  { month: "Jan", rate: 5.8 },
+  { month: "Feb", rate: 6.2 },
+  { month: "Mar", rate: 6.0 },
+  { month: "Apr", rate: 6.9 },
+  { month: "May", rate: 7.1 },
+  { month: "Jun", rate: 7.4 },
+];
