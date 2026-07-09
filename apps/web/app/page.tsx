@@ -13,8 +13,9 @@ export default function SignInPage() {
   const [show, setShow] = useState(false);
 
   function signIn() {
-    // Prototype: route straight into the portal. Wire to supabase.auth here later when we the web app is ready to connect to the backend.
-    router.push("/dashboard");
+    // Prototype: route to the portal that matches the selected org type.
+    // Wire to supabase.auth here later when the web app connects to the backend.
+    router.push(org === "university" ? "/university" : "/employer");
   }
 
   return (

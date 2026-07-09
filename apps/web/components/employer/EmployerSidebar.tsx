@@ -6,14 +6,14 @@ import { LayoutGrid, PawPrint, TrendingUp, Briefcase, BarChart3, Sparkles, Chevr
 import { orgName } from "@/lib/mock";
 
 const NAV = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-    { href: "/dashboard/traits", label: "Animal Traits", icon: PawPrint },
-    { href: "/dashboard/trajectory", label: "Trajectory", icon: TrendingUp, badge: "ML" },
-    { href: "/dashboard/hiring", label: "Hiring", icon: Briefcase },
-    { href: "/dashboard/rate", label: "Hiring Rate", icon: BarChart3 },
+    { href: "/employer", label: "Dashboard", icon: LayoutGrid },
+    { href: "/employer/traits", label: "Animal Traits", icon: PawPrint },
+    { href: "/employer/trajectory", label: "Trajectory", icon: TrendingUp, badge: "ML" },
+    { href: "/employer/hiring", label: "Hiring", icon: Briefcase },
+    { href: "/employer/rate", label: "Hiring Rate", icon: BarChart3 },
 ];
 
-export default function Sidebar() {
+export default function EmployerSidebar() {
     const router = useRouter();
     const pathname = usePathname();
 
@@ -45,7 +45,7 @@ export default function Sidebar() {
         <nav className="px-3 flex flex-col gap-1">
             {NAV.map((item) => {
             const Icon = item.icon;
-            const on = item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href);
+            const on = item.href === "/employer" ? pathname === "/employer" : pathname.startsWith(item.href);
             return (
                 <Link
                 key={item.href}

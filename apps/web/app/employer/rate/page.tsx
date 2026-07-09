@@ -1,5 +1,5 @@
 import { PageHeader, Panel, StatTile } from "@/components/ui";
-import { RateByDept, RateTrend } from "@/components/HiringRateCharts";
+import { RateByDept, RateTrend } from "@/components/employer/HiringRateCharts";
 
 export default function HiringRatePage() {
   return (

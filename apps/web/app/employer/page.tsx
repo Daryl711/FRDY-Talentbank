@@ -1,6 +1,6 @@
 import { PageHeader, Panel, StatTile } from "@/components/ui";
-import ApplicationsChart from "@/components/ApplicantsChart";
-import RecentApplicants from "@/components/RecentApplicants";
+import ApplicationsChart from "@/components/employer/ApplicantsChart";
+import RecentApplicants from "@/components/employer/RecentApplicants";
 import { periodLabel, stats, pipeline } from "@/lib/mock";
 
 export default function DashboardPage() {
