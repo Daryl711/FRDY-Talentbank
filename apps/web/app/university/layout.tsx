@@ -1,4 +1,4 @@
-import UniversitySidebar from "@/components/UniversitySidebar";
+import UniversitySidebar from "@/components/university/UniversitySidebar";
 
 export default function UniversityLayout({ children }: { children: React.ReactNode }) {
   return (
