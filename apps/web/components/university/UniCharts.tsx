@@ -46,7 +46,7 @@ export function RateByCourseBars({ data }: { data: { course: string; rate: numbe
         <YAxis type="category" dataKey="course" stroke="#6a7388" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={130} />
         <Tooltip {...tip} cursor={{ fill: "#16203a" }} />
         <Bar dataKey="rate" radius={[0, 5, 5, 0]} fill="#5b8fd6" barSize={12}>
-          <LabelList dataKey="rate" position="right" formatter={(v: number) => `${v}%`} style={{ fill: "#97a0b5", fontSize: 11 }} />
+          <LabelList dataKey="rate" position="right" formatter={(v: string | number | boolean | null | undefined) => `${v ?? ""}%`} style={{ fill: "#97a0b5", fontSize: 11 }} />
         </Bar>
       </BarChart>
     </ResponsiveContainer>
