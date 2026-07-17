@@ -7,6 +7,7 @@
     "scheme": "mango",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "splash": {
       "backgroundColor": "#0a0e1b",
       "resizeMode": "contain"
@@ -21,6 +22,7 @@
     "android": {
       "package": "com.mango.app",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0a0e1b"
       }
     },
