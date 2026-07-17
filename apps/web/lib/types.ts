@@ -7,7 +7,7 @@ export type Stage = "Applied" | "Screening" | "Interview" | "Offer" | "Hired";
 
 export type AnimalTrait = 
   | "Lion" | "Eagle" | "Wolf" | "Owl" | "Octopus" | "Elephant"
-  | "Cheetah" | "Fox" | "Ant" | "Horse" | "Dolphin" | "Peacock";
+  | "Cheetah" | "Fox" | "Ant" | "Horse" | "Dolphin" | "Peacock" | "Bear";
 
 export interface StatCard {
   label: string;
@@ -30,6 +30,29 @@ export interface Applicant {
 export interface PipelineStage {
   stage: Stage;
   count: number;
+}
+
+export interface PipelineCandidate {
+  name: string;
+  trait: AnimalTrait;
+  match: number;
+}
+
+export interface JobPipelineStage {
+  stage: Stage | "Final Round";
+  candidates: PipelineCandidate[];
+}
+
+export interface JobRole {
+  id: string;
+  title: string;
+  dept: string;
+  status: "Active" | "Draft" | "Closed";
+  applicants: number;
+  daysOpen: number;
+  location: string;
+  type: string;
+  pipeline: JobPipelineStage[];
 }
 
 export interface MonthPoint {
