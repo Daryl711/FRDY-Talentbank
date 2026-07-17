@@ -108,6 +108,7 @@ export interface TrajProfile {
   id: string;
   name: string;
   initials: string;
+  trait: AnimalTrait;
   role: string;
   currentSalary: string;
   arrowTarget: string;
