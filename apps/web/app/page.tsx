@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, GraduationCap, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Building2, GraduationCap, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { OrgType } from "@/lib/types";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -11,11 +12,27 @@ export default function SignInPage() {
   const [email, setEmail] = useState("hiring@gmail.com");
   const [password, setPassword] = useState("password");
   const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function signIn() {
-    // Prototype: route to the portal that matches the selected org type.
-    // Wire to supabase.auth here later when the web app connects to the backend.
-    router.push(org === "university" ? "/university" : "/employer");
+  const portal = () => (org === "university" ? "/university" : "/employer");
+
+  async function signIn() {
+    setError(null);
+    // Without Supabase configured, keep the prototype behaviour so the dashboard
+    // still runs on mock data.
+    if (!isSupabaseConfigured) {
+      router.push(portal());
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    router.push(portal());
   }
 
   return (
@@ -60,6 +77,7 @@ export default function SignInPage() {
             <input
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && signIn()}
               type={show ? "text" : "password"}
               className="w-full bg-surface2 border border-line rounded-xl px-4 py-[14px] pr-12 text-ink text-[15px] outline-none focus:border-gold/50 transition-colors"
             />
@@ -78,13 +96,28 @@ export default function SignInPage() {
           <a className="text-gold text-[13px] hover:text-goldbright cursor-pointer">Forgot password?</a>
         </div>
 
+        {error && (
+          <p className="mt-5 text-[13px] text-danger bg-danger/10 border border-danger/30 rounded-xl px-4 py-3">
+            {error}
+          </p>
+        )}
+
         {/* submit */}
         <button
           onClick={signIn}
-          className="mt-6 w-full bg-gradient-to-r from-goldbright to-golddeep rounded-xl py-[15px] flex items-center justify-center gap-2 font-semibold text-[15px] transition-opacity hover:opacity-90"
+          disabled={loading}
+          className="mt-6 w-full bg-gradient-to-r from-goldbright to-golddeep rounded-xl py-[15px] flex items-center justify-center gap-2 font-semibold text-[15px] transition-opacity hover:opacity-90 disabled:opacity-60"
           style={{ color: "#2b2106" }}
         >
-          Sign In <ArrowRight size={18} />
+          {loading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" /> Signing in…
+            </>
+          ) : (
+            <>
+              Sign In <ArrowRight size={18} />
+            </>
+          )}
         </button>
 
         <p className="text-center text-dim text-[13px] mt-6">
