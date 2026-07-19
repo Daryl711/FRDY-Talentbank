@@ -1,4 +1,5 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, Text, useWindowDimensions, View } from "react-native";
@@ -109,7 +110,28 @@ function CompanyCard({
   );
 }
 
+/** Build a card from a Home "focus" payload for a company not already in the deck. */
+function synthCompany(f: FocusJob): SwipeCompany {
+  return {
+    id: f.id ?? f.name,
+    initials: f.initials ?? f.name.slice(0, 2).toUpperCase(),
+    name: f.name,
+    role: f.role ?? "",
+    location: f.location ?? "",
+    employees: f.employees ?? "",
+    match: f.match ?? 0,
+    tags: f.tags ?? [],
+    package: f.package ?? "",
+    perks: f.perks ?? [],
+  };
+}
+
+/** Partial company payload passed from the Home screen when a role is tapped. */
+type FocusJob = Partial<SwipeCompany> & { name: string };
+
 export default function MatchScreen() {
+  const nav = useNavigation<any>();
+  const route = useRoute<any>();
   const [deck, setDeck] = useState<SwipeCompany[]>([]);
   const [matched, setMatched] = useState(0);
   const [remaining, setRemaining] = useState(0);
@@ -122,6 +144,26 @@ export default function MatchScreen() {
       setRemaining(d.length);
     });
   }, []);
+
+  // When arriving from a Home role tap, bring that company to the top of the
+  // deck (or add it if it isn't there) so its resume actions are front and
+  // centre. Changing the deck array also resets the swiper to the top card.
+  const focus = route.params?.focus as FocusJob | undefined;
+  useEffect(() => {
+    if (!focus || deck.length === 0) return;
+    setDeck((prev) => {
+      const idx = prev.findIndex((c) => c.name.toLowerCase() === focus.name.toLowerCase());
+      const ordered =
+        idx >= 0
+          ? [prev[idx], ...prev.slice(0, idx), ...prev.slice(idx + 1)]
+          : [synthCompany(focus), ...prev];
+      setRemaining(ordered.length);
+      return ordered;
+    });
+    setDone(false);
+    // Clear the param so tapping the same role again re-triggers the focus.
+    nav.setParams({ focus: undefined });
+  }, [focus, deck.length, nav]);
 
   function onSwiped(index: number, dir: SwipeDirection) {
     const card = deck[index];
