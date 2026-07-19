@@ -1,9 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutGrid, PawPrint, TrendingUp, Briefcase, BarChart3, Sparkles, ChevronRight, LogOut } from "lucide-react";
 import { orgName, orgInitials, hiringUser } from "@/lib/mock";
+import { useAuth } from "@/lib/auth";
+import { getMyCompany } from "@/lib/employer";
 
 const NAV = [
     { href: "/employer", label: "Dashboard", icon: LayoutGrid },
@@ -16,6 +19,22 @@ const NAV = [
 export default function EmployerSidebar() {
     const router = useRouter();
     const pathname = usePathname();
+    const { user, signOut } = useAuth();
+
+    // Prefer the live company the employer owns; fall back to the mock identity.
+    const [company, setCompany] = useState<{ name: string; initials: string } | null>(null);
+    useEffect(() => {
+        getMyCompany().then((c) => c && setCompany({ name: c.name, initials: c.initials }));
+    }, []);
+
+    const displayOrg = company?.name ?? orgName;
+    const displayInitials = company?.initials ?? orgInitials;
+    const displayUser = user?.email ?? hiringUser.name;
+
+    async function handleSignOut() {
+        await signOut();
+        router.push("/");
+    }
 
     return (
         <aside className="w-[230px] shrink-0 bg-bgtop border-r border-line flex flex-col min-h-screen sticky top-0">
@@ -33,10 +52,10 @@ export default function EmployerSidebar() {
         {/* org switcher */}
         <div className="mx-3 mb-3 bg-surface2 border border-line rounded-xl px-3 py-3 flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-info/20 text-info flex items-center justify-center text-[12px] font-bold">
-            {orgInitials}
+            {displayInitials}
             </div>
             <div className="min-w-0">
-            <div className="text-ink text-[13px] font-semibold truncate">{orgName}</div>
+            <div className="text-ink text-[13px] font-semibold truncate">{displayOrg}</div>
             <div className="eyebrow mt-[2px]">Employer</div>
             </div>
         </div>
@@ -73,13 +92,13 @@ export default function EmployerSidebar() {
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center text-[12px] font-bold" style={{ color: "#2b2106" }}>
                 {hiringUser.initials}
             </div>
-            <div>
-                <div className="text-ink text-[13px] font-semibold leading-none">{hiringUser.name}</div>
+            <div className="min-w-0">
+                <div className="text-ink text-[13px] font-semibold leading-none truncate">{displayUser}</div>
                 <div className="eyebrow mt-[3px]">{hiringUser.role}</div>
             </div>
             </div>
             <button
-            onClick={() => router.push("/")}
+            onClick={handleSignOut}
             className="w-full flex items-center gap-3 px-4 py-3 text-danger text-[13px] hover:bg-danger/10 transition-colors"
             >
             <LogOut size={16} />

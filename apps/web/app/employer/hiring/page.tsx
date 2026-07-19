@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, X, Check } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, X, Check, Loader2 } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
 import { jobRoles, traitEmoji } from "@/lib/mock";
-import type { JobRole } from "@/lib/types";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { getMyCompany, getCompanyMatches, setMatchStage, type Company } from "@/lib/employer";
+import type { JobRole, HireStage, MatchedCandidate } from "@/lib/types";
 
 const STAGE_COLOR: Record<string, string> = {
   Applied: "text-mut",
@@ -14,6 +16,173 @@ const STAGE_COLOR: Record<string, string> = {
   Offer: "text-ok",
 };
 
+// Board columns, in pipeline order. Hired / Rejected are terminal (off-board).
+const STAGE_ORDER: HireStage[] = ["Applied", "Screening", "Interview", "Final Round", "Offer"];
+
+export default function HiringPage() {
+  // Live matched candidates for the employer's company (Supabase). When there
+  // are none (or Supabase is off) we fall back to the mock board below.
+  const [company, setCompany] = useState<Company | null>(null);
+  const [liveMatches, setLiveMatches] = useState<MatchedCandidate[]>([]);
+  const [loading, setLoading] = useState(isSupabaseConfigured);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    Promise.all([getMyCompany(), getCompanyMatches()])
+      .then(([c, m]) => {
+        setCompany(c);
+        setLiveMatches(m);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const useLive = liveMatches.length > 0;
+
+  if (loading) {
+    return (
+      <>
+        <PageHeader title="Hiring" subtitle="Manage job postings and track applicant pipelines" />
+        <Panel className="p-16 flex items-center justify-center">
+          <Loader2 size={22} className="animate-spin text-gold" />
+        </Panel>
+      </>
+    );
+  }
+
+  if (useLive) {
+    return <LiveMatchBoard company={company} initial={liveMatches} />;
+  }
+
+  return <MockHiringBoard />;
+}
+
+/* ============================================================ LIVE MATCH BOARD */
+function LiveMatchBoard({ company, initial }: { company: Company | null; initial: MatchedCandidate[] }) {
+  const [cands, setCands] = useState<MatchedCandidate[]>(initial);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function move(c: MatchedCandidate, stage: HireStage) {
+    const prev = cands;
+    setBusy(c.matchId);
+    setCands((cs) => cs.map((x) => (x.matchId === c.matchId ? { ...x, stage } : x))); // optimistic
+    try {
+      await setMatchStage(c.matchId, stage);
+    } catch {
+      setCands(prev); // revert on failure
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const active = cands.filter((c) => STAGE_ORDER.includes(c.stage));
+  const hired = cands.filter((c) => c.stage === "Hired").length;
+  const rejected = cands.filter((c) => c.stage === "Rejected").length;
+
+  return (
+    <>
+      <PageHeader
+        title="Hiring"
+        subtitle={`Matched candidates for ${company?.name ?? "your company"} — move them through your pipeline`}
+      />
+
+      <div className="flex items-center gap-6 mb-6">
+        <Stat label="Matched" value={cands.length} />
+        <Stat label="In Pipeline" value={active.length} tone="text-gold" />
+        <Stat label="Hired" value={hired} tone="text-ok" />
+        <Stat label="Rejected" value={rejected} tone="text-mut" />
+      </div>
+
+      <Panel className="p-6">
+        {active.length === 0 ? (
+          <div className="py-16 text-center text-mut text-[13px]">
+            No candidates in the active pipeline. Hired and rejected candidates are archived.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
+            {STAGE_ORDER.map((stage, stageIdx) => {
+              const col = active.filter((c) => c.stage === stage);
+              const isFirst = stageIdx === 0;
+              const isLast = stageIdx === STAGE_ORDER.length - 1;
+              return (
+                <div key={stage}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`font-mono text-[10px] uppercase tracking-wider ${STAGE_COLOR[stage] ?? "text-mut"}`}>{stage}</span>
+                    <span className="text-mut text-[11px] bg-surface2 border border-line rounded-full w-5 h-5 flex items-center justify-center">{col.length}</span>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {col.map((c) => (
+                      <div key={c.matchId} className={`bg-surface2 border border-line rounded-xl p-3 ${busy === c.matchId ? "opacity-60" : ""}`}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[15px]">{c.trait ? traitEmoji[c.trait] ?? "•" : "•"}</span>
+                          <span className="text-ink text-[13px] font-semibold truncate">{c.name}</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-dim text-[12px]">{c.trait ?? "—"}</span>
+                          <span className={`text-[12px] font-semibold ${c.score >= 90 ? "text-ok" : "text-gold"}`}>{c.score}%</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-3 pt-[10px] border-t border-line">
+                          <button
+                            onClick={() => move(c, STAGE_ORDER[stageIdx - 1])}
+                            disabled={isFirst || busy === c.matchId}
+                            title="Move back a stage"
+                            className="p-1 rounded-md text-mut hover:text-ink hover:bg-surface3 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-mut"
+                          >
+                            <ChevronLeft size={15} />
+                          </button>
+                          <button
+                            onClick={() => move(c, "Rejected")}
+                            disabled={busy === c.matchId}
+                            title="Reject candidate"
+                            className="p-1 rounded-md text-mut hover:text-danger hover:bg-danger/10 disabled:opacity-40"
+                          >
+                            <X size={15} />
+                          </button>
+                          {isLast ? (
+                            <button
+                              onClick={() => move(c, "Hired")}
+                              disabled={busy === c.matchId}
+                              title="Mark as hired"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-ok hover:bg-ok/10 text-[11px] font-semibold disabled:opacity-40"
+                            >
+                              <Check size={14} /> Hire
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => move(c, STAGE_ORDER[stageIdx + 1])}
+                              disabled={busy === c.matchId}
+                              title="Advance to next stage"
+                              className="p-1 rounded-md text-gold hover:bg-gold/10 disabled:opacity-40"
+                            >
+                              <ChevronRight size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {col.length === 0 && (
+                      <div className="border border-dashed border-line rounded-xl py-4 text-center text-mut text-[11px]">Empty</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
+    </>
+  );
+}
+
+function Stat({ label, value, tone = "text-ink" }: { label: string; value: number; tone?: string }) {
+  return (
+    <div>
+      <div className={`font-serif text-[24px] font-bold ${tone}`}>{value}</div>
+      <div className="eyebrow">{label}</div>
+    </div>
+  );
+}
+
+/* ======================================================= MOCK HIRING BOARD (fallback) */
 // Stages a brand-new role starts with, in pipeline order.
 const NEW_ROLE_STAGES: JobRole["pipeline"] = [
   { stage: "Applied", candidates: [] },
@@ -23,9 +192,8 @@ const NEW_ROLE_STAGES: JobRole["pipeline"] = [
   { stage: "Offer", candidates: [] },
 ];
 
-export default function HiringPage() {
-  // Pipeline state is owned here so the hiring user can move candidates between
-  // stages, reject them, mark hires, and post new roles — all client-side.
+function MockHiringBoard() {
+  // Client-side pipeline the hiring user can control when there's no live data.
   const [roles, setRoles] = useState<JobRole[]>(() => structuredClone(jobRoles));
   const [selectedId, setSelectedId] = useState(roles[0].id);
   const [query, setQuery] = useState("");
@@ -34,7 +202,6 @@ export default function HiringPage() {
   const role = roles.find((r) => r.id === selectedId) ?? roles[0];
   const filtered = roles.filter((r) => r.title.toLowerCase().includes(query.toLowerCase()));
 
-  // Apply an immutable update to a single role by id.
   function mutateRole(roleId: string, fn: (r: JobRole) => void) {
     setRoles((rs) =>
       rs.map((r) => {
@@ -46,7 +213,6 @@ export default function HiringPage() {
     );
   }
 
-  // Move a candidate one stage forward (+1) or back (-1).
   function moveCandidate(roleId: string, stageIdx: number, candIdx: number, dir: 1 | -1) {
     mutateRole(roleId, (r) => {
       const target = stageIdx + dir;
@@ -56,7 +222,6 @@ export default function HiringPage() {
     });
   }
 
-  // Reject removes the candidate and drops the applicant count.
   function rejectCandidate(roleId: string, stageIdx: number, candIdx: number) {
     mutateRole(roleId, (r) => {
       r.pipeline[stageIdx].candidates.splice(candIdx, 1);
@@ -64,7 +229,6 @@ export default function HiringPage() {
     });
   }
 
-  // Hire removes the candidate from the (final) stage — the offer was accepted.
   function hireCandidate(roleId: string, stageIdx: number, candIdx: number) {
     mutateRole(roleId, (r) => {
       r.pipeline[stageIdx].candidates.splice(candIdx, 1);
@@ -192,8 +356,6 @@ export default function HiringPage() {
                           <span className="text-dim text-[12px]">{c.trait}</span>
                           <span className={`text-[12px] font-semibold ${c.match >= 90 ? "text-ok" : "text-gold"}`}>{c.match}%</span>
                         </div>
-
-                        {/* pipeline controls */}
                         <div className="flex items-center justify-between mt-3 pt-[10px] border-t border-line">
                           <button
                             onClick={() => moveCandidate(role.id, stageIdx, candIdx, -1)}
@@ -231,9 +393,7 @@ export default function HiringPage() {
                       </div>
                     ))}
                     {col.candidates.length === 0 && (
-                      <div className="border border-dashed border-line rounded-xl py-4 text-center text-mut text-[11px]">
-                        Empty
-                      </div>
+                      <div className="border border-dashed border-line rounded-xl py-4 text-center text-mut text-[11px]">Empty</div>
                     )}
                   </div>
                 </div>

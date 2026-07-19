@@ -5,6 +5,23 @@ export type OrgType = "employer" | "university";
 
 export type Stage = "Applied" | "Screening" | "Interview" | "Offer" | "Hired";
 
+// Full set of hiring stages an employer can move a matched candidate through
+// (matches the mobile/pipeline board columns plus the two terminal states).
+export type HireStage =
+  | "Applied" | "Screening" | "Interview" | "Final Round" | "Offer" | "Hired" | "Rejected";
+
+// A candidate the employer has matched with, as shown on the Hiring board.
+export interface MatchedCandidate {
+  matchId: string;
+  candidateId: string;
+  name: string;
+  initials: string;
+  trait: AnimalTrait | null;
+  score: number;
+  stage: HireStage;
+  headline: string | null;
+}
+
 export type AnimalTrait = 
   | "Lion" | "Eagle" | "Wolf" | "Owl" | "Octopus" | "Elephant"
   | "Cheetah" | "Fox" | "Ant" | "Horse" | "Dolphin" | "Peacock" | "Bear";
