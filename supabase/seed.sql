@@ -66,3 +66,25 @@ on conflict (id) do nothing;
 --
 -- The owner can then manage CelcomDigi's roles (RLS "companies own" policy) and,
 -- once candidates swipe right, the mutual-match trigger creates matches.
+
+-- ----------------------------------------------------------------------------
+-- DEMO MATCHED CANDIDATES (populate the Hiring board without waiting for swipes)
+-- ----------------------------------------------------------------------------
+-- matches.user_id FKs auth.users, so create the candidate accounts first, then
+-- insert their matches against CelcomDigi across a few pipeline stages:
+--
+--   1. Auth -> Users -> Add user (repeat for each demo candidate).
+--   2. For each, seed their profile trait (optional, drives the board emoji):
+--        update profiles set animal_trait='Fox', headline='Product Manager'
+--          where id='<UID>';
+--   3. Insert the matches (replacing each <UID> and picking a stage):
+--
+--      insert into matches (user_id, company_id, score, stage) values
+--        ('<UID_1>','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 88, 'Applied'),
+--        ('<UID_2>','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 91, 'Screening'),
+--        ('<UID_3>','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 90, 'Interview'),
+--        ('<UID_4>','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 93, 'Final Round')
+--      on conflict (user_id, company_id) do nothing;
+--
+-- The CelcomDigi owner then sees these on /employer/hiring and can advance,
+-- reject, or hire them — persisted via the "matches company update" policy.

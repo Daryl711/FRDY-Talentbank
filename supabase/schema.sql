@@ -111,9 +111,15 @@ create table if not exists matches (
   user_id     uuid not null references auth.users(id) on delete cascade,
   company_id  uuid not null references companies(id) on delete cascade,
   score       int,
+  -- Hiring pipeline stage the employer moves the matched candidate through:
+  -- Applied -> Screening -> Interview -> Final Round -> Offer -> Hired (or Rejected)
+  stage       text not null default 'Applied',
   created_at  timestamptz default now(),
   unique (user_id, company_id)
 );
+
+-- Backfill onto matches tables created before the stage column existed.
+alter table matches add column if not exists stage text not null default 'Applied';
 
 -- ----------------------------------------------------------------------------
 -- CONNECTIONS (professional network)
@@ -211,6 +217,26 @@ returns table (
 $$;
 
 -- ============================================================================
+-- EMPLOYER: matched candidates for the caller's company (Hiring page board)
+-- Joins matches -> profiles (matches.user_id FKs auth.users, not profiles, so
+-- PostgREST can't auto-embed — hence an RPC). Only returns rows for companies
+-- the caller owns.
+-- ============================================================================
+create or replace function get_company_matches()
+returns table (
+  match_id uuid, candidate_id uuid, name text, initials text,
+  trait text, score int, stage text, headline text, created_at timestamptz
+) language sql security definer as $$
+  select
+    m.id, p.id, p.name, p.initials,
+    p.animal_trait, m.score, m.stage, p.headline, m.created_at
+  from matches m
+  join profiles p on p.id = m.user_id
+  where m.company_id in (select id from companies where owner_id = auth.uid())
+  order by m.created_at desc;
+$$;
+
+-- ============================================================================
 -- CONNECTIONS VIEW the app reads (network / requests / discover)
 -- ============================================================================
 create or replace view connections_view as
@@ -264,9 +290,17 @@ create policy "companies own"  on companies for all to authenticated using (auth
 drop policy if exists "swipes own" on swipes;
 create policy "swipes own" on swipes for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
--- matches: you see matches you're part of
+-- matches: candidates see their own; company owners see + manage (move the
+-- hiring stage of) matches for the companies they own.
 drop policy if exists "matches own" on matches;
 create policy "matches own" on matches for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "matches company read" on matches;
+create policy "matches company read" on matches for select to authenticated
+  using (company_id in (select id from companies where owner_id = auth.uid()));
+drop policy if exists "matches company update" on matches;
+create policy "matches company update" on matches for update to authenticated
+  using (company_id in (select id from companies where owner_id = auth.uid()))
+  with check (company_id in (select id from companies where owner_id = auth.uid()));
 
 -- connections: you see rows you're part of; create requests as yourself
 drop policy if exists "connections read"   on connections;
