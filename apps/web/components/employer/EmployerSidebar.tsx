@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutGrid, PawPrint, TrendingUp, Briefcase, BarChart3, Sparkles, ChevronRight, LogOut } from "lucide-react";
-import { orgName } from "@/lib/mock";
+import { orgName, orgInitials, hiringUser } from "@/lib/mock";
 
 const NAV = [
     { href: "/employer", label: "Dashboard", icon: LayoutGrid },
@@ -33,7 +33,7 @@ export default function EmployerSidebar() {
         {/* org switcher */}
         <div className="mx-3 mb-3 bg-surface2 border border-line rounded-xl px-3 py-3 flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-info/20 text-info flex items-center justify-center text-[12px] font-bold">
-            ME
+            {orgInitials}
             </div>
             <div className="min-w-0">
             <div className="text-ink text-[13px] font-semibold truncate">{orgName}</div>
@@ -71,11 +71,11 @@ export default function EmployerSidebar() {
         <div className="mt-auto border-t border-line">
             <div className="px-4 py-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center text-[12px] font-bold" style={{ color: "#2b2106" }}>
-                SM
+                {hiringUser.initials}
             </div>
             <div>
-                <div className="text-ink text-[13px] font-semibold leading-none">Sarah Mitchell</div>
-                <div className="eyebrow mt-[3px]">Admin</div>
+                <div className="text-ink text-[13px] font-semibold leading-none">{hiringUser.name}</div>
+                <div className="eyebrow mt-[3px]">{hiringUser.role}</div>
             </div>
             </div>
             <button

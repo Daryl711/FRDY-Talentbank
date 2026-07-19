@@ -4,7 +4,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { Avatar, Card, Eyebrow, GoldButton, ScreenBg, SectionTitle } from "@/components/ui";
-import { careerInsights, getFeaturedRoles, getMyProfile, trendingSectors } from "@/data/repo";
+import SavedJobsModal from "@/components/SavedJobsModal";
+import { careerInsights, getFeaturedRoles, getMyProfile, getSavedJobs, toggleSavedJob, trendingSectors, unsaveJob } from "@/data/repo";
 import { Profile, Role } from "@/data/types";
 import { colors, gradients } from "@/theme/colors";
 
@@ -35,8 +36,11 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
-  // Locally-saved roles (bookmark toggle). Kept in-memory for the demo.
-  const [saved, setSaved] = useState<Set<string>>(new Set());
+  // Saved roles: the full list (for the Saved Jobs sheet) plus a Set of ids for
+  // fast bookmark-state lookups. Persisted to AsyncStorage via the repo.
+  const [savedJobs, setSavedJobs] = useState<Role[]>([]);
+  const [savedOpen, setSavedOpen] = useState(false);
+  const savedIds = useMemo(() => new Set(savedJobs.map((r) => r.id)), [savedJobs]);
 
   // The signed-in user's real profile (name + avatar) and their featured roles.
   // Insights and trending sectors below stay on mock/dummy data.
@@ -48,6 +52,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     load().finally(() => setLoading(false));
+    getSavedJobs().then(setSavedJobs);
   }, [load]);
 
   const onRefresh = useCallback(() => {
@@ -75,13 +80,9 @@ export default function HomeScreen() {
     ? Math.round(roles.reduce((s, r) => s + (r.salary_min + r.salary_max) / 2, 0) / roles.length)
     : 0;
 
-  const toggleSave = useCallback((id: string) => {
-    setSaved((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggleSave = useCallback(async (role: Role) => {
+    const { jobs } = await toggleSavedJob(role);
+    setSavedJobs(jobs);
   }, []);
 
   // Tapping a role (or "Apply Now") jumps to the Job Match tab with this job
@@ -124,6 +125,18 @@ export default function HomeScreen() {
             </Text>
           </View>
           <View className="flex-row items-center gap-[10px]">
+            <Pressable
+              onPress={() => setSavedOpen(true)}
+              hitSlop={8}
+              className="w-[42px] h-[42px] rounded-full bg-surface2 border border-line items-center justify-center"
+            >
+              <Ionicons name="bookmark-outline" size={19} color={colors.dim} />
+              {savedJobs.length > 0 && (
+                <View className="absolute -top-[3px] -right-[3px] min-w-[17px] h-[17px] px-[4px] rounded-full bg-gold items-center justify-center">
+                  <Text className="font-mono text-[9px] font-bold" style={{ color: "#3a2d08" }}>{savedJobs.length}</Text>
+                </View>
+              )}
+            </Pressable>
             <Pressable
               onPress={() => Alert.alert("Notifications", "You have 1 new match and 2 profile views this week.")}
               hitSlop={8}
@@ -250,7 +263,7 @@ export default function HomeScreen() {
 
         {/* mini roles */}
         {rest.map((r) => {
-          const isSaved = saved.has(r.id);
+          const isSaved = savedIds.has(r.id);
           return (
             <Pressable key={r.id} onPress={() => goToJob(r)}>
               <Card className="flex-row items-center gap-[14px] p-4 mb-3">
@@ -265,7 +278,7 @@ export default function HomeScreen() {
                     <Text className="text-mut text-[12.5px] ml-2">{r.type}</Text>
                   </View>
                 </View>
-                <Pressable onPress={() => toggleSave(r.id)} hitSlop={10}>
+                <Pressable onPress={() => toggleSave(r)} hitSlop={10}>
                   <Ionicons name={isSaved ? "bookmark" : "bookmark-outline"} size={20} color={isSaved ? colors.gold : colors.mut} />
                 </Pressable>
               </Card>
@@ -301,6 +314,17 @@ export default function HomeScreen() {
           </Pressable>
         ))}
       </ScrollView>
+
+      <SavedJobsModal
+        visible={savedOpen}
+        jobs={savedJobs}
+        onClose={() => setSavedOpen(false)}
+        onOpenJob={(r) => {
+          setSavedOpen(false);
+          goToJob(r);
+        }}
+        onRemove={async (id) => setSavedJobs(await unsaveJob(id))}
+      />
     </ScreenBg>
   );
 }

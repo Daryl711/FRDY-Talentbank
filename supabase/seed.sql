@@ -25,7 +25,8 @@ insert into companies (id, name, industry, size, stage, culture, location, emplo
   ('77777777-7777-7777-7777-777777777777','Atlas Logistics','Supply Chain','200+','MNC','{Reliable,Global,Structured}','Atlanta, GA','410 emp.'),
   ('88888888-8888-8888-8888-888888888888','Verdant Health','HealthTech','51-200','Scale-up','{Mission-Driven,Empathetic,Rigorous}','Austin, TX','160 emp.'),
   ('99999999-9999-9999-9999-999999999999','Beacon Digital','MarTech','11-50','Startup','{Creative,Autonomous,Remote}','Denver, CO','58 emp.'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','Cobalt Robotics','Hardware','51-200','Scale-up','{Builders,Hands-On,Ambitious}','San Jose, CA','120 emp.')
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','Cobalt Robotics','Hardware','51-200','Scale-up','{Builders,Hands-On,Ambitious}','San Jose, CA','120 emp.'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','CelcomDigi','Telecommunications','200+','MNC','{Digital,"Customer First",Inclusive}','Kuala Lumpur, MY','12,000 emp.')
 on conflict (id) do nothing;
 
 -- ----------------------------------------------------------------------------
@@ -45,5 +46,23 @@ insert into roles (id, company_id, title, location, salary_min, salary_max, type
   ('a000000b-0000-0000-0000-00000000000b','77777777-7777-7777-7777-777777777777','Director of Operations','Atlanta, GA',170000,210000,'Full-time','{Operations,Logistics,Leadership}','$190K','{Bonus,401k,Relocation}'),
   ('a000000c-0000-0000-0000-00000000000c','88888888-8888-8888-8888-888888888888','Senior Product Manager, Clinical','Austin, TX',165000,205000,'Hybrid','{Product,Healthcare,Strategy}','$185K','{Equity,Health,"Wellness Stipend"}'),
   ('a000000d-0000-0000-0000-00000000000d','99999999-9999-9999-9999-999999999999','Growth Marketing Lead','Remote',130000,165000,'Remote','{Marketing,Growth,Analytics}','$150K','{Equity,Remote,Flexible}'),
-  ('a000000e-0000-0000-0000-00000000000e','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','Robotics Software Engineer','San Jose, CA',175000,225000,'Full-time','{Robotics,C++,Embedded}','$200K','{Equity,401k,"Free Lunch"}')
+  ('a000000e-0000-0000-0000-00000000000e','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','Robotics Software Engineer','San Jose, CA',175000,225000,'Full-time','{Robotics,C++,Embedded}','$200K','{Equity,401k,"Free Lunch"}'),
+  ('a000000f-0000-0000-0000-00000000000f','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Senior Product Manager, Digital','Kuala Lumpur, MY',90000,130000,'Hybrid','{Product,Telco,Digital}','$110K','{Medical,Hybrid,Bonus}')
 on conflict (id) do nothing;
+
+-- ----------------------------------------------------------------------------
+-- CELCOMDIGI HIRING USER (employer / company owner)
+-- ----------------------------------------------------------------------------
+-- auth.users rows can't be seeded idempotently from SQL (passwords are hashed by
+-- GoTrue), so create the hiring user through Supabase Auth, then link ownership:
+--
+--   1. Auth -> Users -> Add user:  hiring@celcomdigi.com  (set a password)
+--   2. Copy that user's UUID and run (replacing <UID>):
+--
+--      update profiles set user_type = 'company', name = 'CelcomDigi Talent'
+--        where id = '<UID>';
+--      update companies set owner_id = '<UID>'
+--        where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+--
+-- The owner can then manage CelcomDigi's roles (RLS "companies own" policy) and,
+-- once candidates swipe right, the mutual-match trigger creates matches.

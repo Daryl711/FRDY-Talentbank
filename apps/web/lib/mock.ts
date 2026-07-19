@@ -1,7 +1,15 @@
 import { Applicant, MonthPoint, PipelineStage, StatCard, TraitCandidate, TraitStat, TrajProfile, JobRole} from "./types";
 
-export const orgName = "Meridian Capital";
-export const periodLabel = "Hiring overview for June 2026";
+export const orgName = "CelcomDigi";
+export const orgInitials = "CD";
+export const periodLabel = "CelcomDigi hiring overview · June 2026";
+
+// The signed-in employer (hiring) user who manages CelcomDigi's pipeline.
+export const hiringUser = {
+  name: "Aisyah Rahman",
+  role: "Talent Acquisition Lead",
+  initials: "AR",
+};
 
 // Dashboard 
 export const stats: StatCard[] = [
@@ -165,6 +173,20 @@ export const trajProfiles: TrajProfile[] = [
 
 // Hiring Page
 export const jobRoles: JobRole[] = [
+  {
+    id: "j-celcomdigi", title: "Senior Product Manager, Digital", dept: "Product", status: "Active",
+    applicants: 132, daysOpen: 6, location: "Kuala Lumpur, MY", type: "Hybrid",
+    pipeline: [
+      { stage: "Applied", candidates: [
+        { name: "Aiman Zulkifli", trait: "Fox", match: 88 },
+        { name: "Mei Ling Tan", trait: "Owl", match: 84 },
+      ] },
+      { stage: "Screening", candidates: [{ name: "Rajesh Kumar", trait: "Eagle", match: 91 }] },
+      { stage: "Interview", candidates: [{ name: "Nurul Huda", trait: "Dolphin", match: 90 }] },
+      { stage: "Final Round", candidates: [{ name: "Wei Jie Lim", trait: "Lion", match: 93 }] },
+      { stage: "Offer", candidates: [] },
+    ],
+  },
   {
     id: "j1", title: "Senior Product Manager", dept: "Product", status: "Active",
     applicants: 214, daysOpen: 8, location: "New York, NY", type: "Full-time",

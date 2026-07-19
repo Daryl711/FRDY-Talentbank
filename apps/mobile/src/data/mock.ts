@@ -79,6 +79,19 @@ export const featuredRoles: Role[] = [
     color: "#2f8f5b",
     posted: "3 days ago",
   },
+  {
+    id: "r4",
+    company: "CelcomDigi",
+    initials: "CD",
+    title: "Senior Product Manager, Digital",
+    location: "Kuala Lumpur, MY",
+    salary_min: 90000,
+    salary_max: 130000,
+    type: "Hybrid",
+    match: 90,
+    color: "#1573c4",
+    posted: "Just now",
+  },
 ];
 
 export const swipeDeck: SwipeCompany[] = [
@@ -141,6 +154,18 @@ export const swipeDeck: SwipeCompany[] = [
     tags: ["Strategy", "Consulting"],
     package: "$230K",
     perks: ["Equity", "Travel", "Health"],
+  },
+  {
+    id: "c6",
+    initials: "CD",
+    name: "CelcomDigi",
+    role: "Senior Product Manager, Digital",
+    location: "Kuala Lumpur, MY",
+    employees: "12,000 emp.",
+    match: 90,
+    tags: ["Product", "Telco", "Digital"],
+    package: "$110K",
+    perks: ["Medical", "Hybrid", "Bonus"],
   },
 ];
 

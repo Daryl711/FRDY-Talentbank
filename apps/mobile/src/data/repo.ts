@@ -191,5 +191,51 @@ export async function resetMyAnimalTrait(): Promise<void> {
   await supabase.from("profiles").update({ animal_trait: null }).eq("id", uid);
 }
 
+// ---------------------------------------------------------------------------
+// SAVED JOBS — a candidate bookmarks roles to revisit later.
+// Persisted to AsyncStorage (per device) so saves survive app reloads. Featured
+// roles are demo/mock content, so we store a full Role snapshot rather than a
+// foreign key — this works identically whether or not Supabase is configured.
+// ---------------------------------------------------------------------------
+
+const SAVED_JOBS_KEY = "mango.saved_jobs";
+
+/** All roles the user has saved, most-recently-saved first. */
+export async function getSavedJobs(): Promise<Role[]> {
+  const raw = await AsyncStorage.getItem(SAVED_JOBS_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Role[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Save a role (no-op if already saved). Returns the updated saved list. */
+export async function saveJob(role: Role): Promise<Role[]> {
+  const current = await getSavedJobs();
+  if (current.some((r) => r.id === role.id)) return current;
+  const next = [role, ...current];
+  await AsyncStorage.setItem(SAVED_JOBS_KEY, JSON.stringify(next));
+  return next;
+}
+
+/** Remove a saved role. Returns the updated saved list. */
+export async function unsaveJob(roleId: string): Promise<Role[]> {
+  const current = await getSavedJobs();
+  const next = current.filter((r) => r.id !== roleId);
+  await AsyncStorage.setItem(SAVED_JOBS_KEY, JSON.stringify(next));
+  return next;
+}
+
+/** Toggle a role's saved state. Returns { saved, jobs } after the change. */
+export async function toggleSavedJob(role: Role): Promise<{ saved: boolean; jobs: Role[] }> {
+  const current = await getSavedJobs();
+  const isSaved = current.some((r) => r.id === role.id);
+  const jobs = isSaved ? await unsaveJob(role.id) : await saveJob(role);
+  return { saved: !isSaved, jobs };
+}
+
 export const trendingSectors = mock.trendingSectors;
 export const careerInsights = mock.careerInsights;
