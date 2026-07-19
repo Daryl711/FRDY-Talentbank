@@ -205,7 +205,21 @@ export default function HomeScreen() {
         {/* featured role card */}
         {featured && (
           <Pressable onPress={() => goToJob(featured)}>
-            <LinearGradient colors={gradients.featured} start={{ x: 0, y: 0 }} end={{ x: 0.3, y: 1 }} className="rounded-[20px] p-5 mb-[14px]" style={{ borderWidth: 1, borderColor: "#2a3c66" }}>
+            <LinearGradient
+              colors={gradients.featured}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              className="rounded-[20px] p-5 mb-[14px]"
+              style={{
+                borderWidth: 1,
+                borderColor: "rgba(216,180,90,0.30)",
+                shadowColor: "#000",
+                shadowOpacity: 0.35,
+                shadowRadius: 16,
+                shadowOffset: { width: 0, height: 10 },
+                elevation: 8,
+              }}
+            >
               <View className="flex-row items-start justify-between">
                 <View style={{ backgroundColor: featured.color }} className="w-[54px] h-[54px] rounded-[14px] items-center justify-center">
                   <Text className="font-bold text-[16px] text-white">{featured.initials}</Text>

@@ -21,7 +21,9 @@ export const colors = {
 
 export const gradients = {
   screen: ["#0e1426", "#0a0e1b"] as const,
-  featured: ["#1d3057", "#15233f"] as const,
+  // Featured hero card: dark navy surface (not blue) so it sits inside the
+  // gold accent system rather than clashing with it. Paired with a gold border.
+  featured: ["#18223c", "#121a2e"] as const,
   matchCard: ["#26421f", "#1a3326", "#16271f"] as const,
   gold: ["#e8c873", "#cda14a"] as const,
   goldBtn: ["#e8c873", "#b8923d"] as const,
