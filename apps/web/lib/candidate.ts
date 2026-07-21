@@ -74,6 +74,21 @@ export interface Connection {
   kind: "network" | "requests" | "discover";
 }
 
+/** A job the candidate has applied to (swiped right on). */
+export interface SubmittedJob {
+  id: string;
+  initials: string;
+  name: string;
+  role: string;
+  location: string;
+  employees: string;
+  match: number;
+  /** True once the company swiped right back (a mutual match). */
+  matched: boolean;
+  /** Date the application was submitted, pre-formatted for display. */
+  date: string;
+}
+
 export interface ChatMessage {
   id: string;
   who: "ai" | "me";
@@ -162,6 +177,13 @@ export const mockConnections: Connection[] = [
   { id: "p7", initials: "EP", color: "#6d49d6", name: "Elena Park", role: "Founder · NovaPath", mutual: "Suggested · 19 mutual", online: true, kind: "discover" },
   { id: "p8", initials: "DB", color: "#2f8f5b", name: "David Bauer", role: "CPO · Helix Labs", mutual: "Suggested · 9 mutual", online: false, kind: "discover" },
   { id: "p9", initials: "NA", color: "#b8923d", name: "Nadia Ahmed", role: "GP · Summit Advisors", mutual: "Suggested · 13 mutual", online: false, kind: "discover" },
+];
+
+// Applications shown when Supabase isn't configured (demo fallback).
+export const mockSubmittedJobs: SubmittedJob[] = [
+  { id: "c2", initials: "MC", name: "Meridian Capital", role: "Senior Product Manager", location: "New York, NY", employees: "180 emp.", match: 94, matched: true, date: "Jun 14, 2026" },
+  { id: "c5", initials: "LG", name: "Luminary Group", role: "VP Strategy", location: "New York, NY", employees: "140 emp.", match: 91, matched: false, date: "Jun 12, 2026" },
+  { id: "c3", initials: "SV", name: "Stratos Ventures", role: "VP of Engineering", location: "San Francisco, CA", employees: "320 emp.", match: 88, matched: false, date: "Jun 10, 2026" },
 ];
 
 export const trendingSectors = [
@@ -277,6 +299,26 @@ export async function recordSwipe(targetId: string, direction: SwipeDirection): 
 // ---------------------------------------------------------------------------
 // CONNECTIONS
 // ---------------------------------------------------------------------------
+
+// Jobs the signed-in candidate has applied to (right-swiped), newest first.
+export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
+  if (!isSupabaseConfigured) return mockSubmittedJobs;
+  const { data, error } = await supabase.rpc("get_my_submitted_jobs");
+  if (error || !data) return mockSubmittedJobs;
+  return (data as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id),
+    initials: (r.initials as string) ?? "•",
+    name: (r.name as string) ?? "Company",
+    role: (r.role as string) ?? "Open Role",
+    location: (r.location as string) ?? "",
+    employees: (r.employees as string) ?? "",
+    match: (r.match as number) ?? 0,
+    matched: !!r.matched,
+    date: r.created_at
+      ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : "",
+  }));
+}
 
 export async function getConnections(kind: Connection["kind"]): Promise<Connection[]> {
   if (!isSupabaseConfigured) return mockConnections.filter((c) => c.kind === kind);

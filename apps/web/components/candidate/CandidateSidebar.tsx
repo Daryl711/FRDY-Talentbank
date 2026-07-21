@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Briefcase, FileText, Users, Sparkles, User, ChevronRight, LogOut } from "lucide-react";
+import { Home, Briefcase, Send, FileText, Users, Sparkles, User, ChevronRight, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getMyProfile } from "@/lib/candidate";
 import Avatar from "@/components/candidate/Avatar";
@@ -11,6 +11,7 @@ import Avatar from "@/components/candidate/Avatar";
 const NAV = [
   { href: "/candidate", label: "Home", icon: Home },
   { href: "/candidate/match", label: "Job Match", icon: Briefcase },
+  { href: "/candidate/applications", label: "Applications", icon: Send },
   { href: "/candidate/resume", label: "Resume", icon: FileText },
   { href: "/candidate/connect", label: "Connect", icon: Users },
   { href: "/candidate/advisor", label: "Advisor", icon: Sparkles, badge: "AI" },
