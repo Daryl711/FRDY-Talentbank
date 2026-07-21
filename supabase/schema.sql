@@ -157,6 +157,17 @@ create table if not exists resumes (
   created_at timestamptz default now()
 );
 
+-- The Resume feature (AI-generated + uploaded) adds these fields. Uploaded
+-- resumes still use storage_path; AI-generated ones don't, so the file-only
+-- columns are relaxed to nullable.
+alter table resumes add column if not exists title       text;
+alter table resumes add column if not exists kind        text default 'uploaded';  -- 'ai' | 'uploaded'
+alter table resumes add column if not exists for_company text;
+alter table resumes add column if not exists size_kb     int;
+alter table resumes add column if not exists ats_score   int;
+alter table resumes alter column label drop not null;
+alter table resumes alter column storage_path drop not null;
+
 -- ============================================================================
 -- MUTUAL-MATCH TRIGGER
 -- When a user swipes right on a company that has already swiped right on them
