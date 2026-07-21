@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { getMyAnimalTrait, saveMyAnimalTrait } from "@/data/repo";
 import { PersonaResult } from "@/data/persona";
+import OnboardingWelcomeModal from "@/components/OnboardingWelcomeModal";
 import PersonaQuizScreen from "@/screens/PersonaQuizScreen";
 import { colors } from "@/theme/colors";
 import { useAuth } from "./AuthContext";
@@ -13,6 +14,8 @@ import { useAuth } from "./AuthContext";
 export default function PersonaGate({ children }: { children: React.ReactNode }) {
   const { authed } = useAuth();
   const [status, setStatus] = useState<"checking" | "needed" | "done">("checking");
+  // Onboarding acknowledgement pop-up, shown once before the quiz starts.
+  const [acknowledged, setAcknowledged] = useState(false);
 
   useEffect(() => {
     if (!authed) return;
@@ -48,7 +51,12 @@ export default function PersonaGate({ children }: { children: React.ReactNode })
   }
 
   if (status === "needed") {
-    return <PersonaQuizScreen onComplete={handleComplete} />;
+    return (
+      <>
+        <PersonaQuizScreen onComplete={handleComplete} />
+        <OnboardingWelcomeModal visible={!acknowledged} onAcknowledge={() => setAcknowledged(true)} />
+      </>
+    );
   }
 
   return <>{children}</>;

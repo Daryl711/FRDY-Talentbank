@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { QUESTIONS, DIMENSIONS, computePersona, ANIMALS, type PersonaResult } from "@/lib/persona";
-import { saveMyAnimalTrait } from "@/lib/candidate";
+import { getMyAnimalTrait, saveMyAnimalTrait } from "@/lib/candidate";
+import OnboardingWelcome from "@/components/candidate/OnboardingWelcome";
 
 export default function QuizPage() {
   const router = useRouter();
@@ -12,6 +13,15 @@ export default function QuizPage() {
   const [current, setCurrent] = useState(0);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<PersonaResult | null>(null);
+  // Onboarding acknowledgement pop-up. Skipped when a persona already exists
+  // (i.e. this is a retake from the profile settings, not first-time onboarding).
+  const [showWelcome, setShowWelcome] = useState(true);
+
+  useEffect(() => {
+    getMyAnimalTrait().then((trait) => {
+      if (trait) setShowWelcome(false);
+    });
+  }, []);
 
   const q = QUESTIONS[current];
   const total = QUESTIONS.length;
@@ -67,6 +77,8 @@ export default function QuizPage() {
 
   return (
     <div className="max-w-[620px] mx-auto">
+      {showWelcome && <OnboardingWelcome onAcknowledge={() => setShowWelcome(false)} />}
+
       <div className="flex items-center gap-4">
         <button
           onClick={() => (current > 0 ? setCurrent((c) => c - 1) : router.push("/candidate/profile"))}
