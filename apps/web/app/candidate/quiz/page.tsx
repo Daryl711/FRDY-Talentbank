@@ -54,12 +54,12 @@ export default function QuizPage() {
         </div>
         <p className="text-dim text-[14px] leading-[23px] mt-6">{meta.description}</p>
         <button
-          onClick={() => router.push("/candidate/profile")}
+          onClick={() => router.push("/candidate")}
           disabled={saving}
           className="mt-8 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-goldbright to-golddeep rounded-xl py-[14px] font-semibold text-[15px] disabled:opacity-60"
           style={{ color: "#2b2106" }}
         >
-          {saving ? <><Loader2 size={18} className="animate-spin" /> Saving…</> : "View my profile"}
+          {saving ? <><Loader2 size={18} className="animate-spin" /> Saving…</> : "Continue"}
         </button>
       </div>
     );

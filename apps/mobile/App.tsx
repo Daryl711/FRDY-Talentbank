@@ -11,6 +11,7 @@ import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import { AuthProvider } from "@/auth/AuthContext";
 import AuthGate from "@/auth/AuthGate";
 import PersonaGate from "@/auth/PersonaGate";
+import ProfileGate from "@/auth/ProfileGate";
 import BottomTabs from "@/navigation/BottomTabs";
 import { colors } from "@/theme/colors";
 
@@ -42,7 +43,9 @@ export default function App() {
           <AuthProvider>
             <AuthGate>
               <PersonaGate>
-                <BottomTabs />
+                <ProfileGate>
+                  <BottomTabs />
+                </ProfileGate>
               </PersonaGate>
             </AuthGate>
           </AuthProvider>
