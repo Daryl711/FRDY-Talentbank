@@ -1,7 +1,7 @@
 // Employer/University portal types. Aligned with supabase/schema.sql
 // (companies, roles, applications, candidates) and the mobile app's types.
 
-export type OrgType = "employer" | "university";
+export type OrgType = "candidate" | "employer" | "university";
 
 export type Stage = "Applied" | "Screening" | "Interview" | "Offer" | "Hired";
 
