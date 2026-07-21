@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { File } from "expo-file-system";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import * as mock from "./mock";
 import { AnimalTrait, PersonaScores } from "./persona";
@@ -241,6 +242,23 @@ export async function toggleSavedJob(role: Role): Promise<{ saved: boolean; jobs
 // RESUMES — AI-generated and uploaded documents with ATS scores.
 // ---------------------------------------------------------------------------
 
+// Supabase stores resumes in snake_case (size_kb, ats_score, created_at…); the
+// app's Resume type is camelCase. Map DB rows so the UI reads the right fields
+// whether they came from an insert or a fetch.
+function rowToResume(row: Record<string, unknown>): Resume {
+  return {
+    id: String(row.id),
+    title: (row.title as string) ?? (row.label as string) ?? "Resume",
+    kind: (row.kind as Resume["kind"]) ?? "uploaded",
+    forCompany: (row.for_company as string | null) ?? null,
+    date: row.created_at
+      ? new Date(row.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : "",
+    sizeKb: (row.size_kb as number) ?? 0,
+    atsScore: (row.ats_score as number) ?? 0,
+  };
+}
+
 export async function getResumes(): Promise<Resume[]> {
   if (!isSupabaseConfigured) return mock.resumes;
   const { data: auth } = await supabase.auth.getUser();
@@ -252,7 +270,7 @@ export async function getResumes(): Promise<Resume[]> {
     .eq("user_id", uid)
     .order("created_at", { ascending: false });
   if (error || !data) return mock.resumes;
-  return data as unknown as Resume[];
+  return (data as Record<string, unknown>[]).map(rowToResume);
 }
 
 /**
@@ -287,10 +305,75 @@ export async function createResume(input: { targetRole: string; targetCompany?: 
         })
         .select()
         .single();
-      if (data) return data as unknown as Resume;
+      if (data) return rowToResume(data as Record<string, unknown>);
     }
   }
   return resume;
+}
+
+/** A file the user picked to upload (from expo-document-picker). */
+export interface ResumeUpload {
+  name: string;
+  uri: string;
+  /** File size in bytes, if the picker reported it. */
+  sizeBytes?: number;
+  mimeType?: string;
+}
+
+/**
+ * Upload a resume file the user picked from their device. When Supabase is
+ * configured the file bytes are stored in the `resumes` Storage bucket (under
+ * the user's own folder) and a metadata row is inserted into the resumes table.
+ * Without Supabase, a local record is returned so the prototype still works.
+ */
+export async function uploadResume(input: ResumeUpload): Promise<Resume> {
+  const sizeKb = input.sizeBytes ? Math.max(1, Math.round(input.sizeBytes / 1024)) : 0;
+  // Uploaded files get a baseline ATS estimate; real parsing would run server-side.
+  const atsScore = 68 + Math.floor(Math.random() * 20); // 68–87
+  const title = input.name.replace(/\.[^./\\]+$/, ""); // drop the file extension for display
+  const resume: Resume = {
+    id: `res_${Date.now()}`,
+    title,
+    kind: "uploaded",
+    forCompany: null,
+    date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    sizeKb,
+    atsScore,
+  };
+
+  if (!isSupabaseConfigured) return resume;
+
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return resume;
+
+  // Push the picked file's bytes to Storage. Path is namespaced by user id so
+  // the "resumes" bucket policy can scope each user to their own folder.
+  const bytes = await new File(input.uri).bytes();
+  const storagePath = `${uid}/${Date.now()}_${input.name}`;
+  const { error: uploadError } = await supabase.storage
+    .from("resumes")
+    .upload(storagePath, bytes, {
+      contentType: input.mimeType || "application/octet-stream",
+      upsert: false,
+    });
+  if (uploadError) throw uploadError;
+
+  const { data, error } = await supabase
+    .from("resumes")
+    .insert({
+      user_id: uid,
+      title,
+      label: title,
+      kind: "uploaded",
+      storage_path: storagePath,
+      size_kb: sizeKb,
+      ats_score: atsScore,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data ? rowToResume(data as Record<string, unknown>) : resume;
 }
 
 export const trendingSectors = mock.trendingSectors;

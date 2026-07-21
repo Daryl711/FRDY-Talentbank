@@ -1,10 +1,11 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native";
 import AtsRing from "@/components/AtsRing";
 import CreateResumeModal from "@/components/CreateResumeModal";
 import { Eyebrow, ScreenBg } from "@/components/ui";
-import { createResume, getResumes } from "@/data/repo";
+import { createResume, getResumes, uploadResume } from "@/data/repo";
 import { Resume } from "@/data/types";
 import { colors } from "@/theme/colors";
 
@@ -12,6 +13,7 @@ export default function ResumeScreen() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const toastY = useRef(new Animated.Value(20)).current;
   const toastO = useRef(new Animated.Value(0)).current;
@@ -51,6 +53,33 @@ export default function ResumeScreen() {
     showToast(`Generated "${resume.title}" · ATS ${resume.atsScore}`);
   }
 
+  async function handleUpload() {
+    if (uploading) return;
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+      copyToCacheDirectory: true, // so the file bytes are readable for upload
+    });
+    if (result.canceled) return;
+    const file = result.assets[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const resume = await uploadResume({
+        name: file.name,
+        uri: file.uri,
+        sizeBytes: file.size,
+        mimeType: file.mimeType,
+      });
+      setResumes((prev) => [resume, ...prev]);
+      showToast(`Uploaded "${resume.title}"`);
+    } catch (e) {
+      showToast(e instanceof Error ? `Upload failed: ${e.message}` : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <ScreenBg>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
@@ -72,9 +101,13 @@ export default function ResumeScreen() {
             <Ionicons name="sparkles" size={17} color="#3a2d08" />
             <Text className="font-medium text-[14px]" style={{ color: "#3a2d08" }}>Create with AI</Text>
           </Pressable>
-          <Pressable onPress={() => showToast("Upload — pick a PDF or Word file")} className="flex-1 flex-row items-center justify-center gap-2 bg-surface2 border border-line rounded-[14px] py-[15px]">
-            <Feather name="upload" size={16} color={colors.dim} />
-            <Text className="font-medium text-[14px] text-dim">Upload Resume</Text>
+          <Pressable onPress={handleUpload} disabled={uploading} className="flex-1 flex-row items-center justify-center gap-2 bg-surface2 border border-line rounded-[14px] py-[15px]" style={{ opacity: uploading ? 0.6 : 1 }}>
+            {uploading ? (
+              <ActivityIndicator size="small" color={colors.dim} />
+            ) : (
+              <Feather name="upload" size={16} color={colors.dim} />
+            )}
+            <Text className="font-medium text-[14px] text-dim">{uploading ? "Uploading…" : "Upload Resume"}</Text>
           </Pressable>
         </View>
 
