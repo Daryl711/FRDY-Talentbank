@@ -334,6 +334,21 @@ drop policy if exists "resumes own" on resumes;
 create policy "resumes own" on resumes for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- ============================================================================
+-- STORAGE — uploaded resume files live in a private "resumes" bucket. Each
+-- user's files are namespaced under a folder named after their auth uid
+-- (see uploadResume in repo.ts: `${uid}/${timestamp}_${filename}`), so the
+-- policies below scope every user to read/write only their own folder.
+-- ============================================================================
+insert into storage.buckets (id, name, public)
+values ('resumes', 'resumes', false)
+on conflict (id) do nothing;
+
+drop policy if exists "resume files own" on storage.objects;
+create policy "resume files own" on storage.objects for all to authenticated
+  using (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================================================
 -- AUTO-CREATE A PROFILE ROW ON SIGN-UP
 -- ============================================================================
 create or replace function handle_new_user()
