@@ -57,6 +57,21 @@ export interface SwipeCompany {
   perks: string[];
 }
 
+/** A job the candidate has applied to (swiped right on). */
+export interface SubmittedJob {
+  id: string;
+  initials: string;
+  name: string;
+  role: string;
+  location: string;
+  employees: string;
+  match: number;
+  /** True once the company swiped right back (a mutual match). */
+  matched: boolean;
+  /** Date the application was submitted, pre-formatted for display. */
+  date: string;
+}
+
 export interface Connection {
   id: string;
   initials: string;

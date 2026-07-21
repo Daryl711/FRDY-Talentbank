@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { Eyebrow, ScreenBg } from "@/components/ui";
 import { SwipeDeck, SwipeDeckHandle } from "@/components/SwipeDeck";
-import { getSwipeDeck, recordSwipe } from "@/data/repo";
-import { SwipeCompany, SwipeDirection } from "@/data/types";
+import SubmittedJobsModal from "@/components/SubmittedJobsModal";
+import { getSubmittedJobs, getSwipeDeck, recordSwipe } from "@/data/repo";
+import { SubmittedJob, SwipeCompany, SwipeDirection } from "@/data/types";
 import { colors, gradients } from "@/theme/colors";
 
 function CompanyCard({
@@ -136,6 +137,8 @@ export default function MatchScreen() {
   const [matched, setMatched] = useState(0);
   const [remaining, setRemaining] = useState(0);
   const [done, setDone] = useState(false);
+  const [submitted, setSubmitted] = useState<SubmittedJob[]>([]);
+  const [submittedOpen, setSubmittedOpen] = useState(false);
   const swiperRef = useRef<SwipeDeckHandle>(null);
 
   useEffect(() => {
@@ -143,7 +146,15 @@ export default function MatchScreen() {
       setDeck(d);
       setRemaining(d.length);
     });
+    getSubmittedJobs().then(setSubmitted);
   }, []);
+
+  // Refetch the applications list whenever the sheet is opened so it reflects
+  // swipes made this session.
+  function openSubmitted() {
+    getSubmittedJobs().then(setSubmitted);
+    setSubmittedOpen(true);
+  }
 
   // When arriving from a Home role tap, bring that company to the top of the
   // deck (or add it if it isn't there) so its resume actions are front and
@@ -183,11 +194,25 @@ export default function MatchScreen() {
   return (
     <ScreenBg>
       <View className="flex-1 px-[22px] pb-[110px]">
-        <View className="pt-[10px]">
-          <Text className="font-serif text-[26px] text-ink">Job Match</Text>
-          <Eyebrow className="mt-2">
-            {remaining} {remaining === 1 ? "company" : "companies"} waiting · {matched} matched
-          </Eyebrow>
+        <View className="pt-[10px] flex-row items-start justify-between">
+          <View>
+            <Text className="font-serif text-[26px] text-ink">Job Match</Text>
+            <Eyebrow className="mt-2">
+              {remaining} {remaining === 1 ? "company" : "companies"} waiting · {matched} matched
+            </Eyebrow>
+          </View>
+          <Pressable
+            onPress={openSubmitted}
+            hitSlop={8}
+            className="w-[42px] h-[42px] rounded-full bg-surface2 border border-line items-center justify-center"
+          >
+            <Ionicons name="paper-plane-outline" size={18} color={colors.dim} />
+            {submitted.length > 0 && (
+              <View className="absolute -top-[3px] -right-[3px] min-w-[17px] h-[17px] px-[4px] rounded-full bg-gold items-center justify-center">
+                <Text className="font-mono text-[9px] font-bold" style={{ color: "#3a2d08" }}>{submitted.length}</Text>
+              </View>
+            )}
+          </Pressable>
         </View>
 
         <View style={{ flex: 1, marginTop: 18, maxHeight: 480 }}>
@@ -248,6 +273,8 @@ export default function MatchScreen() {
           </View>
         </View>
       </View>
+
+      <SubmittedJobsModal visible={submittedOpen} jobs={submitted} onClose={() => setSubmittedOpen(false)} />
     </ScreenBg>
   );
 }

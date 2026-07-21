@@ -3,7 +3,7 @@ import { File } from "expo-file-system";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import * as mock from "./mock";
 import { AnimalTrait, PersonaScores } from "./persona";
-import { Connection, Profile, Resume, Role, SwipeCompany, SwipeDirection } from "./types";
+import { Connection, Profile, Resume, Role, SubmittedJob, SwipeCompany, SwipeDirection } from "./types";
 
 // Each function tries Supabase when configured, otherwise returns local mock
 // data. This lets the app run immediately, and become live the moment you add
@@ -67,6 +67,28 @@ export async function recordSwipe(targetId: string, direction: SwipeDirection): 
     direction,
   });
   // A mutual match (both sides swiped right) is created by a DB trigger.
+}
+
+// Jobs the signed-in candidate has applied to (right-swiped), newest first.
+// Reads the get_my_submitted_jobs RPC; falls back to demo data when Supabase
+// isn't configured.
+export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
+  if (!isSupabaseConfigured) return mock.submittedJobs;
+  const { data, error } = await supabase.rpc("get_my_submitted_jobs");
+  if (error || !data) return mock.submittedJobs;
+  return (data as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id),
+    initials: (r.initials as string) ?? "•",
+    name: (r.name as string) ?? "Company",
+    role: (r.role as string) ?? "Open Role",
+    location: (r.location as string) ?? "",
+    employees: (r.employees as string) ?? "",
+    match: (r.match as number) ?? 0,
+    matched: !!r.matched,
+    date: r.created_at
+      ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : "",
+  }));
 }
 
 export async function getConnections(kind: Connection["kind"]): Promise<Connection[]> {

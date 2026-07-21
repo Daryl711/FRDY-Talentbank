@@ -1,4 +1,4 @@
-import { Connection, Profile, Resume, Role, SwipeCompany } from "./types";
+import { Connection, Profile, Resume, Role, SubmittedJob, SwipeCompany } from "./types";
 
 export const me: Profile = {
   id: "me",
@@ -167,6 +167,14 @@ export const swipeDeck: SwipeCompany[] = [
     package: "$110K",
     perks: ["Medical", "Hybrid", "Bonus"],
   },
+];
+
+// Jobs the candidate has applied to (right-swiped). Shown on the "Submitted"
+// view. Used as the demo fallback when Supabase isn't configured.
+export const submittedJobs: SubmittedJob[] = [
+  { id: "c2", initials: "MC", name: "Meridian Capital", role: "Senior Product Manager", location: "New York, NY", employees: "180 emp.", match: 94, matched: true, date: "Jun 14, 2026" },
+  { id: "c5", initials: "LG", name: "Luminary Group", role: "VP Strategy", location: "New York, NY", employees: "140 emp.", match: 91, matched: false, date: "Jun 12, 2026" },
+  { id: "c3", initials: "SV", name: "Stratos Ventures", role: "VP of Engineering", location: "San Francisco, CA", employees: "320 emp.", match: 88, matched: false, date: "Jun 10, 2026" },
 ];
 
 export const connections: Connection[] = [
