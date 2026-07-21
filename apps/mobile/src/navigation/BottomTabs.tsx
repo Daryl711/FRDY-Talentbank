@@ -3,6 +3,7 @@ import { BottomTabBarButtonProps, createBottomTabNavigator } from "@react-naviga
 import { Pressable, Text, View } from "react-native";
 import HomeScreen from "@/screens/HomeScreen";
 import MatchScreen from "@/screens/MatchScreen";
+import ResumeScreen from "@/screens/ResumeScreen";
 import ConnectScreen from "@/screens/ConnectScreen";
 import AdvisorScreen from "@/screens/AdvisorScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
@@ -15,6 +16,7 @@ type IconRenderer = (active: boolean) => React.ReactNode;
 const ICONS: Record<string, { label: string; render: IconRenderer }> = {
   Home: { label: "Home", render: (a) => <Feather name="home" size={20} color={a ? colors.gold : colors.mut} /> },
   Match: { label: "Match", render: (a) => <Ionicons name="briefcase-outline" size={20} color={a ? colors.gold : colors.mut} /> },
+  Resume: { label: "Resume", render: (a) => <Feather name="file-text" size={20} color={a ? colors.gold : colors.mut} /> },
   Connect: { label: "Connect", render: (a) => <Feather name="users" size={20} color={a ? colors.gold : colors.mut} /> },
   Advisor: { label: "Advisor", render: (a) => <Ionicons name="sparkles" size={20} color={a ? colors.gold : colors.mut} /> },
   Profile: { label: "Profile", render: (a) => <Feather name="user" size={20} color={a ? colors.gold : colors.mut} /> },
@@ -69,6 +71,7 @@ export default function BottomTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Match" component={MatchScreen} />
+      <Tab.Screen name="Resume" component={ResumeScreen} />
       <Tab.Screen name="Connect" component={ConnectScreen} />
       <Tab.Screen name="Advisor" component={AdvisorScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />

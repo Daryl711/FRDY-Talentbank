@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import * as mock from "./mock";
 import { AnimalTrait, PersonaScores } from "./persona";
-import { Connection, Profile, Role, SwipeCompany, SwipeDirection } from "./types";
+import { Connection, Profile, Resume, Role, SwipeCompany, SwipeDirection } from "./types";
 
 // Each function tries Supabase when configured, otherwise returns local mock
 // data. This lets the app run immediately, and become live the moment you add
@@ -235,6 +235,62 @@ export async function toggleSavedJob(role: Role): Promise<{ saved: boolean; jobs
   const isSaved = current.some((r) => r.id === role.id);
   const jobs = isSaved ? await unsaveJob(role.id) : await saveJob(role);
   return { saved: !isSaved, jobs };
+}
+
+// ---------------------------------------------------------------------------
+// RESUMES — AI-generated and uploaded documents with ATS scores.
+// ---------------------------------------------------------------------------
+
+export async function getResumes(): Promise<Resume[]> {
+  if (!isSupabaseConfigured) return mock.resumes;
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return mock.resumes;
+  const { data, error } = await supabase
+    .from("resumes")
+    .select("*")
+    .eq("user_id", uid)
+    .order("created_at", { ascending: false });
+  if (error || !data) return mock.resumes;
+  return data as unknown as Resume[];
+}
+
+/**
+ * Create a role-targeted AI resume. In the prototype this synthesizes a record
+ * locally (and a plausible ATS score). In production, route through a Supabase
+ * Edge Function that calls Claude to tailor the resume, then insert the row.
+ */
+export async function createResume(input: { targetRole: string; targetCompany?: string }): Promise<Resume> {
+  const atsScore = 88 + Math.floor(Math.random() * 9); // 88–96
+  const resume: Resume = {
+    id: `res_${Date.now()}`,
+    title: input.targetRole,
+    kind: "ai",
+    forCompany: input.targetCompany?.trim() || null,
+    date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    sizeKb: 130 + Math.floor(Math.random() * 30),
+    atsScore,
+  };
+  if (isSupabaseConfigured) {
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (uid) {
+      const { data } = await supabase
+        .from("resumes")
+        .insert({
+          user_id: uid,
+          title: resume.title,
+          kind: "ai",
+          for_company: resume.forCompany,
+          size_kb: resume.sizeKb,
+          ats_score: resume.atsScore,
+        })
+        .select()
+        .single();
+      if (data) return data as unknown as Resume;
+    }
+  }
+  return resume;
 }
 
 export const trendingSectors = mock.trendingSectors;

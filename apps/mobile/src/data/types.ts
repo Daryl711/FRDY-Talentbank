@@ -76,3 +76,15 @@ export interface ChatMessage {
 }
 
 export type SwipeDirection = "left" | "right" | "save";
+
+export interface Resume {
+  id: string;
+  title: string;
+  kind: "ai" | "uploaded";
+  /** Target company an AI resume was tailored for; null for general/uploaded. */
+  forCompany?: string | null;
+  date: string;
+  sizeKb: number;
+  /** Applicant Tracking System match score, 0–100. */
+  atsScore: number;
+}
