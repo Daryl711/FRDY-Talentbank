@@ -7,6 +7,7 @@ import {
   careerInsights, getFeaturedRoles, getMyProfile, getSavedJobs, toggleSavedJob, trendingSectors, unsaveJob,
   type CandidateProfile, type Role,
 } from "@/lib/candidate";
+import Avatar from "@/components/candidate/Avatar";
 
 const fmtK = (n: number) => `$${Math.round(n / 1000)}K`;
 
@@ -80,12 +81,8 @@ export default function CandidateHome() {
             <Bell size={18} />
             <span className="absolute top-2 right-[10px] w-[7px] h-[7px] rounded-full bg-gold" />
           </button>
-          <button
-            onClick={() => router.push("/candidate/profile")}
-            className="w-11 h-11 rounded-full bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center text-[13px] font-bold"
-            style={{ color: "#2b2106" }}
-          >
-            {me?.initials ?? "•"}
+          <button onClick={() => router.push("/candidate/profile")} className="rounded-full" aria-label="Profile">
+            <Avatar size={44} online />
           </button>
         </div>
       </header>

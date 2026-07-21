@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, Briefcase, FileText, Users, Sparkles, User, ChevronRight, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getMyProfile } from "@/lib/candidate";
+import Avatar from "@/components/candidate/Avatar";
 
 const NAV = [
   { href: "/candidate", label: "Home", icon: Home },
@@ -27,7 +28,6 @@ export default function CandidateSidebar() {
   }, []);
 
   const displayName = profile?.name ?? user?.email ?? "Candidate";
-  const displayInitials = profile?.initials ?? "•";
   const displayRole = profile?.headline ?? "Job Seeker";
 
   async function handleSignOut() {
@@ -50,9 +50,7 @@ export default function CandidateSidebar() {
 
       {/* identity card */}
       <div className="mx-3 mb-3 bg-surface2 border border-line rounded-xl px-3 py-3 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center text-[12px] font-bold" style={{ color: "#2b2106" }}>
-          {displayInitials}
-        </div>
+        <Avatar size={32} />
         <div className="min-w-0">
           <div className="text-ink text-[13px] font-semibold truncate">{displayName}</div>
           <div className="eyebrow mt-[2px]">Candidate</div>
@@ -88,9 +86,7 @@ export default function CandidateSidebar() {
       {/* footer user */}
       <div className="mt-auto border-t border-line">
         <div className="px-4 py-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center text-[12px] font-bold" style={{ color: "#2b2106" }}>
-            {displayInitials}
-          </div>
+          <Avatar size={36} />
           <div className="min-w-0">
             <div className="text-ink text-[13px] font-semibold leading-none truncate">{displayName}</div>
             <div className="eyebrow mt-[3px] truncate">{displayRole}</div>

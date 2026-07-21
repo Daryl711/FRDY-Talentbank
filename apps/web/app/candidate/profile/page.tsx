@@ -7,6 +7,7 @@ import { Edit2, LogOut, MapPin, Briefcase, TrendingUp, Eye, Trophy, X, Check, Pl
 import { getMyProfile, updateMyProfile, type CandidateProfile, type Experience } from "@/lib/candidate";
 import { ANIMALS, type AnimalTrait, type PersonaScores } from "@/lib/persona";
 import { useAuth } from "@/lib/auth";
+import Avatar from "@/components/candidate/Avatar";
 
 const expColors = ["#2563c4", "#6d49d6", "#2f8f5b", "#b8553f", "#7c4dab", "#4a6d8c", "#9a6b34", "#3a6ea5"];
 function expColor(seed: string) {
@@ -127,9 +128,7 @@ export default function ProfilePage() {
 
       {/* identity */}
       <div className="flex items-center gap-3 mt-2">
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center text-[24px] font-bold" style={{ color: "#2b2106" }}>
-          {me.initials}
-        </div>
+        <Avatar size={80} online />
         <span className="font-mono text-[10px] tracking-wide text-goldbright bg-gold/[0.13] border border-gold/30 rounded-lg px-[11px] py-[5px]">EXECUTIVE PRO</span>
       </div>
 
