@@ -248,6 +248,34 @@ returns table (
 $$;
 
 -- ============================================================================
+-- CANDIDATE: jobs the caller has applied to (right-swiped), newest first.
+-- swipes.target_id holds a company id but has no declared FK, so PostgREST can't
+-- auto-embed — hence an RPC. security definer + explicit auth.uid() filter keeps
+-- each candidate scoped to their own submissions. `matched` flags the ones that
+-- became a mutual match.
+-- ============================================================================
+create or replace function get_my_submitted_jobs()
+returns table (
+  id uuid, initials text, name text, role text, location text,
+  employees text, match int, matched boolean, created_at timestamptz
+) language sql security definer as $$
+  select
+    c.id, c.initials, c.name,
+    coalesce((select r.title from roles r where r.company_id = c.id limit 1), 'Open Role') as role,
+    c.location, c.employees,
+    coalesce(round((1 - (c.embedding <=> p.embedding)) * 100)::int, 75) as match,
+    exists(select 1 from matches m where m.user_id = auth.uid() and m.company_id = c.id) as matched,
+    s.created_at
+  from swipes s
+  join companies c on c.id = s.target_id
+  left join lateral (select embedding from profiles where id = auth.uid()) p on true
+  where s.user_id = auth.uid()
+    and s.target_type = 'company'
+    and s.direction = 'right'
+  order by s.created_at desc;
+$$;
+
+-- ============================================================================
 -- CONNECTIONS VIEW the app reads (network / requests / discover)
 -- ============================================================================
 create or replace view connections_view as
