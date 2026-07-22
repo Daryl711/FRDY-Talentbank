@@ -178,12 +178,12 @@ export const submittedJobs: SubmittedJob[] = [
 ];
 
 export const connections: Connection[] = [
-  { id: "p1", initials: "VH", color: "#7c4dab", name: "Victoria Harmon", role: "Managing Partner · Arcadia Ventures", mutual: "14 mutual connections", online: true, kind: "network" },
-  { id: "p2", initials: "JW", color: "#2f6b4a", name: "James Whitfield", role: "Chief Investment Officer · Meridian", mutual: "8 mutual connections", online: false, kind: "network" },
-  { id: "p3", initials: "SL", color: "#3a6ea5", name: "Sophia Laurent", role: "VP Strategy · Luminary Group", mutual: "22 mutual connections", online: true, kind: "network" },
-  { id: "p4", initials: "MC", color: "#9a6b34", name: "Marcus Chen", role: "Director of Operations · Pinnacle", mutual: "5 mutual connections", online: false, kind: "network" },
-  { id: "p5", initials: "RD", color: "#b8553f", name: "Rachel Donovan", role: "Partner · Crestline Capital", mutual: "Wants to connect · 11 mutual", online: false, kind: "requests" },
-  { id: "p6", initials: "TK", color: "#4a6d8c", name: "Thomas Krause", role: "Head of Talent · Vertex Group", mutual: "Wants to connect · 6 mutual", online: false, kind: "requests" },
+  { id: "p1", initials: "VH", color: "#7c4dab", name: "Victoria Harmon", role: "Managing Partner · Arcadia Ventures", mutual: "14 mutual connections", online: true, kind: "network", status: "accepted", connection_id: "c1" },
+  { id: "p2", initials: "JW", color: "#2f6b4a", name: "James Whitfield", role: "Chief Investment Officer · Meridian", mutual: "8 mutual connections", online: false, kind: "network", status: "accepted", connection_id: "c2" },
+  { id: "p3", initials: "SL", color: "#3a6ea5", name: "Sophia Laurent", role: "VP Strategy · Luminary Group", mutual: "22 mutual connections", online: true, kind: "network", status: "accepted", connection_id: "c3" },
+  { id: "p4", initials: "MC", color: "#9a6b34", name: "Marcus Chen", role: "Director of Operations · Pinnacle", mutual: "5 mutual connections", online: false, kind: "network", status: "accepted", connection_id: "c4" },
+  { id: "p5", initials: "RD", color: "#b8553f", name: "Rachel Donovan", role: "Partner · Crestline Capital", mutual: "Wants to connect · 11 mutual", online: false, kind: "requests", status: "pending", connection_id: "c5", outgoing: false },
+  { id: "p6", initials: "TK", color: "#4a6d8c", name: "Thomas Krause", role: "Head of Talent · Vertex Group", mutual: "Wants to connect · 6 mutual", online: false, kind: "requests", status: "pending", connection_id: "c6", outgoing: false },
   { id: "p7", initials: "EP", color: "#6d49d6", name: "Elena Park", role: "Founder · NovaPath", mutual: "Suggested · 19 mutual", online: true, kind: "discover" },
   { id: "p8", initials: "DB", color: "#2f8f5b", name: "David Bauer", role: "CPO · Helix Labs", mutual: "Suggested · 9 mutual", online: false, kind: "discover" },
   { id: "p9", initials: "NA", color: "#b8923d", name: "Nadia Ahmed", role: "GP · Summit Advisors", mutual: "Suggested · 13 mutual", online: false, kind: "discover" },

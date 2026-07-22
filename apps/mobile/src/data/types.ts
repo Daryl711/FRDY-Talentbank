@@ -73,6 +73,7 @@ export interface SubmittedJob {
 }
 
 export interface Connection {
+  /** The other candidate's profile id. */
   id: string;
   initials: string;
   color: string;
@@ -81,6 +82,12 @@ export interface Connection {
   mutual: string;
   online: boolean;
   kind: "network" | "requests" | "discover";
+  /** Connection row status when one exists ('pending' | 'accepted' | 'declined'). */
+  status?: string;
+  /** The connections row id — needed to accept a request or open a chat. */
+  connection_id?: string | null;
+  /** True when I sent this pending request (so Discover shows "Requested"). */
+  outgoing?: boolean;
 }
 
 export interface ChatMessage {
@@ -88,6 +95,17 @@ export interface ChatMessage {
   who: "ai" | "me";
   text: string;
   time: string;
+}
+
+/** A candidate-to-candidate direct message tied to a connection. */
+export interface DirectMessage {
+  id: string;
+  connection_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  /** True when the signed-in user sent this message. */
+  mine: boolean;
 }
 
 export type SwipeDirection = "left" | "right" | "save";
