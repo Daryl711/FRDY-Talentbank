@@ -2,7 +2,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Eyebrow, ScreenBg } from "@/components/ui";
 import { SwipeDeck, SwipeDeckHandle } from "@/components/SwipeDeck";
 import SubmittedJobsModal from "@/components/SubmittedJobsModal";
@@ -167,6 +167,7 @@ export default function MatchScreen() {
   const [done, setDone] = useState(false);
   const [submitted, setSubmitted] = useState<SubmittedJob[]>([]);
   const [submittedOpen, setSubmittedOpen] = useState(false);
+  const [browseOpen, setBrowseOpen] = useState(false);
   // null = still checking. Candidates must upload a resume before matching.
   const [hasResume, setHasResume] = useState<boolean | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -188,6 +189,20 @@ export default function MatchScreen() {
     setSubmittedOpen(true);
   }
 
+  // Browse-all-jobs: pick a job to bring it to the front of the deck. Reordering
+  // the deck resets the swiper to show the selected job as the top card.
+  function selectJob(id: string) {
+    setDeck((prev) => {
+      const idx = prev.findIndex((c) => c.id === id);
+      if (idx < 0) return prev;
+      const ordered = [prev[idx], ...prev.slice(0, idx), ...prev.slice(idx + 1)];
+      setRemaining(ordered.length);
+      return ordered;
+    });
+    setDone(false);
+    setBrowseOpen(false);
+  }
+
   // When arriving from a Home role tap, bring that company to the top of the
   // deck (or add it if it isn't there) so its resume actions are front and
   // centre. Changing the deck array also resets the swiper to the top card.
@@ -195,7 +210,12 @@ export default function MatchScreen() {
   useEffect(() => {
     if (!focus || deck.length === 0) return;
     setDeck((prev) => {
-      const idx = prev.findIndex((c) => c.name.toLowerCase() === focus.name.toLowerCase());
+      // Match the specific job by title first (the deck is role-based), then by
+      // company name, else synthesize a card for it.
+      const wantRole = (focus.role ?? "").toLowerCase();
+      const idx = prev.findIndex(
+        (c) => (wantRole && c.role.toLowerCase() === wantRole) || c.name.toLowerCase() === focus.name.toLowerCase(),
+      );
       const ordered =
         idx >= 0
           ? [prev[idx], ...prev.slice(0, idx), ...prev.slice(idx + 1)]
@@ -259,18 +279,27 @@ export default function MatchScreen() {
               {remaining} {remaining === 1 ? "job" : "jobs"} waiting · {matched} matched
             </Eyebrow>
           </View>
-          <Pressable
-            onPress={openSubmitted}
-            hitSlop={8}
-            className="w-[42px] h-[42px] rounded-full bg-surface2 border border-line items-center justify-center"
-          >
-            <Ionicons name="paper-plane-outline" size={18} color={colors.dim} />
-            {submitted.length > 0 && (
-              <View className="absolute -top-[3px] -right-[3px] min-w-[17px] h-[17px] px-[4px] rounded-full bg-gold items-center justify-center">
-                <Text className="font-mono text-[9px] font-bold" style={{ color: "#3a2d08" }}>{submitted.length}</Text>
-              </View>
-            )}
-          </Pressable>
+          <View className="flex-row items-center gap-[10px]">
+            <Pressable
+              onPress={() => setBrowseOpen(true)}
+              hitSlop={8}
+              className="w-[42px] h-[42px] rounded-full bg-surface2 border border-line items-center justify-center"
+            >
+              <Feather name="list" size={18} color={colors.dim} />
+            </Pressable>
+            <Pressable
+              onPress={openSubmitted}
+              hitSlop={8}
+              className="w-[42px] h-[42px] rounded-full bg-surface2 border border-line items-center justify-center"
+            >
+              <Ionicons name="paper-plane-outline" size={18} color={colors.dim} />
+              {submitted.length > 0 && (
+                <View className="absolute -top-[3px] -right-[3px] min-w-[17px] h-[17px] px-[4px] rounded-full bg-gold items-center justify-center">
+                  <Text className="font-mono text-[9px] font-bold" style={{ color: "#3a2d08" }}>{submitted.length}</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         <View style={{ flex: 1, marginTop: 18, maxHeight: 480 }}>
@@ -346,6 +375,47 @@ export default function MatchScreen() {
       </View>
 
       <SubmittedJobsModal visible={submittedOpen} jobs={submitted} onClose={() => setSubmittedOpen(false)} />
+
+      {/* Browse all jobs — select one to bring it to the front of the deck. */}
+      <Modal visible={browseOpen} transparent animationType="slide" onRequestClose={() => setBrowseOpen(false)}>
+        <Pressable onPress={() => setBrowseOpen(false)} className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+          <Pressable onPress={() => {}} className="bg-bgtop border-t border-line rounded-t-[24px] px-[22px] pt-5 pb-10" style={{ maxHeight: "78%" }}>
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="font-serif text-[20px] text-ink">All Jobs</Text>
+              <Pressable onPress={() => setBrowseOpen(false)} hitSlop={8}>
+                <Feather name="x" size={20} color={colors.dim} />
+              </Pressable>
+            </View>
+            {deck.length === 0 ? (
+              <Text className="text-dim text-[13px] text-center py-8">No jobs left to review.</Text>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View className="gap-[10px]">
+                  {deck.map((c) => (
+                    <Pressable
+                      key={c.id}
+                      onPress={() => selectJob(c.id)}
+                      className="flex-row items-center gap-[12px] rounded-[14px] p-3 bg-surface2 border border-line"
+                    >
+                      <View className="w-11 h-11 rounded-[12px] items-center justify-center" style={{ backgroundColor: "rgba(216,180,90,0.13)", borderWidth: 1, borderColor: "rgba(216,180,90,0.3)" }}>
+                        <Text className="font-serif text-[14px] text-goldbright">{c.initials}</Text>
+                      </View>
+                      <View className="flex-1 min-w-0">
+                        <Text numberOfLines={1} className="text-ink text-[14px] font-semibold">{c.role || "Open Role"}</Text>
+                        <Text numberOfLines={1} className="text-dim text-[12.5px]">{c.name}{c.location ? ` · ${c.location}` : ""}</Text>
+                      </View>
+                      <View className="items-end">
+                        <Text className="text-gold text-[12.5px] font-semibold">{c.package || "—"}</Text>
+                        <Text className="text-mut text-[11.5px]">{c.match}% match</Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScreenBg>
   );
 }

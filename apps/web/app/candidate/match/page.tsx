@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Users, Zap, X, Check, Heart, Sparkles, Upload, Lock, Loader2, FilePlus } from "lucide-react";
+import { MapPin, Users, Zap, X, Check, Heart, Sparkles, Upload, Lock, Loader2, FilePlus, LayoutList } from "lucide-react";
 import { getResumes, getSwipeDeck, recordSwipe, uploadResume, type SwipeCompany, type SwipeDirection } from "@/lib/candidate";
 
 type FocusJob = Partial<SwipeCompany> & { name: string };
@@ -33,6 +33,7 @@ export default function MatchPage() {
   // uploaded a resume (done right on the card). null = still checking.
   const [hasResume, setHasResume] = useState<boolean | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [browseOpen, setBrowseOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const focusApplied = useRef(false);
 
@@ -50,7 +51,12 @@ export default function MatchPage() {
           window.sessionStorage.removeItem("mango.focus_job");
           try {
             const focus = JSON.parse(raw) as FocusJob;
-            const i = d.findIndex((c) => c.name.toLowerCase() === focus.name.toLowerCase());
+            // Match the specific job by its title first (the deck is role-based),
+            // falling back to the company name, then to a synthesized card.
+            const wantRole = (focus.role ?? "").toLowerCase();
+            const i = d.findIndex(
+              (c) => (wantRole && c.role.toLowerCase() === wantRole) || c.name.toLowerCase() === focus.name.toLowerCase(),
+            );
             ordered = i >= 0 ? [d[i], ...d.slice(0, i), ...d.slice(i + 1)] : [synthCompany(focus), ...d];
           } catch {
             /* ignore malformed focus payload */
@@ -87,6 +93,20 @@ export default function MatchPage() {
     setTimeout(() => setToast(null), 2200);
   }
 
+  // Browse-all-jobs: bring the picked job to the top of the deck (as the current
+  // card) without disturbing already-swiped cards.
+  function selectJob(id: string) {
+    setDeck((prev) => {
+      const sel = prev.find((c) => c.id === id);
+      if (!sel) return prev;
+      const shown = prev.slice(0, index);
+      const upcoming = prev.slice(index).filter((c) => c.id !== id);
+      return [...shown, sel, ...upcoming];
+    });
+    setLeaving(null);
+    setBrowseOpen(false);
+  }
+
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-picking the same file
@@ -107,11 +127,19 @@ export default function MatchPage() {
 
   return (
     <div className="max-w-[560px] mx-auto">
-      <header className="mb-5">
-        <h1 className="font-serif text-[28px] font-bold text-ink">Job Match</h1>
-        <p className="eyebrow mt-2">
-          {Math.max(0, remaining)} {remaining === 1 ? "job" : "jobs"} waiting · {matched} matched
-        </p>
+      <header className="mb-5 flex items-start justify-between">
+        <div>
+          <h1 className="font-serif text-[28px] font-bold text-ink">Job Match</h1>
+          <p className="eyebrow mt-2">
+            {Math.max(0, remaining)} {remaining === 1 ? "job" : "jobs"} waiting · {matched} matched
+          </p>
+        </div>
+        <button
+          onClick={() => setBrowseOpen(true)}
+          className="flex items-center gap-2 bg-surface2 border border-line rounded-xl px-4 py-[10px] text-dim text-[13px] font-medium hover:text-ink hover:border-line2"
+        >
+          <LayoutList size={16} /> All Jobs
+        </button>
       </header>
 
       <div className="relative min-h-[520px]">
@@ -171,6 +199,48 @@ export default function MatchPage() {
       {toast && (
         <div className="fixed left-1/2 -translate-x-1/2 bottom-8 bg-surface3 border border-line2 rounded-xl px-5 py-3 text-ink text-[13px] shadow-lg">
           {toast}
+        </div>
+      )}
+
+      {/* Browse all jobs — pick one to bring it to the front of the deck. */}
+      {browseOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-6 bg-black/60" onClick={() => setBrowseOpen(false)}>
+          <div className="w-full max-w-[520px] mt-16 bg-bgtop border border-line rounded-2xl p-6 max-h-[75vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-serif text-[20px] font-bold text-ink">All Jobs</h3>
+              <button onClick={() => setBrowseOpen(false)} className="text-mut hover:text-ink"><X size={20} /></button>
+            </div>
+            {deck.slice(index).length === 0 ? (
+              <p className="text-dim text-[14px] py-8 text-center">No jobs left to review.</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {deck.slice(index).map((c) => {
+                  const isCurrent = c.id === card?.id;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => selectJob(c.id)}
+                      className={`flex items-center gap-3 rounded-xl p-3 border text-left transition-colors ${
+                        isCurrent ? "border-gold bg-gold/[0.06]" : "border-line bg-surface2 hover:border-line2"
+                      }`}
+                    >
+                      <div className="w-11 h-11 rounded-lg flex items-center justify-center bg-gold/15 border border-gold/30 font-serif text-[14px] text-goldbright shrink-0">
+                        {c.initials}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-ink text-[14px] font-semibold truncate">{c.role || "Open Role"}</div>
+                        <div className="text-dim text-[12.5px] truncate">{c.name}{c.location ? ` · ${c.location}` : ""}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-gold text-[12.5px] font-semibold">{c.package || "—"}</div>
+                        <div className="text-mut text-[11.5px]">{c.match}% match</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
