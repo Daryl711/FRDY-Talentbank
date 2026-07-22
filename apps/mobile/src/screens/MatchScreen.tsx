@@ -2,28 +2,30 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 import { Eyebrow, ScreenBg } from "@/components/ui";
 import { SwipeDeck, SwipeDeckHandle } from "@/components/SwipeDeck";
 import SubmittedJobsModal from "@/components/SubmittedJobsModal";
-import { getResumes, getSubmittedJobs, getSwipeDeck, recordSwipe } from "@/data/repo";
+import * as DocumentPicker from "expo-document-picker";
+import { getResumes, getSubmittedJobs, getSwipeDeck, recordSwipe, uploadResume } from "@/data/repo";
 import { SubmittedJob, SwipeCompany, SwipeDirection } from "@/data/types";
 import { colors, gradients } from "@/theme/colors";
 
 function CompanyCard({
   c,
+  hasResume,
+  uploading,
+  onUpload,
+  onCreateNew,
   onCreateResume,
-  onAddResume,
 }: {
   c: SwipeCompany;
+  hasResume: boolean;
+  uploading: boolean;
+  onUpload: () => void;
+  onCreateNew: () => void;
   onCreateResume?: (c: SwipeCompany) => void;
-  onAddResume?: (c: SwipeCompany) => void;
 }) {
-  // The resume-action labels are long; on a phone the card isn't wide enough to
-  // fit both side-by-side without the text wrapping, so stack them vertically on
-  // narrow screens and only go side-by-side on tablets.
-  const { width } = useWindowDimensions();
-  const stacked = width < 500;
   return (
     <LinearGradient
       colors={gradients.matchCard}
@@ -88,25 +90,51 @@ function CompanyCard({
         </View>
       </View>
 
-      {/* Resume actions */}
-      <View className={`${stacked ? "flex-col" : "flex-row"} gap-[10px] mt-[14px] mb-[6px]`}>
-        <Pressable
-          onPress={() => onCreateResume?.(c)}
-          className={`${stacked ? "w-full" : "flex-1"} flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]`}
-          style={{ backgroundColor: "rgba(216,180,90,0.16)", borderWidth: 1, borderColor: "rgba(216,180,90,0.45)" }}
-        >
-          <Ionicons name="sparkles" size={14} color={colors.goldbright} />
-          <Text numberOfLines={1} className="font-mono text-[10.5px] tracking-[1px] text-goldbright uppercase">Create Specific Resume</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onAddResume?.(c)}
-          className={`${stacked ? "w-full" : "flex-1"} flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]`}
-          style={{ backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" }}
-        >
-          <Feather name="file-text" size={14} color="#cfe6d2" />
-          <Text numberOfLines={1} className="font-mono text-[10.5px] tracking-[1px] uppercase" style={{ color: "#cfe6d2" }}>Add Existing Resume</Text>
-        </Pressable>
-      </View>
+      {/* Resume actions — upload is required before matching unlocks. */}
+      {hasResume ? (
+        <View className="mt-[14px] mb-[6px]">
+          <View className="flex-row items-center gap-[6px] mb-[10px]">
+            <Feather name="check" size={13} color="#8fd6a0" />
+            <Text className="text-[#8fd6a0] text-[12px]">Resume attached — swipe right to match</Text>
+          </View>
+          <Pressable
+            onPress={() => onCreateResume?.(c)}
+            className="w-full flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]"
+            style={{ backgroundColor: "rgba(216,180,90,0.16)", borderWidth: 1, borderColor: "rgba(216,180,90,0.45)" }}
+          >
+            <Ionicons name="sparkles" size={14} color={colors.goldbright} />
+            <Text numberOfLines={1} className="font-mono text-[10.5px] tracking-[1px] text-goldbright uppercase">Create Specific Resume</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View className="mt-[14px] mb-[6px]">
+          <View className="flex-row items-center gap-[6px] mb-[10px]">
+            <Feather name="lock" size={12} color="#e0c072" />
+            <Text className="text-[#e0c072] text-[12px]">Upload your resume to unlock matching</Text>
+          </View>
+          <View className="flex-row gap-[10px]">
+            <Pressable
+              onPress={onUpload}
+              disabled={uploading}
+              className="flex-1 flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]"
+              style={{ backgroundColor: uploading ? "rgba(216,180,90,0.5)" : colors.gold }}
+            >
+              <Feather name="upload" size={15} color="#2b2106" />
+              <Text numberOfLines={1} className="font-mono text-[11px] tracking-[1px] uppercase" style={{ color: "#2b2106" }}>
+                {uploading ? "Uploading…" : "Upload Resume"}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={onCreateNew}
+              className="flex-1 flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px]"
+              style={{ backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(216,180,90,0.45)" }}
+            >
+              <Feather name="file-plus" size={15} color={colors.goldbright} />
+              <Text numberOfLines={1} className="font-mono text-[11px] tracking-[1px] uppercase text-goldbright">Create Resume</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </LinearGradient>
   );
 }
@@ -141,6 +169,7 @@ export default function MatchScreen() {
   const [submittedOpen, setSubmittedOpen] = useState(false);
   // null = still checking. Candidates must upload a resume before matching.
   const [hasResume, setHasResume] = useState<boolean | null>(null);
+  const [uploading, setUploading] = useState(false);
   const swiperRef = useRef<SwipeDeckHandle>(null);
 
   useEffect(() => {
@@ -190,51 +219,34 @@ export default function MatchScreen() {
     Alert.alert("Create Specific Resume", `Tailor a new resume for ${c.role} at ${c.name}.`);
   }
 
-  function onAddExistingResume(c: SwipeCompany) {
-    Alert.alert("Add Existing Resume", `Attach one of your saved resumes to ${c.name}.`);
+  // Upload a resume straight from the job card. On success, matching unlocks.
+  async function handleUpload() {
+    if (uploading) return;
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+    const file = result.assets[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await uploadResume({ name: file.name, uri: file.uri, sizeBytes: file.size, mimeType: file.mimeType });
+      setHasResume(true);
+      Alert.alert("Resume uploaded", "You can now swipe right to match.");
+    } catch (e) {
+      Alert.alert("Upload failed", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setUploading(false);
+    }
   }
 
-  // Gate: candidates must upload a resume before they can match. Show a loading
-  // state while checking, then a prompt to upload if they have none.
-  if (hasResume === null || !hasResume) {
-    return (
-      <ScreenBg>
-        <View className="flex-1 px-[22px] pb-[110px]">
-          <View className="pt-[10px]">
-            <Text className="font-serif text-[26px] text-ink">Job Match</Text>
-            <Eyebrow className="mt-2">
-              {hasResume === null ? "Loading…" : "Upload a resume to start matching"}
-            </Eyebrow>
-          </View>
-          <View className="flex-1 items-center justify-center gap-[14px]">
-            {hasResume === null ? (
-              <ActivityIndicator color={colors.gold} />
-            ) : (
-              <>
-                <View
-                  className="w-16 h-16 rounded-[18px] items-center justify-center"
-                  style={{ backgroundColor: "rgba(216,180,90,0.13)", borderWidth: 1, borderColor: "rgba(216,180,90,0.3)" }}
-                >
-                  <Feather name="file-text" size={26} color={colors.goldbright} />
-                </View>
-                <Text className="font-serif text-[22px] text-ink">Add your resume first</Text>
-                <Text className="text-dim text-[13px] text-center px-6">
-                  Employers see your resume the moment you match. Upload one to unlock the job deck and start matching.
-                </Text>
-                <Pressable
-                  onPress={() => nav.navigate("Resume")}
-                  className="flex-row items-center gap-2 rounded-[14px] px-5 py-[13px]"
-                  style={{ backgroundColor: colors.gold }}
-                >
-                  <Feather name="upload" size={16} color="#2b2106" />
-                  <Text className="font-semibold text-[14px]" style={{ color: "#2b2106" }}>Upload Resume</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
-      </ScreenBg>
-    );
+  // Matching (right-swipe) is locked until a resume is uploaded.
+  const canMatch = hasResume === true;
+
+  function attemptMatch() {
+    if (canMatch) swiperRef.current?.swipeRight();
+    else Alert.alert("Upload your resume", "Upload a resume on the card to unlock matching.");
   }
 
   return (
@@ -268,13 +280,22 @@ export default function MatchScreen() {
               data={deck}
               keyExtractor={(c) => c.id}
               renderCard={(c) => (
-                <CompanyCard c={c} onCreateResume={onCreateResume} onAddResume={onAddExistingResume} />
+                <CompanyCard
+                  c={c}
+                  hasResume={canMatch}
+                  uploading={uploading}
+                  onUpload={handleUpload}
+                  onCreateNew={() => nav.navigate("Resume")}
+                  onCreateResume={onCreateResume}
+                />
               )}
               onSwiped={(i, dir) => onSwiped(i, dir)}
               onSwipedAll={() => setDone(true)}
+              rightLocked={!canMatch}
+              onRightLocked={() => Alert.alert("Upload your resume", "Upload a resume on the card to unlock matching.")}
               labels={{
                 left: { text: "PASS", color: "#e25555" },
-                right: { text: "MATCH", color: "#3fbf6a" },
+                right: { text: canMatch ? "MATCH" : "LOCKED", color: canMatch ? "#3fbf6a" : "#8a8f9c" },
               }}
             />
           ) : (
@@ -309,12 +330,16 @@ export default function MatchScreen() {
 
           {/* Match */}
           <View className="flex-1 items-center gap-[10px]">
-            <Pressable onPress={() => swiperRef.current?.swipeRight()} className="w-16 h-16 rounded-full items-center justify-center bg-surface2" style={{ borderWidth: 1, borderColor: "rgba(63,191,106,0.45)" }}>
-              <Feather name="check" size={26} color={colors.ok} />
+            <Pressable
+              onPress={attemptMatch}
+              className="w-16 h-16 rounded-full items-center justify-center bg-surface2"
+              style={{ borderWidth: 1, borderColor: canMatch ? "rgba(63,191,106,0.45)" : colors.line }}
+            >
+              <Feather name={canMatch ? "check" : "lock"} size={canMatch ? 26 : 22} color={canMatch ? colors.ok : colors.mut} />
             </Pressable>
             <View className="flex-row items-center gap-[5px]">
-              <Text className="font-mono text-[10px] tracking-[1.5px] text-dim uppercase">Match</Text>
-              <Feather name="arrow-right" size={12} color={colors.ok} />
+              <Text className="font-mono text-[10px] tracking-[1.5px] text-dim uppercase">{canMatch ? "Match" : "Locked"}</Text>
+              <Feather name="arrow-right" size={12} color={canMatch ? colors.ok : colors.mut} />
             </View>
           </View>
         </View>

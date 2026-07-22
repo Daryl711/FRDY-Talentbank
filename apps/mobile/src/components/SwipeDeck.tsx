@@ -38,10 +38,14 @@ interface SwipeDeckProps<T> {
   onSwipedAll?: () => void;
   labels?: { left?: SwipeLabel; right?: SwipeLabel; top?: SwipeLabel };
   keyExtractor?: (item: T, index: number) => string;
+  /** When true, right-swipes (Match) are vetoed and spring back. */
+  rightLocked?: boolean;
+  /** Called when a right-swipe is blocked by `rightLocked`. */
+  onRightLocked?: () => void;
 }
 
 function SwipeDeckInner<T>(
-  { data, renderCard, onSwiped, onSwipedAll, labels, keyExtractor }: SwipeDeckProps<T>,
+  { data, renderCard, onSwiped, onSwipedAll, labels, keyExtractor, rightLocked, onRightLocked }: SwipeDeckProps<T>,
   ref: React.Ref<SwipeDeckHandle>,
 ) {
   const [index, setIndex] = useState(0);
@@ -50,6 +54,11 @@ function SwipeDeckInner<T>(
 
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+  // Mirror the lock into a shared value so the pan worklet (UI thread) can read it.
+  const rightLockedSV = useSharedValue(!!rightLocked);
+  useEffect(() => {
+    rightLockedSV.value = !!rightLocked;
+  }, [rightLocked, rightLockedSV]);
 
   // How far the top card has been dragged, 0..1, drives the cards behind it.
   const progress = useDerivedValue(() =>
@@ -105,7 +114,14 @@ function SwipeDeckInner<T>(
       const x = translateX.value;
       const y = translateY.value;
       if (x > SWIPE_THRESHOLD || e.velocityX > VELOCITY_THRESHOLD) {
-        translateX.value = withTiming(OUT_DISTANCE, { duration: 280 }, () => runOnJS(complete)("right"));
+        if (rightLockedSV.value) {
+          // Match is locked (no resume yet) — snap back and notify the screen.
+          translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
+          translateY.value = withSpring(0, { damping: 18, stiffness: 180 });
+          if (onRightLocked) runOnJS(onRightLocked)();
+        } else {
+          translateX.value = withTiming(OUT_DISTANCE, { duration: 280 }, () => runOnJS(complete)("right"));
+        }
       } else if (x < -SWIPE_THRESHOLD || e.velocityX < -VELOCITY_THRESHOLD) {
         translateX.value = withTiming(-OUT_DISTANCE, { duration: 280 }, () => runOnJS(complete)("left"));
       } else if (saveEnabled && (y < -SWIPE_THRESHOLD || e.velocityY < -VELOCITY_THRESHOLD)) {

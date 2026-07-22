@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Users, Zap, X, Check, Heart, Sparkles, FileText, Upload, Loader2 } from "lucide-react";
-import { getResumes, getSwipeDeck, recordSwipe, type SwipeCompany, type SwipeDirection } from "@/lib/candidate";
+import { MapPin, Users, Zap, X, Check, Heart, Sparkles, Upload, Lock, Loader2, FilePlus } from "lucide-react";
+import { getResumes, getSwipeDeck, recordSwipe, uploadResume, type SwipeCompany, type SwipeDirection } from "@/lib/candidate";
 
 type FocusJob = Partial<SwipeCompany> & { name: string };
 
@@ -29,9 +29,11 @@ export default function MatchPage() {
   const [matched, setMatched] = useState(0);
   const [leaving, setLeaving] = useState<null | SwipeDirection>(null);
   const [toast, setToast] = useState<string | null>(null);
-  // null = still checking. Candidates must have uploaded a resume before they
-  // can match, so matching is gated on this.
+  // Candidates can see the job card, but can only swipe to MATCH once they've
+  // uploaded a resume (done right on the card). null = still checking.
   const [hasResume, setHasResume] = useState<boolean | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const focusApplied = useRef(false);
 
   useEffect(() => {
@@ -65,7 +67,12 @@ export default function MatchPage() {
   const done = index >= deck.length && deck.length > 0;
 
   function swipe(dir: SwipeDirection) {
-    if (!card || leaving || !hasResume) return;
+    if (!card || leaving) return;
+    // Match (right-swipe) is locked until a resume is uploaded; Pass is free.
+    if (dir === "right" && !hasResume) {
+      showToast("Upload your resume on the card to match.");
+      return;
+    }
     recordSwipe(card.id, dir);
     if (dir === "right") setMatched((m) => m + 1);
     setLeaving(dir);
@@ -80,42 +87,23 @@ export default function MatchPage() {
     setTimeout(() => setToast(null), 2200);
   }
 
-  // Gate: while checking, show a spinner; without an uploaded resume, block
-  // matching entirely and send the candidate to upload one first.
-  if (hasResume === null) {
-    return (
-      <div className="max-w-[560px] mx-auto flex items-center justify-center min-h-[520px]">
-        <Loader2 size={22} className="animate-spin text-gold" />
-      </div>
-    );
+  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    setUploading(true);
+    try {
+      await uploadResume(file);
+      setHasResume(true);
+      showToast("Resume uploaded — you can match now.");
+    } catch {
+      showToast("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   }
 
-  if (!hasResume) {
-    return (
-      <div className="max-w-[560px] mx-auto">
-        <header className="mb-5">
-          <h1 className="font-serif text-[28px] font-bold text-ink">Job Match</h1>
-          <p className="eyebrow mt-2">Upload a resume to start matching</p>
-        </header>
-        <div className="rounded-3xl border border-gold/30 bg-gradient-to-b from-surface2 to-surface p-8 flex flex-col items-center text-center gap-4 mt-6">
-          <div className="w-16 h-16 rounded-2xl bg-gold/15 border border-gold/30 flex items-center justify-center text-goldbright">
-            <FileText size={26} />
-          </div>
-          <h2 className="font-serif text-[22px] font-bold text-ink">Add your resume first</h2>
-          <p className="text-dim text-[14px] max-w-[360px]">
-            Employers see your resume the moment you match. Upload one to unlock the job deck and start matching with roles.
-          </p>
-          <button
-            onClick={() => router.push("/candidate/resume")}
-            className="flex items-center gap-2 bg-gradient-to-r from-goldbright to-golddeep rounded-xl px-5 py-[13px] font-semibold text-[14px]"
-            style={{ color: "#2b2106" }}
-          >
-            <Upload size={17} /> Upload Resume
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const canMatch = hasResume === true;
 
   return (
     <div className="max-w-[560px] mx-auto">
@@ -137,8 +125,11 @@ export default function MatchPage() {
           >
             <CompanyCard
               c={card}
+              hasResume={canMatch}
+              uploading={uploading}
+              onUpload={() => fileRef.current?.click()}
+              onCreateNew={() => router.push("/candidate/resume")}
               onCreateResume={(c) => showToast(`Tailor a new resume for ${c.role} at ${c.name}.`)}
-              onAddResume={(c) => showToast(`Attach one of your saved resumes to ${c.name}.`)}
             />
           </div>
         ) : (
@@ -150,6 +141,9 @@ export default function MatchPage() {
         )}
       </div>
 
+      {/* Hidden picker used by the on-card Upload Resume button. */}
+      <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={onPickFile} />
+
       {/* actions */}
       {card && !done && (
         <div className="flex items-end justify-center gap-14 mt-6">
@@ -160,10 +154,16 @@ export default function MatchPage() {
             <span className="eyebrow">Pass</span>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <button onClick={() => swipe("right")} className="w-16 h-16 rounded-full bg-surface2 border border-ok/45 flex items-center justify-center text-ok hover:bg-ok/10">
-              <Check size={26} />
+            <button
+              onClick={() => swipe("right")}
+              title={canMatch ? "Match" : "Upload your resume on the card to match"}
+              className={`w-16 h-16 rounded-full flex items-center justify-center border transition-colors ${
+                canMatch ? "bg-surface2 border-ok/45 text-ok hover:bg-ok/10" : "bg-surface2 border-line text-mut"
+              }`}
+            >
+              {canMatch ? <Check size={26} /> : <Lock size={22} />}
             </button>
-            <span className="eyebrow">Match</span>
+            <span className="eyebrow">{canMatch ? "Match" : "Locked"}</span>
           </div>
         </div>
       )}
@@ -178,11 +178,14 @@ export default function MatchPage() {
 }
 
 function CompanyCard({
-  c, onCreateResume, onAddResume,
+  c, hasResume, uploading, onUpload, onCreateNew, onCreateResume,
 }: {
   c: SwipeCompany;
+  hasResume: boolean;
+  uploading: boolean;
+  onUpload: () => void;
+  onCreateNew: () => void;
   onCreateResume: (c: SwipeCompany) => void;
-  onAddResume: (c: SwipeCompany) => void;
 }) {
   return (
     <div className="rounded-3xl p-6 border" style={{ borderColor: "#3d6b3f", background: "linear-gradient(135deg,#183a26,#0f2418)" }}>
@@ -225,14 +228,39 @@ function CompanyCard({
         </div>
       </div>
 
-      <div className="flex gap-3 mt-4">
-        <button onClick={() => onCreateResume(c)} className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 font-mono text-[10.5px] tracking-wide uppercase text-goldbright" style={{ backgroundColor: "rgba(216,180,90,0.16)", border: "1px solid rgba(216,180,90,0.45)" }}>
-          <Sparkles size={14} /> Create Specific Resume
-        </button>
-        <button onClick={() => onAddResume(c)} className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 font-mono text-[10.5px] tracking-wide uppercase text-[#cfe6d2]" style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.18)" }}>
-          <FileText size={14} /> Add Existing Resume
-        </button>
-      </div>
+      {hasResume ? (
+        <div className="mt-4">
+          <div className="flex items-center gap-2 mb-3 text-[#8fd6a0] text-[12px]">
+            <Check size={14} /> Resume attached — swipe right to match
+          </div>
+          <button onClick={() => onCreateResume(c)} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 font-mono text-[10.5px] tracking-wide uppercase text-goldbright" style={{ backgroundColor: "rgba(216,180,90,0.16)", border: "1px solid rgba(216,180,90,0.45)" }}>
+            <Sparkles size={14} /> Create Specific Resume
+          </button>
+        </div>
+      ) : (
+        <div className="mt-4">
+          <div className="flex items-center gap-2 mb-3 text-[#e0c072] text-[12px]">
+            <Lock size={13} /> Upload your resume to unlock matching
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onUpload}
+              disabled={uploading}
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 font-mono text-[11px] tracking-wide uppercase disabled:opacity-60"
+              style={{ backgroundColor: "rgba(216,180,90,0.9)", color: "#2b2106" }}
+            >
+              {uploading ? <><Loader2 size={15} className="animate-spin" /> Uploading…</> : <><Upload size={15} /> Upload Resume</>}
+            </button>
+            <button
+              onClick={onCreateNew}
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 font-mono text-[11px] tracking-wide uppercase text-goldbright"
+              style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(216,180,90,0.45)" }}
+            >
+              <FilePlus size={15} /> Create Resume
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
