@@ -13,10 +13,18 @@ do $$ begin
   create type user_type   as enum ('individual','company');
   create type persona      as enum ('Lion','Eagle','Wolf','Owl','Octopus','Elephant','Cheetah','Fox','Ant','Horse','Dolphin','Peacock');
   create type swipe_dir    as enum ('left','right','save');
-  create type target_kind  as enum ('company','candidate');
+  create type target_kind  as enum ('company','candidate','role');
   create type conn_status  as enum ('pending','accepted','declined');
   create type work_type    as enum ('Full-time','Hybrid','Remote');
 exception when duplicate_object then null; end $$;
+
+-- The swipe deck is job/role-based (one card per open role), so candidates
+-- swipe on a role. Add the 'role' target to pre-existing databases whose
+-- target_kind was created before this value existed. Adding an enum value is
+-- allowed inside the script's transaction; we just never *use* the literal in
+-- the same transaction — the functions below compare target_type::text instead,
+-- so they create cleanly, and app inserts of 'role' happen later post-commit.
+alter type target_kind add value if not exists 'role';
 
 -- ----------------------------------------------------------------------------
 -- PROFILES (individual users) — 1:1 with auth.users
@@ -120,6 +128,9 @@ create table if not exists matches (
 
 -- Backfill onto matches tables created before the stage column existed.
 alter table matches add column if not exists stage text not null default 'Applied';
+-- Which role the candidate matched on (the deck is role-based). Nullable so
+-- older company-level matches remain valid; cleared if the role is deleted.
+alter table matches add column if not exists role_id uuid references roles(id) on delete set null;
 
 -- ----------------------------------------------------------------------------
 -- CONNECTIONS (professional network)
@@ -187,11 +198,11 @@ declare reciprocal boolean;
 begin
   if new.direction <> 'right' then return new; end if;
 
-  if new.target_type = 'company' then
+  if new.target_type::text = 'company' then
     select exists(
       select 1 from swipes s
       where s.target_id = new.user_id
-        and s.target_type = 'candidate'
+        and s.target_type::text = 'candidate'
         and s.direction = 'right'
         and s.user_id in (select owner_id from companies where id = new.target_id)
     ) into reciprocal;
@@ -201,6 +212,16 @@ begin
       values (new.user_id, new.target_id, 80)
       on conflict do nothing;
     end if;
+
+  elsif new.target_type::text = 'role' then
+    -- A candidate applying to a role (right-swipe) creates a match on that
+    -- role's company, tagged with the role, so the employer's live Hiring
+    -- board picks them up in real time. One match per candidate+company.
+    insert into matches(user_id, company_id, role_id, score)
+    select new.user_id, r.company_id, r.id, 80
+    from roles r
+    where r.id = new.target_id
+    on conflict (user_id, company_id) do nothing;
   end if;
   return new;
 end; $$ language plpgsql security definer;
@@ -212,28 +233,31 @@ create trigger trg_right_swipe after insert on swipes
 -- ============================================================================
 -- SWIPE DECK RPC — companies the user hasn't swiped yet, ranked by similarity
 -- ============================================================================
+-- Role-based deck: one card per open job the candidate hasn't swiped yet. `id`
+-- is the role id (what recordSwipe stores), `name` is the company and `role`
+-- the job title, so each opening shows as its own card. A scalar subquery (not
+-- a cross join) reads the caller's embedding, so a candidate with no profile
+-- row still gets a deck (match falls back to 75) instead of an empty one.
 create or replace function get_swipe_deck()
 returns table (
   id uuid, initials text, name text, role text, location text,
   employees text, match int, tags text[], package text, perks text[]
 ) language sql security definer as $$
   select
-    c.id, c.initials, c.name,
-    coalesce((select r.title from roles r where r.company_id = c.id limit 1), 'Open Role') as role,
-    c.location, c.employees,
-    -- cosine similarity → 0..100 match score (falls back to 75 if no embedding)
-    coalesce(round((1 - (c.embedding <=> p.embedding)) * 100)::int, 75) as match,
-    coalesce((select r.tags from roles r where r.company_id = c.id limit 1), '{}') as tags,
-    coalesce((select r.package from roles r where r.company_id = c.id limit 1), null) as package,
-    coalesce((select r.perks from roles r where r.company_id = c.id limit 1), '{}') as perks
-  from companies c
-  cross join (select embedding from profiles where id = auth.uid()) p
-  where c.id not in (
+    r.id, c.initials, c.name, r.title as role,
+    coalesce(r.location, c.location) as location, c.employees,
+    coalesce(round((1 - (c.embedding <=> (
+      select embedding from profiles where id = auth.uid()
+    ))) * 100)::int, 75) as match,
+    coalesce(r.tags, '{}') as tags, r.package, coalesce(r.perks, '{}') as perks
+  from roles r
+  join companies c on c.id = r.company_id
+  where r.id not in (
     select target_id from swipes
-    where user_id = auth.uid() and target_type = 'company'
+    where user_id = auth.uid() and target_type::text = 'role'
   )
-  order by match desc
-  limit 20;
+  order by match desc, r.created_at desc
+  limit 30;
 $$;
 
 -- ============================================================================
@@ -263,23 +287,27 @@ $$;
 -- each candidate scoped to their own submissions. `matched` flags the ones that
 -- became a mutual match.
 -- ============================================================================
+-- Role-based: the jobs the candidate applied to (right-swiped a role), newest
+-- first. `id` is the role id; `matched` flags roles whose company became a
+-- mutual match.
 create or replace function get_my_submitted_jobs()
 returns table (
   id uuid, initials text, name text, role text, location text,
   employees text, match int, matched boolean, created_at timestamptz
 ) language sql security definer as $$
   select
-    c.id, c.initials, c.name,
-    coalesce((select r.title from roles r where r.company_id = c.id limit 1), 'Open Role') as role,
-    c.location, c.employees,
-    coalesce(round((1 - (c.embedding <=> p.embedding)) * 100)::int, 75) as match,
+    r.id, c.initials, c.name, r.title as role,
+    coalesce(r.location, c.location) as location, c.employees,
+    coalesce(round((1 - (c.embedding <=> (
+      select embedding from profiles where id = auth.uid()
+    ))) * 100)::int, 75) as match,
     exists(select 1 from matches m where m.user_id = auth.uid() and m.company_id = c.id) as matched,
     s.created_at
   from swipes s
-  join companies c on c.id = s.target_id
-  left join lateral (select embedding from profiles where id = auth.uid()) p on true
+  join roles r on r.id = s.target_id
+  join companies c on c.id = r.company_id
   where s.user_id = auth.uid()
-    and s.target_type = 'company'
+    and s.target_type::text = 'role'
     and s.direction = 'right'
   order by s.created_at desc;
 $$;

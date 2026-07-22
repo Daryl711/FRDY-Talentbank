@@ -2,11 +2,11 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { Eyebrow, ScreenBg } from "@/components/ui";
 import { SwipeDeck, SwipeDeckHandle } from "@/components/SwipeDeck";
 import SubmittedJobsModal from "@/components/SubmittedJobsModal";
-import { getSubmittedJobs, getSwipeDeck, recordSwipe } from "@/data/repo";
+import { getResumes, getSubmittedJobs, getSwipeDeck, recordSwipe } from "@/data/repo";
 import { SubmittedJob, SwipeCompany, SwipeDirection } from "@/data/types";
 import { colors, gradients } from "@/theme/colors";
 
@@ -139,6 +139,8 @@ export default function MatchScreen() {
   const [done, setDone] = useState(false);
   const [submitted, setSubmitted] = useState<SubmittedJob[]>([]);
   const [submittedOpen, setSubmittedOpen] = useState(false);
+  // null = still checking. Candidates must upload a resume before matching.
+  const [hasResume, setHasResume] = useState<boolean | null>(null);
   const swiperRef = useRef<SwipeDeckHandle>(null);
 
   useEffect(() => {
@@ -147,6 +149,7 @@ export default function MatchScreen() {
       setRemaining(d.length);
     });
     getSubmittedJobs().then(setSubmitted);
+    getResumes().then((rs) => setHasResume(rs.some((r) => r.kind === "uploaded")));
   }, []);
 
   // Refetch the applications list whenever the sheet is opened so it reflects
@@ -191,6 +194,49 @@ export default function MatchScreen() {
     Alert.alert("Add Existing Resume", `Attach one of your saved resumes to ${c.name}.`);
   }
 
+  // Gate: candidates must upload a resume before they can match. Show a loading
+  // state while checking, then a prompt to upload if they have none.
+  if (hasResume === null || !hasResume) {
+    return (
+      <ScreenBg>
+        <View className="flex-1 px-[22px] pb-[110px]">
+          <View className="pt-[10px]">
+            <Text className="font-serif text-[26px] text-ink">Job Match</Text>
+            <Eyebrow className="mt-2">
+              {hasResume === null ? "Loading…" : "Upload a resume to start matching"}
+            </Eyebrow>
+          </View>
+          <View className="flex-1 items-center justify-center gap-[14px]">
+            {hasResume === null ? (
+              <ActivityIndicator color={colors.gold} />
+            ) : (
+              <>
+                <View
+                  className="w-16 h-16 rounded-[18px] items-center justify-center"
+                  style={{ backgroundColor: "rgba(216,180,90,0.13)", borderWidth: 1, borderColor: "rgba(216,180,90,0.3)" }}
+                >
+                  <Feather name="file-text" size={26} color={colors.goldbright} />
+                </View>
+                <Text className="font-serif text-[22px] text-ink">Add your resume first</Text>
+                <Text className="text-dim text-[13px] text-center px-6">
+                  Employers see your resume the moment you match. Upload one to unlock the job deck and start matching.
+                </Text>
+                <Pressable
+                  onPress={() => nav.navigate("Resume")}
+                  className="flex-row items-center gap-2 rounded-[14px] px-5 py-[13px]"
+                  style={{ backgroundColor: colors.gold }}
+                >
+                  <Feather name="upload" size={16} color="#2b2106" />
+                  <Text className="font-semibold text-[14px]" style={{ color: "#2b2106" }}>Upload Resume</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
+      </ScreenBg>
+    );
+  }
+
   return (
     <ScreenBg>
       <View className="flex-1 px-[22px] pb-[110px]">
@@ -198,7 +244,7 @@ export default function MatchScreen() {
           <View>
             <Text className="font-serif text-[26px] text-ink">Job Match</Text>
             <Eyebrow className="mt-2">
-              {remaining} {remaining === 1 ? "company" : "companies"} waiting · {matched} matched
+              {remaining} {remaining === 1 ? "job" : "jobs"} waiting · {matched} matched
             </Eyebrow>
           </View>
           <Pressable

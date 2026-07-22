@@ -63,10 +63,10 @@ export async function recordSwipe(targetId: string, direction: SwipeDirection): 
   await supabase.from("swipes").insert({
     user_id: uid,
     target_id: targetId,
-    target_type: "company",
+    target_type: "role",
     direction,
   });
-  // A mutual match (both sides swiped right) is created by a DB trigger.
+  // Right-swiping a role creates a match on its company via a DB trigger.
 }
 
 // Jobs the signed-in candidate has applied to (right-swiped), newest first.

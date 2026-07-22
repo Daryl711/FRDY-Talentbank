@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Users, Zap, X, Check, Heart, Sparkles, FileText } from "lucide-react";
-import { getSwipeDeck, recordSwipe, type SwipeCompany, type SwipeDirection } from "@/lib/candidate";
+import { useRouter } from "next/navigation";
+import { MapPin, Users, Zap, X, Check, Heart, Sparkles, FileText, Upload, Loader2 } from "lucide-react";
+import { getResumes, getSwipeDeck, recordSwipe, type SwipeCompany, type SwipeDirection } from "@/lib/candidate";
 
 type FocusJob = Partial<SwipeCompany> & { name: string };
 
@@ -22,12 +23,20 @@ function synthCompany(f: FocusJob): SwipeCompany {
 }
 
 export default function MatchPage() {
+  const router = useRouter();
   const [deck, setDeck] = useState<SwipeCompany[]>([]);
   const [index, setIndex] = useState(0);
   const [matched, setMatched] = useState(0);
   const [leaving, setLeaving] = useState<null | SwipeDirection>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // null = still checking. Candidates must have uploaded a resume before they
+  // can match, so matching is gated on this.
+  const [hasResume, setHasResume] = useState<boolean | null>(null);
   const focusApplied = useRef(false);
+
+  useEffect(() => {
+    getResumes().then((rs) => setHasResume(rs.some((r) => r.kind === "uploaded")));
+  }, []);
 
   useEffect(() => {
     getSwipeDeck().then((d) => {
@@ -56,7 +65,7 @@ export default function MatchPage() {
   const done = index >= deck.length && deck.length > 0;
 
   function swipe(dir: SwipeDirection) {
-    if (!card || leaving) return;
+    if (!card || leaving || !hasResume) return;
     recordSwipe(card.id, dir);
     if (dir === "right") setMatched((m) => m + 1);
     setLeaving(dir);
@@ -71,12 +80,49 @@ export default function MatchPage() {
     setTimeout(() => setToast(null), 2200);
   }
 
+  // Gate: while checking, show a spinner; without an uploaded resume, block
+  // matching entirely and send the candidate to upload one first.
+  if (hasResume === null) {
+    return (
+      <div className="max-w-[560px] mx-auto flex items-center justify-center min-h-[520px]">
+        <Loader2 size={22} className="animate-spin text-gold" />
+      </div>
+    );
+  }
+
+  if (!hasResume) {
+    return (
+      <div className="max-w-[560px] mx-auto">
+        <header className="mb-5">
+          <h1 className="font-serif text-[28px] font-bold text-ink">Job Match</h1>
+          <p className="eyebrow mt-2">Upload a resume to start matching</p>
+        </header>
+        <div className="rounded-3xl border border-gold/30 bg-gradient-to-b from-surface2 to-surface p-8 flex flex-col items-center text-center gap-4 mt-6">
+          <div className="w-16 h-16 rounded-2xl bg-gold/15 border border-gold/30 flex items-center justify-center text-goldbright">
+            <FileText size={26} />
+          </div>
+          <h2 className="font-serif text-[22px] font-bold text-ink">Add your resume first</h2>
+          <p className="text-dim text-[14px] max-w-[360px]">
+            Employers see your resume the moment you match. Upload one to unlock the job deck and start matching with roles.
+          </p>
+          <button
+            onClick={() => router.push("/candidate/resume")}
+            className="flex items-center gap-2 bg-gradient-to-r from-goldbright to-golddeep rounded-xl px-5 py-[13px] font-semibold text-[14px]"
+            style={{ color: "#2b2106" }}
+          >
+            <Upload size={17} /> Upload Resume
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-[560px] mx-auto">
       <header className="mb-5">
         <h1 className="font-serif text-[28px] font-bold text-ink">Job Match</h1>
         <p className="eyebrow mt-2">
-          {Math.max(0, remaining)} {remaining === 1 ? "company" : "companies"} waiting · {matched} matched
+          {Math.max(0, remaining)} {remaining === 1 ? "job" : "jobs"} waiting · {matched} matched
         </p>
       </header>
 
