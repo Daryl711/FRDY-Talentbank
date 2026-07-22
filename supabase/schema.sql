@@ -437,21 +437,25 @@ create trigger on_auth_user_created after insert on auth.users
 -- ============================================================================
 -- SEED DATA (companies + roles) — optional, for a populated deck
 -- ============================================================================
+-- CelcomDigi is the only seeded employer — candidates' swipe deck
+-- (get_swipe_deck) reads the companies table, so keeping just CelcomDigi here
+-- means candidates only ever see CelcomDigi roles.
 insert into companies (id, name, industry, location, employees) values
-  ('11111111-1111-1111-1111-111111111111','Summit Advisors','Consulting','Boston, MA','240 emp.'),
-  ('22222222-2222-2222-2222-222222222222','Meridian Capital','Fintech','New York, NY','180 emp.'),
-  ('33333333-3333-3333-3333-333333333333','Stratos Ventures','SaaS','San Francisco, CA','320 emp.'),
-  ('44444444-4444-4444-4444-444444444444','Apex Partners','Operations','Chicago, IL','95 emp.'),
-  ('55555555-5555-5555-5555-555555555555','Luminary Group','Strategy','New York, NY','140 emp.'),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','CelcomDigi','Telecommunications','Kuala Lumpur, MY','12,000 emp.')
 on conflict do nothing;
 
+-- Remove the earlier demo companies (Summit/Meridian/Stratos/Apex/Luminary) so
+-- they no longer surface in the candidate deck. Cascades to their roles and any
+-- matches (both FK on delete cascade). Safe to re-run.
+delete from companies where id in (
+  '11111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222',
+  '33333333-3333-3333-3333-333333333333',
+  '44444444-4444-4444-4444-444444444444',
+  '55555555-5555-5555-5555-555555555555'
+);
+
 insert into roles (company_id, title, salary_min, salary_max, type, tags, package, perks) values
-  ('11111111-1111-1111-1111-111111111111','Managing Director',230000,290000,'Full-time','{Strategy,Consulting,Leadership}','$260K','{Partnership,"Travel Budget",Pension}'),
-  ('22222222-2222-2222-2222-222222222222','Senior Product Manager',180000,220000,'Hybrid','{Product,Fintech,Strategy}','$200K','{Equity,Remote,Health}'),
-  ('33333333-3333-3333-3333-333333333333','VP of Engineering',240000,300000,'Full-time','{Engineering,SaaS,Leadership}','$270K','{Equity,401k,Flexible}'),
-  ('44444444-4444-4444-4444-444444444444','Chief of Staff',160000,190000,'Hybrid','{Operations,Strategy}','$175K','{Bonus,Hybrid,Pension}'),
-  ('55555555-5555-5555-5555-555555555555','VP Strategy',210000,250000,'Hybrid','{Strategy,Consulting}','$230K','{Equity,Travel,Health}'),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Senior Product Manager, Digital',90000,130000,'Hybrid','{Product,Telco,Digital}','$110K','{Medical,Hybrid,Bonus}')
 on conflict do nothing;
 

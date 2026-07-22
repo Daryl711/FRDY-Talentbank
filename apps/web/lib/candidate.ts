@@ -169,19 +169,19 @@ export const mockProfile: CandidateProfile = {
   },
 };
 
+// Candidates only see CelcomDigi roles — these mirror the CelcomDigi openings
+// seeded in supabase/schema.sql. Used as the demo fallback when Supabase is off.
 export const mockFeaturedRoles: Role[] = [
-  { id: "r1", company: "Meridian Capital", initials: "MC", title: "Senior Product Manager", location: "New York, NY", salary_min: 180000, salary_max: 220000, type: "Hybrid", match: 94, color: "#2563c4", posted: "1 day ago" },
-  { id: "r2", company: "Stratos Ventures", initials: "SV", title: "VP of Engineering", location: "San Francisco, CA", salary_min: 240000, salary_max: 300000, type: "Full-time", match: 88, color: "#6d49d6", posted: "2 days ago" },
-  { id: "r3", company: "Apex Partners", initials: "AP", title: "Chief of Staff", location: "Chicago, IL", salary_min: 160000, salary_max: 190000, type: "Hybrid", match: 76, color: "#2f8f5b", posted: "3 days ago" },
-  { id: "r4", company: "CelcomDigi", initials: "CD", title: "Senior Product Manager, Digital", location: "Kuala Lumpur, MY", salary_min: 90000, salary_max: 130000, type: "Hybrid", match: 90, color: "#1573c4", posted: "Just now" },
+  { id: "r1", company: "CelcomDigi", initials: "CD", title: "AI Engineer", location: "Kuala Lumpur, MY", salary_min: 105000, salary_max: 150000, type: "Hybrid", match: 95, color: "#1573c4", posted: "Just now" },
+  { id: "r2", company: "CelcomDigi", initials: "CD", title: "Software Developer", location: "Kuala Lumpur, MY", salary_min: 72000, salary_max: 102000, type: "Hybrid", match: 92, color: "#1573c4", posted: "1 day ago" },
+  { id: "r3", company: "CelcomDigi", initials: "CD", title: "Senior Product Manager, Digital", location: "Kuala Lumpur, MY", salary_min: 90000, salary_max: 130000, type: "Hybrid", match: 90, color: "#1573c4", posted: "2 days ago" },
+  { id: "r4", company: "CelcomDigi", initials: "CD", title: "Backend Developer", location: "Kuala Lumpur, MY", salary_min: 84000, salary_max: 118000, type: "Hybrid", match: 88, color: "#1573c4", posted: "3 days ago" },
+  { id: "r5", company: "CelcomDigi", initials: "CD", title: "Corporate Strategy Manager", location: "Kuala Lumpur, MY", salary_min: 115000, salary_max: 155000, type: "Full-time", match: 84, color: "#1573c4", posted: "4 days ago" },
+  { id: "r6", company: "CelcomDigi", initials: "CD", title: "Finance Business Partner", location: "Kuala Lumpur, MY", salary_min: 90000, salary_max: 120000, type: "Hybrid", match: 82, color: "#1573c4", posted: "5 days ago" },
+  { id: "r7", company: "CelcomDigi", initials: "CD", title: "Human Resources Manager", location: "Kuala Lumpur, MY", salary_min: 85000, salary_max: 115000, type: "Hybrid", match: 80, color: "#1573c4", posted: "6 days ago" },
 ];
 
 export const mockSwipeDeck: SwipeCompany[] = [
-  { id: "c1", initials: "SA", name: "Summit Advisors", role: "Managing Director", location: "Boston, MA", employees: "240 emp.", match: 82, tags: ["Strategy", "Consulting", "Leadership"], package: "$260K", perks: ["Partnership", "Travel Budget", "Pension"] },
-  { id: "c2", initials: "MC", name: "Meridian Capital", role: "Senior Product Manager", location: "New York, NY", employees: "180 emp.", match: 94, tags: ["Product", "Fintech", "Strategy"], package: "$200K", perks: ["Equity", "Remote", "Health"] },
-  { id: "c3", initials: "SV", name: "Stratos Ventures", role: "VP of Engineering", location: "San Francisco, CA", employees: "320 emp.", match: 88, tags: ["Engineering", "SaaS", "Leadership"], package: "$270K", perks: ["Equity", "401k", "Flexible"] },
-  { id: "c4", initials: "AP", name: "Apex Partners", role: "Chief of Staff", location: "Chicago, IL", employees: "95 emp.", match: 76, tags: ["Operations", "Strategy"], package: "$175K", perks: ["Bonus", "Hybrid", "Pension"] },
-  { id: "c5", initials: "LG", name: "Luminary Group", role: "VP Strategy", location: "New York, NY", employees: "140 emp.", match: 91, tags: ["Strategy", "Consulting"], package: "$230K", perks: ["Equity", "Travel", "Health"] },
   { id: "c6", initials: "CD", name: "CelcomDigi", role: "Senior Product Manager, Digital", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 90, tags: ["Product", "Telco", "Digital"], package: "$110K", perks: ["Medical", "Hybrid", "Bonus"] },
 ];
 
@@ -199,9 +199,8 @@ export const mockConnections: Connection[] = [
 
 // Applications shown when Supabase isn't configured (demo fallback).
 export const mockSubmittedJobs: SubmittedJob[] = [
-  { id: "c2", initials: "MC", name: "Meridian Capital", role: "Senior Product Manager", location: "New York, NY", employees: "180 emp.", match: 94, matched: true, date: "Jun 14, 2026" },
-  { id: "c5", initials: "LG", name: "Luminary Group", role: "VP Strategy", location: "New York, NY", employees: "140 emp.", match: 91, matched: false, date: "Jun 12, 2026" },
-  { id: "c3", initials: "SV", name: "Stratos Ventures", role: "VP of Engineering", location: "San Francisco, CA", employees: "320 emp.", match: 88, matched: false, date: "Jun 10, 2026" },
+  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, date: "Jul 14, 2026" },
+  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: false, date: "Jul 12, 2026" },
 ];
 
 export const trendingSectors = [
