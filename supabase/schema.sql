@@ -134,7 +134,9 @@ create table if not exists connections (
 );
 
 -- ----------------------------------------------------------------------------
--- MESSAGES — chat unlocked on a mutual match
+-- MESSAGES — chat unlocked on a mutual match, OR a peer connection.
+-- match_id links company-match chat; connection_id links candidate-to-candidate
+-- direct messages. Exactly one of the two is set per row.
 -- ----------------------------------------------------------------------------
 create table if not exists messages (
   id         uuid primary key default uuid_generate_v4(),
@@ -143,6 +145,13 @@ create table if not exists messages (
   body       text not null,
   created_at timestamptz default now()
 );
+
+-- Candidate-to-candidate DMs reuse this table via connection_id, so match_id is
+-- relaxed to nullable (peer DMs have no company match). The index keeps a
+-- conversation's messages ordered and cheap to fetch.
+alter table messages add column if not exists connection_id uuid references connections(id) on delete cascade;
+alter table messages alter column match_id drop not null;
+create index if not exists messages_connection_idx on messages(connection_id, created_at);
 
 -- ----------------------------------------------------------------------------
 -- RESUMES — versioned, stored in Supabase Storage
@@ -287,7 +296,9 @@ create or replace view connections_view as
       when cn.status = 'pending' and cn.addressee_id = auth.uid() then 'requests'
       else 'discover'
     end as kind,
-    coalesce(cn.status::text,'discover') as status
+    coalesce(cn.status::text,'discover') as status,
+    cn.id as connection_id,
+    cn.requester_id = auth.uid() as outgoing
   from profiles p
   left join connections cn
     on (cn.requester_id = p.id and cn.addressee_id = auth.uid())
@@ -349,13 +360,29 @@ create policy "connections create" on connections for insert to authenticated wi
 drop policy if exists "connections update" on connections;
 create policy "connections update" on connections for update to authenticated using (auth.uid() = addressee_id);
 
--- messages: only participants of the match can read/send
+-- messages: readable/sendable by participants of the company match OR the peer
+-- connection the message belongs to.
 drop policy if exists "messages read" on messages;
 create policy "messages read" on messages for select to authenticated
-  using (exists (select 1 from matches m where m.id = match_id and m.user_id = auth.uid()));
+  using (
+    exists (select 1 from matches m where m.id = match_id and m.user_id = auth.uid())
+    or exists (
+      select 1 from connections c
+      where c.id = connection_id and auth.uid() in (c.requester_id, c.addressee_id)
+    )
+  );
 drop policy if exists "messages send" on messages;
 create policy "messages send" on messages for insert to authenticated
-  with check (sender_id = auth.uid());
+  with check (
+    sender_id = auth.uid()
+    and (
+      connection_id is null
+      or exists (
+        select 1 from connections c
+        where c.id = connection_id and auth.uid() in (c.requester_id, c.addressee_id)
+      )
+    )
+  );
 
 -- resumes: private to the owner
 drop policy if exists "resumes own" on resumes;
@@ -420,6 +447,31 @@ insert into roles (company_id, title, salary_min, salary_max, type, tags, packag
   ('55555555-5555-5555-5555-555555555555','VP Strategy',210000,250000,'Hybrid','{Strategy,Consulting}','$230K','{Equity,Travel,Health}'),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Senior Product Manager, Digital',90000,130000,'Hybrid','{Product,Telco,Digital}','$110K','{Medical,Hybrid,Bonus}')
 on conflict do nothing;
+
+-- ============================================================================
+-- REALTIME — stream row changes to subscribed clients. The mobile app listens
+-- on `connections` (live Requests badge when someone adds you) and `messages`
+-- (live chat). RLS still applies, so each client only receives rows it may read.
+-- Guarded so re-running the script (or a non-Supabase Postgres) is a no-op.
+-- ============================================================================
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'connections'
+  ) then
+    alter publication supabase_realtime add table connections;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table messages;
+  end if;
+exception when undefined_object then
+  -- No supabase_realtime publication (plain Postgres) — nothing to enable.
+  null;
+end $$;
 
 -- ============================================================================
 -- Refresh the PostgREST schema cache so the API reflects any DDL above (new
