@@ -27,6 +27,38 @@ export async function getMyCompany(): Promise<Company | null> {
   return data as Company;
 }
 
+export interface Role {
+  id: string;
+  title: string;
+  location: string | null;
+  type: string | null;
+  tags: string[];
+  package: string | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
+}
+
+/** Open roles posted by a company, oldest first. Readable via the roles RLS. */
+export async function getCompanyRoles(companyId: string): Promise<Role[]> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from("roles")
+    .select("id,title,location,type,tags,package,salary_min,salary_max")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: true });
+  if (error || !data) return [];
+  return (data as Array<Record<string, unknown>>).map((r) => ({
+    id: r.id as string,
+    title: (r.title as string) ?? "Open Role",
+    location: (r.location as string | null) ?? null,
+    type: (r.type as string | null) ?? null,
+    tags: (r.tags as string[] | null) ?? [],
+    package: (r.package as string | null) ?? null,
+    salaryMin: (r.salary_min as number | null) ?? null,
+    salaryMax: (r.salary_max as number | null) ?? null,
+  }));
+}
+
 /** Candidates matched to the caller's company (for the Hiring board). */
 export async function getCompanyMatches(): Promise<MatchedCandidate[]> {
   if (!isSupabaseConfigured) return [];

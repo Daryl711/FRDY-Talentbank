@@ -8,9 +8,11 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   getMyCompany,
   getCompanyMatches,
+  getCompanyRoles,
   setMatchStage,
   subscribeCompanyMatches,
   type Company,
+  type Role,
 } from "@/lib/employer";
 import type { JobRole, HireStage, MatchedCandidate } from "@/lib/types";
 
@@ -65,7 +67,13 @@ export default function HiringPage() {
 /* ============================================================ LIVE MATCH BOARD */
 function LiveMatchBoard({ company, initial }: { company: Company; initial: MatchedCandidate[] }) {
   const [cands, setCands] = useState<MatchedCandidate[]>(initial);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+
+  // The company's open job postings, shown above the pipeline.
+  useEffect(() => {
+    getCompanyRoles(company.id).then(setRoles);
+  }, [company.id]);
 
   // Keep the latest `busy` readable inside the subscription callback without
   // resubscribing on every stage move.
@@ -117,11 +125,45 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
       />
 
       <div className="flex items-center gap-6 mb-6">
+        <Stat label="Open Roles" value={roles.length} />
         <Stat label="Matched" value={cands.length} />
         <Stat label="In Pipeline" value={active.length} tone="text-gold" />
         <Stat label="Hired" value={hired} tone="text-ok" />
         <Stat label="Rejected" value={rejected} tone="text-mut" />
       </div>
+
+      {roles.length > 0 && (
+        <Panel className="p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-serif text-[20px] font-bold text-ink">Open Roles</h2>
+              <p className="text-mut text-[12px] mt-1">Live postings at {company.name}</p>
+            </div>
+            <span className="text-mut text-[12px]">{roles.length} active</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {roles.map((r) => (
+              <div key={r.id} className="bg-surface2 border border-line rounded-xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-ink font-semibold text-[15px]">{r.title}</span>
+                  {r.package && <span className="text-gold text-[13px] font-semibold shrink-0">{r.package}</span>}
+                </div>
+                <div className="flex items-center gap-3 mt-2 text-mut text-[12px]">
+                  {r.location && <span className="flex items-center gap-1"><MapPin size={12} /> {r.location}</span>}
+                  {r.type && <span>{r.type}</span>}
+                </div>
+                {r.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {r.tags.map((t) => (
+                      <span key={t} className="text-dim text-[11px] bg-surface3 border border-line rounded-full px-2 py-[3px]">{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       <Panel className="p-6">
         {active.length === 0 ? (
