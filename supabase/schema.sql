@@ -448,6 +448,18 @@ insert into roles (company_id, title, salary_min, salary_max, type, tags, packag
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Senior Product Manager, Digital',90000,130000,'Hybrid','{Product,Telco,Digital}','$110K','{Medical,Hybrid,Bonus}')
 on conflict do nothing;
 
+-- More CelcomDigi openings — tech + corporate. These carry explicit ids so the
+-- insert is idempotent (`on conflict (id) do nothing`), unlike the seed above
+-- which would duplicate on re-run. All point at the CelcomDigi company id.
+insert into roles (id, company_id, title, location, salary_min, salary_max, type, tags, package, perks) values
+  ('cccc1111-1111-1111-1111-111111111111','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Software Developer','Kuala Lumpur, MY',72000,102000,'Hybrid','{Engineering,"Full-Stack",Telco}','$85K','{Medical,Hybrid,"Learning Budget"}'),
+  ('cccc2222-2222-2222-2222-222222222222','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Backend Developer','Kuala Lumpur, MY',84000,118000,'Hybrid','{Engineering,Backend,Cloud}','$95K','{Medical,Remote,Bonus}'),
+  ('cccc3333-3333-3333-3333-333333333333','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','AI Engineer','Kuala Lumpur, MY',105000,150000,'Hybrid','{AI,"Machine Learning",Engineering}','$125K','{Equity,Medical,"Learning Budget"}'),
+  ('cccc4444-4444-4444-4444-444444444444','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Corporate Strategy Manager','Kuala Lumpur, MY',115000,155000,'Full-time','{Strategy,Corporate,Leadership}','$130K','{Bonus,Medical,Pension}'),
+  ('cccc5555-5555-5555-5555-555555555555','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Finance Business Partner','Kuala Lumpur, MY',90000,120000,'Hybrid','{Finance,Corporate,Analytics}','$105K','{Medical,Hybrid,Bonus}'),
+  ('cccc6666-6666-6666-6666-666666666666','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Human Resources Manager','Kuala Lumpur, MY',85000,115000,'Hybrid','{"Human Resources",Corporate,People}','$100K','{Medical,Hybrid,Wellness}')
+on conflict (id) do nothing;
+
 -- ============================================================================
 -- CELCOMDIGI EMPLOYER — fixed demo credentials + company ownership
 -- Creates a login (employer@celcomdigi.com / CelcomDigi123!) and makes it the
