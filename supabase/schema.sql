@@ -475,16 +475,22 @@ begin
   if emp_id is null then
     emp_id := uuid_generate_v4();
 
+    -- The token columns must be '' (not NULL): GoTrue scans them into non-null
+    -- Go strings on every login, so a NULL there makes sign-in 500 with
+    -- "Database error querying schema" (which the JS client surfaces as `{}`).
     insert into auth.users (
       instance_id, id, aud, role, email, encrypted_password,
       email_confirmed_at, created_at, updated_at,
-      raw_app_meta_data, raw_user_meta_data
+      raw_app_meta_data, raw_user_meta_data,
+      confirmation_token, recovery_token,
+      email_change, email_change_token_new
     ) values (
       '00000000-0000-0000-0000-000000000000', emp_id, 'authenticated', 'authenticated',
       'employer@celcomdigi.com', crypt('CelcomDigi123!', gen_salt('bf')),
       now(), now(), now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
-      '{"name":"CelcomDigi Talent"}'::jsonb
+      '{"name":"CelcomDigi Talent"}'::jsonb,
+      '', '', '', ''
     );
 
     insert into auth.identities (
@@ -494,6 +500,32 @@ begin
       gen_random_uuid(), emp_id, emp_id::text,
       jsonb_build_object('sub', emp_id::text, 'email', 'employer@celcomdigi.com'),
       'email', now(), now(), now()
+    );
+  else
+    -- Repair a row from an earlier seed that left the token columns NULL (the
+    -- cause of the login 500). Also re-assert the password/confirmation so the
+    -- fixed credentials are guaranteed to work after a re-run.
+    update auth.users set
+      encrypted_password     = crypt('CelcomDigi123!', gen_salt('bf')),
+      email_confirmed_at     = coalesce(email_confirmed_at, now()),
+      confirmation_token     = coalesce(confirmation_token, ''),
+      recovery_token         = coalesce(recovery_token, ''),
+      email_change           = coalesce(email_change, ''),
+      email_change_token_new = coalesce(email_change_token_new, '')
+    where id = emp_id;
+
+    -- Ensure the email identity exists (older seeds that failed mid-block may
+    -- have rolled it back).
+    insert into auth.identities (
+      id, user_id, provider_id, identity_data, provider,
+      last_sign_in_at, created_at, updated_at
+    )
+    select gen_random_uuid(), emp_id, emp_id::text,
+           jsonb_build_object('sub', emp_id::text, 'email', 'employer@celcomdigi.com'),
+           'email', now(), now(), now()
+    where not exists (
+      select 1 from auth.identities
+      where provider = 'email' and provider_id = emp_id::text
     );
   end if;
 
