@@ -64,6 +64,7 @@ export interface SwipeCompany {
 }
 
 export interface Connection {
+  /** The other candidate's profile id. */
   id: string;
   initials: string;
   color: string;
@@ -72,6 +73,23 @@ export interface Connection {
   mutual: string;
   online: boolean;
   kind: "network" | "requests" | "discover";
+  /** Connection row status when one exists ('pending' | 'accepted' | 'declined'). */
+  status?: string;
+  /** The connections row id — needed to accept a request or open a chat. */
+  connection_id?: string | null;
+  /** True when I sent this pending request (so Discover shows "Requested"). */
+  outgoing?: boolean;
+}
+
+/** A candidate-to-candidate direct message tied to a connection. */
+export interface DirectMessage {
+  id: string;
+  connection_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  /** True when the signed-in user sent this message. */
+  mine: boolean;
 }
 
 /** A job the candidate has applied to (swiped right on). */
@@ -168,12 +186,12 @@ export const mockSwipeDeck: SwipeCompany[] = [
 ];
 
 export const mockConnections: Connection[] = [
-  { id: "p1", initials: "VH", color: "#7c4dab", name: "Victoria Harmon", role: "Managing Partner · Arcadia Ventures", mutual: "14 mutual connections", online: true, kind: "network" },
-  { id: "p2", initials: "JW", color: "#2f6b4a", name: "James Whitfield", role: "Chief Investment Officer · Meridian", mutual: "8 mutual connections", online: false, kind: "network" },
-  { id: "p3", initials: "SL", color: "#3a6ea5", name: "Sophia Laurent", role: "VP Strategy · Luminary Group", mutual: "22 mutual connections", online: true, kind: "network" },
-  { id: "p4", initials: "MC", color: "#9a6b34", name: "Marcus Chen", role: "Director of Operations · Pinnacle", mutual: "5 mutual connections", online: false, kind: "network" },
-  { id: "p5", initials: "RD", color: "#b8553f", name: "Rachel Donovan", role: "Partner · Crestline Capital", mutual: "Wants to connect · 11 mutual", online: false, kind: "requests" },
-  { id: "p6", initials: "TK", color: "#4a6d8c", name: "Thomas Krause", role: "Head of Talent · Vertex Group", mutual: "Wants to connect · 6 mutual", online: false, kind: "requests" },
+  { id: "p1", initials: "VH", color: "#7c4dab", name: "Victoria Harmon", role: "Managing Partner · Arcadia Ventures", mutual: "14 mutual connections", online: true, kind: "network", status: "accepted", connection_id: "c1" },
+  { id: "p2", initials: "JW", color: "#2f6b4a", name: "James Whitfield", role: "Chief Investment Officer · Meridian", mutual: "8 mutual connections", online: false, kind: "network", status: "accepted", connection_id: "c2" },
+  { id: "p3", initials: "SL", color: "#3a6ea5", name: "Sophia Laurent", role: "VP Strategy · Luminary Group", mutual: "22 mutual connections", online: true, kind: "network", status: "accepted", connection_id: "c3" },
+  { id: "p4", initials: "MC", color: "#9a6b34", name: "Marcus Chen", role: "Director of Operations · Pinnacle", mutual: "5 mutual connections", online: false, kind: "network", status: "accepted", connection_id: "c4" },
+  { id: "p5", initials: "RD", color: "#b8553f", name: "Rachel Donovan", role: "Partner · Crestline Capital", mutual: "Wants to connect · 11 mutual", online: false, kind: "requests", status: "pending", connection_id: "c5", outgoing: false },
+  { id: "p6", initials: "TK", color: "#4a6d8c", name: "Thomas Krause", role: "Head of Talent · Vertex Group", mutual: "Wants to connect · 6 mutual", online: false, kind: "requests", status: "pending", connection_id: "c6", outgoing: false },
   { id: "p7", initials: "EP", color: "#6d49d6", name: "Elena Park", role: "Founder · NovaPath", mutual: "Suggested · 19 mutual", online: true, kind: "discover" },
   { id: "p8", initials: "DB", color: "#2f8f5b", name: "David Bauer", role: "CPO · Helix Labs", mutual: "Suggested · 9 mutual", online: false, kind: "discover" },
   { id: "p9", initials: "NA", color: "#b8923d", name: "Nadia Ahmed", role: "GP · Summit Advisors", mutual: "Suggested · 13 mutual", online: false, kind: "discover" },
@@ -325,6 +343,171 @@ export async function getConnections(kind: Connection["kind"]): Promise<Connecti
   const { data, error } = await supabase.from("connections_view").select("*").eq("kind", kind);
   if (error || !data) return mockConnections.filter((c) => c.kind === kind);
   return data as unknown as Connection[];
+}
+
+// ---------------------------------------------------------------------------
+// PEER CONNECTIONS & MESSAGING — candidates add other candidates from Discover,
+// accept the requests they receive, and DM each other. Requests + messages
+// stream over Supabase Realtime (see subscribeConnections / subscribeMessages).
+// Mirrors apps/mobile/src/data/repo.ts.
+// ---------------------------------------------------------------------------
+
+async function currentUid(): Promise<string | null> {
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
+
+/**
+ * Send a connection request to another candidate (I'm the requester). Returns
+ * the new connection row's id. No-op-safe in mock mode (returns a synthetic id).
+ */
+export async function addConnection(profileId: string): Promise<string | null> {
+  if (!isSupabaseConfigured) return `mock_conn_${profileId}`;
+  const uid = await currentUid();
+  if (!uid) return null;
+  const { data, error } = await supabase
+    .from("connections")
+    .insert({ requester_id: uid, addressee_id: profileId, status: "pending" })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return (data as { id: string }).id;
+}
+
+/** Accept a pending request (only the addressee may, enforced by RLS). */
+export async function acceptConnection(connectionId: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from("connections").update({ status: "accepted" }).eq("id", connectionId);
+  if (error) throw error;
+}
+
+/** Decline a pending request. */
+export async function declineConnection(connectionId: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from("connections").update({ status: "declined" }).eq("id", connectionId);
+  if (error) throw error;
+}
+
+/** How many pending requests are waiting on me (the live Requests badge). */
+export async function getRequestCount(): Promise<number> {
+  if (!isSupabaseConfigured) return mockConnections.filter((c) => c.kind === "requests").length;
+  const uid = await currentUid();
+  if (!uid) return 0;
+  const { count, error } = await supabase
+    .from("connections")
+    .select("id", { count: "exact", head: true })
+    .eq("addressee_id", uid)
+    .eq("status", "pending");
+  if (error) return 0;
+  return count ?? 0;
+}
+
+// Mock chat store so the DM UI is demoable without Supabase configured.
+const mockThreads: Record<string, DirectMessage[]> = {};
+
+/** Full message history for a connection, oldest first. */
+export async function getMessages(connectionId: string): Promise<DirectMessage[]> {
+  if (!isSupabaseConfigured) return mockThreads[connectionId] ?? [];
+  const uid = await currentUid();
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id, connection_id, sender_id, body, created_at")
+    .eq("connection_id", connectionId)
+    .order("created_at", { ascending: true });
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id),
+    connection_id: String(r.connection_id),
+    sender_id: String(r.sender_id),
+    body: String(r.body),
+    created_at: String(r.created_at),
+    mine: r.sender_id === uid,
+  }));
+}
+
+/** Send a message on a connection. Returns the stored row. */
+export async function sendMessage(connectionId: string, body: string): Promise<DirectMessage | null> {
+  const text = body.trim();
+  if (!text) return null;
+  if (!isSupabaseConfigured) {
+    const msg: DirectMessage = {
+      id: `mock_msg_${Date.now()}`,
+      connection_id: connectionId,
+      sender_id: "me",
+      body: text,
+      created_at: new Date().toISOString(),
+      mine: true,
+    };
+    (mockThreads[connectionId] ??= []).push(msg);
+    return msg;
+  }
+  const uid = await currentUid();
+  if (!uid) return null;
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({ connection_id: connectionId, sender_id: uid, body: text })
+    .select("id, connection_id, sender_id, body, created_at")
+    .single();
+  if (error) throw error;
+  const r = data as Record<string, unknown>;
+  return {
+    id: String(r.id),
+    connection_id: String(r.connection_id),
+    sender_id: String(r.sender_id),
+    body: String(r.body),
+    created_at: String(r.created_at),
+    mine: true,
+  };
+}
+
+/**
+ * Live-subscribe to changes on my connections (new requests, accepts). Invokes
+ * `onChange` on every insert/update. Returns an unsubscribe function. No-op in
+ * mock mode.
+ */
+export function subscribeConnections(onChange: () => void): () => void {
+  if (!isSupabaseConfigured) return () => {};
+  const channel = supabase
+    .channel("connections-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "connections" }, onChange)
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Live-subscribe to new messages on a connection. `onInsert` receives each new
+ * message (already tagged `mine`). Returns an unsubscribe function.
+ */
+export function subscribeMessages(
+  connectionId: string,
+  onInsert: (msg: DirectMessage) => void,
+): () => void {
+  if (!isSupabaseConfigured) return () => {};
+  let uid: string | null = null;
+  currentUid().then((id) => (uid = id));
+  const channel = supabase
+    .channel(`messages-${connectionId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "messages", filter: `connection_id=eq.${connectionId}` },
+      (payload) => {
+        const r = payload.new as Record<string, unknown>;
+        onInsert({
+          id: String(r.id),
+          connection_id: String(r.connection_id),
+          sender_id: String(r.sender_id),
+          body: String(r.body),
+          created_at: String(r.created_at),
+          mine: r.sender_id === uid,
+        });
+      },
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 // ---------------------------------------------------------------------------
