@@ -9,6 +9,7 @@ import {
   getMyCompany,
   getCompanyMatches,
   getCompanyRoles,
+  createRole,
   setMatchStage,
   subscribeCompanyMatches,
   type Company,
@@ -68,12 +69,19 @@ export default function HiringPage() {
 function LiveMatchBoard({ company, initial }: { company: Company; initial: MatchedCandidate[] }) {
   const [cands, setCands] = useState<MatchedCandidate[]>(initial);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [composing, setComposing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   // The company's open job postings, shown above the pipeline.
   useEffect(() => {
     getCompanyRoles(company.id).then(setRoles);
   }, [company.id]);
+
+  async function postRole(input: Parameters<typeof createRole>[1]) {
+    const created = await createRole(company.id, input);
+    setRoles((rs) => [...rs, created]); // append: getCompanyRoles orders oldest-first
+    setComposing(false);
+  }
 
   // Keep the latest `busy` readable inside the subscription callback without
   // resubscribing on every stage move.
@@ -132,15 +140,28 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
         <Stat label="Rejected" value={rejected} tone="text-mut" />
       </div>
 
-      {roles.length > 0 && (
-        <Panel className="p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-serif text-[20px] font-bold text-ink">Open Roles</h2>
-              <p className="text-mut text-[12px] mt-1">Live postings at {company.name}</p>
-            </div>
-            <span className="text-mut text-[12px]">{roles.length} active</span>
+      <Panel className="p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-serif text-[20px] font-bold text-ink">Open Roles</h2>
+            <p className="text-mut text-[12px] mt-1">Live postings at {company.name}</p>
           </div>
+          <button
+            onClick={() => setComposing((v) => !v)}
+            className="flex items-center gap-2 bg-gradient-to-r from-goldbright to-golddeep rounded-xl px-4 py-[10px] font-semibold text-[13px]"
+            style={{ color: "#2b2106" }}
+          >
+            <Plus size={16} /> Post New Role
+          </button>
+        </div>
+
+        {composing && <LiveRoleForm onCreate={postRole} onCancel={() => setComposing(false)} />}
+
+        {roles.length === 0 ? (
+          <div className="border border-dashed border-line rounded-xl py-10 text-center text-mut text-[13px]">
+            No open roles yet. Post your first opening to start attracting matches.
+          </div>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {roles.map((r) => (
               <div key={r.id} className="bg-surface2 border border-line rounded-xl p-4">
@@ -162,8 +183,8 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
               </div>
             ))}
           </div>
-        </Panel>
-      )}
+        )}
+      </Panel>
 
       <Panel className="p-6">
         {active.length === 0 ? (
@@ -243,6 +264,83 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
         )}
       </Panel>
     </>
+  );
+}
+
+/* -------------------------------------- inline "post new role" form (live/DB) */
+function LiveRoleForm({
+  onCreate,
+  onCancel,
+}: {
+  onCreate: (input: Parameters<typeof createRole>[1]) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
+  const [type, setType] = useState("Full-time");
+  const [pkg, setPkg] = useState("");
+  const [tags, setTags] = useState("");
+  const [salaryMin, setSalaryMin] = useState("");
+  const [salaryMax, setSalaryMax] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const field =
+    "bg-surface2 border border-line rounded-xl px-4 py-[11px] text-ink text-[14px] outline-none placeholder:text-mut focus:border-gold/50";
+
+  async function submit() {
+    if (!title.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onCreate({
+        title: title.trim(),
+        location: location.trim() || null,
+        type,
+        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        package: pkg.trim() || null,
+        salaryMin: salaryMin ? Number(salaryMin) : null,
+        salaryMax: salaryMax ? Number(salaryMax) : null,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't post the role. Please try again.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="border border-line rounded-2xl bg-surface p-5 mb-5">
+      <h3 className="font-serif text-[17px] font-bold text-ink mb-4">Post a new role</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Role title *" className={field} />
+        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location" className={field} />
+        <select value={type} onChange={(e) => setType(e.target.value)} className={field}>
+          <option>Full-time</option>
+          <option>Hybrid</option>
+          <option>Remote</option>
+        </select>
+        <input value={pkg} onChange={(e) => setPkg(e.target.value)} placeholder="Package (e.g. $120K)" className={field} />
+        <input value={salaryMin} onChange={(e) => setSalaryMin(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Salary min" className={field} />
+        <input value={salaryMax} onChange={(e) => setSalaryMax(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Salary max" className={field} />
+        <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="Tags (comma separated)" className={`${field} sm:col-span-2 lg:col-span-3`} />
+      </div>
+
+      {error && <p className="mt-4 text-[13px] text-danger bg-danger/10 border border-danger/30 rounded-xl px-4 py-3">{error}</p>}
+
+      <div className="flex items-center gap-3 mt-4">
+        <button
+          onClick={submit}
+          disabled={!title.trim() || busy}
+          className="flex items-center gap-2 bg-gradient-to-r from-goldbright to-golddeep rounded-xl px-4 py-[10px] font-semibold text-[13px] disabled:opacity-40"
+          style={{ color: "#2b2106" }}
+        >
+          {busy ? <><Loader2 size={15} className="animate-spin" /> Posting…</> : "Create role"}
+        </button>
+        <button onClick={onCancel} disabled={busy} className="text-mut hover:text-ink text-[13px] px-2 disabled:opacity-40">
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 

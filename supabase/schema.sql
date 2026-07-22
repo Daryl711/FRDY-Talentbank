@@ -333,6 +333,13 @@ drop policy if exists "companies read" on companies;
 create policy "companies read" on companies for select to authenticated using (true);
 drop policy if exists "roles read"     on roles;
 create policy "roles read"     on roles     for select to authenticated using (true);
+-- Company owners can post/edit/remove roles for the companies they own. This is
+-- what lets the employer dashboard add new job openings. Permissive policies are
+-- OR'd, so "roles read" above still lets everyone read every role.
+drop policy if exists "roles manage"   on roles;
+create policy "roles manage"   on roles     for all to authenticated
+  using (company_id in (select id from companies where owner_id = auth.uid()))
+  with check (company_id in (select id from companies where owner_id = auth.uid()));
 drop policy if exists "companies own"  on companies;
 create policy "companies own"  on companies for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
