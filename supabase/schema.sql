@@ -449,10 +449,70 @@ insert into roles (company_id, title, salary_min, salary_max, type, tags, packag
 on conflict do nothing;
 
 -- ============================================================================
+-- CELCOMDIGI EMPLOYER — fixed demo credentials + company ownership
+-- Creates a login (employer@celcomdigi.com / CelcomDigi123!) and makes it the
+-- owner of the seeded CelcomDigi company. Ownership is what wires the employer
+-- portal's live Hiring board to real data: getMyCompany() and the
+-- get_company_matches() RPC both key off `owner_id = auth.uid()`, so once this
+-- user owns CelcomDigi they see — and can move through the pipeline — every
+-- candidate that mutually matches CelcomDigi's role, in real time.
+--
+-- Seeding an auth user from SQL: GoTrue authenticates against auth.users, so we
+-- insert a bcrypt-hashed password (pgcrypto) with email already confirmed, plus
+-- the matching auth.identities row the email provider needs. Guarded to run once
+-- and wrapped so a plain (non-Supabase) Postgres without an auth schema is a
+-- no-op rather than an error.
+-- ============================================================================
+create extension if not exists pgcrypto;
+
+do $$
+declare
+  emp_id uuid;
+begin
+  -- Reuse the existing login if this seed has already run.
+  select id into emp_id from auth.users where email = 'employer@celcomdigi.com';
+
+  if emp_id is null then
+    emp_id := uuid_generate_v4();
+
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password,
+      email_confirmed_at, created_at, updated_at,
+      raw_app_meta_data, raw_user_meta_data
+    ) values (
+      '00000000-0000-0000-0000-000000000000', emp_id, 'authenticated', 'authenticated',
+      'employer@celcomdigi.com', crypt('CelcomDigi123!', gen_salt('bf')),
+      now(), now(), now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      '{"name":"CelcomDigi Talent"}'::jsonb
+    );
+
+    insert into auth.identities (
+      id, user_id, provider_id, identity_data, provider,
+      last_sign_in_at, created_at, updated_at
+    ) values (
+      gen_random_uuid(), emp_id, emp_id::text,
+      jsonb_build_object('sub', emp_id::text, 'email', 'employer@celcomdigi.com'),
+      'email', now(), now(), now()
+    );
+  end if;
+
+  -- Hand CelcomDigi to this employer so the live board resolves to it.
+  update companies
+     set owner_id = emp_id
+   where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+exception when undefined_table then
+  -- No auth schema (plain Postgres) — nothing to seed.
+  raise notice 'auth schema not present; skipped CelcomDigi employer seed';
+end $$;
+
+-- ============================================================================
 -- REALTIME — stream row changes to subscribed clients. The mobile app listens
 -- on `connections` (live Requests badge when someone adds you) and `messages`
--- (live chat). RLS still applies, so each client only receives rows it may read.
--- Guarded so re-running the script (or a non-Supabase Postgres) is a no-op.
+-- (live chat); the employer web board listens on `matches` so a new mutual
+-- match with CelcomDigi shows up on the Hiring pipeline instantly. RLS still
+-- applies, so each client only receives rows it may read. Guarded so re-running
+-- the script (or a non-Supabase Postgres) is a no-op.
 -- ============================================================================
 do $$
 begin
@@ -467,6 +527,12 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
   ) then
     alter publication supabase_realtime add table messages;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'matches'
+  ) then
+    alter publication supabase_realtime add table matches;
   end if;
 exception when undefined_object then
   -- No supabase_realtime publication (plain Postgres) — nothing to enable.
