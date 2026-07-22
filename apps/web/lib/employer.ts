@@ -50,3 +50,25 @@ export async function setMatchStage(matchId: string, stage: HireStage): Promise<
   const { error } = await supabase.from("matches").update({ stage }).eq("id", matchId);
   if (error) throw error;
 }
+
+/**
+ * Live-subscribe to the caller's company matches. Fires `onChange` whenever a
+ * row in `matches` for this company is inserted/updated/deleted (a candidate
+ * newly matches, or a stage moves elsewhere), so the Hiring board can re-fetch
+ * the enriched list. Returns an unsubscribe function; a no-op when Supabase is
+ * off. Realtime is enabled on `matches` in schema.sql and RLS still applies.
+ */
+export function subscribeCompanyMatches(companyId: string, onChange: () => void): () => void {
+  if (!isSupabaseConfigured) return () => {};
+  const channel = supabase
+    .channel(`company-matches-${companyId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "matches", filter: `company_id=eq.${companyId}` },
+      () => onChange(),
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}

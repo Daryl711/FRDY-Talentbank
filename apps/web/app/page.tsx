@@ -13,6 +13,15 @@ const PORTALS: Record<OrgType, string> = {
   university: "/university",
 };
 
+// Prefilled demo logins per portal. The employer portal uses the fixed
+// CelcomDigi credentials seeded in supabase/schema.sql — that account owns the
+// CelcomDigi company, so signing in lands on a live Hiring board wired to the
+// candidates who matched CelcomDigi's role.
+const DEMO_CREDS: Record<"employer" | "university", { email: string; password: string }> = {
+  employer: { email: "employer@celcomdigi.com", password: "CelcomDigi123!" },
+  university: { email: "hiring@gmail.com", password: "password" },
+};
+
 export default function SignInPage() {
   const [org, setOrg] = useState<OrgType>("candidate");
 
@@ -29,7 +38,11 @@ export default function SignInPage() {
           <OrgCard active={org === "university"} onClick={() => setOrg("university")} icon={<GraduationCap size={20} />} title="University" sub="Graduate outcomes" />
         </div>
 
-        {org === "candidate" ? <CandidateAuth /> : <DemoAuth portal={PORTALS[org]} />}
+        {org === "candidate" ? (
+          <CandidateAuth />
+        ) : (
+          <DemoAuth portal={PORTALS[org]} defaults={DEMO_CREDS[org]} />
+        )}
 
         <p className="text-center eyebrow mt-12">Elevate Enterprise v2.4 · Terms · Privacy</p>
       </div>
@@ -158,10 +171,10 @@ function CandidateAuth() {
 /* ------------------------------------------------------- employer / university demo */
 // The employer and university dashboards run on curated demo data, so their
 // sign-in keeps the prototype passthrough (and prefilled demo credentials).
-function DemoAuth({ portal }: { portal: string }) {
+function DemoAuth({ portal, defaults }: { portal: string; defaults: { email: string; password: string } }) {
   const router = useRouter();
-  const [email, setEmail] = useState("hiring@gmail.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState(defaults.email);
+  const [password, setPassword] = useState(defaults.password);
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

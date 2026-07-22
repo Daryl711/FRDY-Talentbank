@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, X, Check, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, X, Check, Loader2, Radio } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
 import { jobRoles, traitEmoji } from "@/lib/mock";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { getMyCompany, getCompanyMatches, setMatchStage, type Company } from "@/lib/employer";
+import {
+  getMyCompany,
+  getCompanyMatches,
+  setMatchStage,
+  subscribeCompanyMatches,
+  type Company,
+} from "@/lib/employer";
 import type { JobRole, HireStage, MatchedCandidate } from "@/lib/types";
 
 const STAGE_COLOR: Record<string, string> = {
@@ -20,8 +26,10 @@ const STAGE_COLOR: Record<string, string> = {
 const STAGE_ORDER: HireStage[] = ["Applied", "Screening", "Interview", "Final Round", "Offer"];
 
 export default function HiringPage() {
-  // Live matched candidates for the employer's company (Supabase). When there
-  // are none (or Supabase is off) we fall back to the mock board below.
+  // Live matched candidates for the employer's company (Supabase). When the
+  // signed-in employer owns a company we always show the live board — even with
+  // zero matches yet — so new matches can stream in. Otherwise (Supabase off, or
+  // no owned company) we fall back to the mock board below.
   const [company, setCompany] = useState<Company | null>(null);
   const [liveMatches, setLiveMatches] = useState<MatchedCandidate[]>([]);
   const [loading, setLoading] = useState(isSupabaseConfigured);
@@ -36,8 +44,6 @@ export default function HiringPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const useLive = liveMatches.length > 0;
-
   if (loading) {
     return (
       <>
@@ -49,7 +55,7 @@ export default function HiringPage() {
     );
   }
 
-  if (useLive) {
+  if (company) {
     return <LiveMatchBoard company={company} initial={liveMatches} />;
   }
 
@@ -57,9 +63,29 @@ export default function HiringPage() {
 }
 
 /* ============================================================ LIVE MATCH BOARD */
-function LiveMatchBoard({ company, initial }: { company: Company | null; initial: MatchedCandidate[] }) {
+function LiveMatchBoard({ company, initial }: { company: Company; initial: MatchedCandidate[] }) {
   const [cands, setCands] = useState<MatchedCandidate[]>(initial);
   const [busy, setBusy] = useState<string | null>(null);
+
+  // Keep the latest `busy` readable inside the subscription callback without
+  // resubscribing on every stage move.
+  const busyRef = useRef<string | null>(null);
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
+
+  // Real-time: re-fetch the enriched match list whenever a `matches` row for
+  // this company changes (a candidate mutually matches, or a stage moves). The
+  // realtime event carries only the raw match row, so we re-run the RPC to pull
+  // names/traits/scores. Skip while a local stage move is in flight so the
+  // optimistic UI isn't clobbered mid-update.
+  useEffect(() => {
+    const unsub = subscribeCompanyMatches(company.id, () => {
+      if (busyRef.current) return;
+      getCompanyMatches().then(setCands);
+    });
+    return unsub;
+  }, [company.id]);
 
   async function move(c: MatchedCandidate, stage: HireStage) {
     const prev = cands;
@@ -82,7 +108,12 @@ function LiveMatchBoard({ company, initial }: { company: Company | null; initial
     <>
       <PageHeader
         title="Hiring"
-        subtitle={`Matched candidates for ${company?.name ?? "your company"} — move them through your pipeline`}
+        subtitle={`Matched candidates for ${company.name} — move them through your pipeline`}
+        action={
+          <span className="flex items-center gap-2 bg-ok/10 border border-ok/30 rounded-full px-3 py-[7px] text-ok text-[12px] font-semibold">
+            <Radio size={13} className="animate-pulse" /> Live
+          </span>
+        }
       />
 
       <div className="flex items-center gap-6 mb-6">
