@@ -101,8 +101,20 @@ create table if not exists roles (
   created_at   timestamptz default now()
 );
 
--- Convenience view the app reads for the featured list / swipe deck
-create or replace view roles_with_company as
+-- Richer job-posting detail employers fill in on "Post New Role" (see the
+-- LiveRoleForm). Added as nullable columns so pre-existing roles stay valid.
+-- responsibilities / requirements are bullet lists; description is free text.
+alter table roles add column if not exists description      text;
+alter table roles add column if not exists responsibilities text[] default '{}';
+alter table roles add column if not exists requirements     text[] default '{}';
+alter table roles add column if not exists experience_level text;   -- 'Entry' | 'Mid' | 'Senior' | 'Lead'
+alter table roles add column if not exists education        text;   -- e.g. "Bachelor's degree"
+
+-- Convenience view joining roles + company info. Dropped first: the new role
+-- columns above change what `r.*` expands to, and create-or-replace can't insert
+-- columns mid-list. Nothing depends on this view, so a drop is safe.
+drop view if exists roles_with_company;
+create view roles_with_company as
   select r.*, c.name as company, c.initials, c.employees, c.location as company_location
   from roles r join companies c on c.id = r.company_id;
 
@@ -251,10 +263,15 @@ create trigger trg_right_swipe after insert on swipes
 -- the job title, so each opening shows as its own card. A scalar subquery (not
 -- a cross join) reads the caller's embedding, so a candidate with no profile
 -- row still gets a deck (match falls back to 75) instead of an empty one.
+-- Return signature changed (added the detail columns), so drop the old function
+-- first — create-or-replace can't alter a function's OUT columns.
+drop function if exists get_swipe_deck();
 create or replace function get_swipe_deck()
 returns table (
   id uuid, initials text, name text, role text, location text,
-  employees text, match int, tags text[], package text, perks text[]
+  employees text, match int, tags text[], package text, perks text[],
+  description text, responsibilities text[], requirements text[],
+  experience_level text, education text
 ) language sql security definer as $$
   select
     r.id, c.initials, c.name, r.title as role,
@@ -262,7 +279,9 @@ returns table (
     coalesce(round((1 - (c.embedding <=> (
       select embedding from profiles where id = auth.uid()
     ))) * 100)::int, 75) as match,
-    coalesce(r.tags, '{}') as tags, r.package, coalesce(r.perks, '{}') as perks
+    coalesce(r.tags, '{}') as tags, r.package, coalesce(r.perks, '{}') as perks,
+    r.description, coalesce(r.responsibilities, '{}') as responsibilities,
+    coalesce(r.requirements, '{}') as requirements, r.experience_level, r.education
   from roles r
   join companies c on c.id = r.company_id
   where r.id not in (
