@@ -569,5 +569,31 @@ export async function uploadResume(input: ResumeUpload): Promise<Resume> {
   return data ? rowToResume(data as Record<string, unknown>) : resume;
 }
 
+/**
+ * Upload an optional cover letter the candidate picked from their device.
+ * Stored alongside resumes in the same `resumes` Storage bucket (namespaced
+ * under the user's own folder). Cover letters are optional and don't gate
+ * matching, so no metadata row is inserted. Returns the display name.
+ */
+export async function uploadCoverLetter(input: ResumeUpload): Promise<{ name: string }> {
+  const name = input.name.replace(/\.[^./\\]+$/, "");
+  if (!isSupabaseConfigured) return { name };
+
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return { name };
+
+  const bytes = await new File(input.uri).bytes();
+  const storagePath = `${uid}/cover-letters/${Date.now()}_${input.name}`;
+  const { error } = await supabase.storage
+    .from("resumes")
+    .upload(storagePath, bytes, {
+      contentType: input.mimeType || "application/octet-stream",
+      upsert: false,
+    });
+  if (error) throw error;
+  return { name };
+}
+
 export const trendingSectors = mock.trendingSectors;
 export const careerInsights = mock.careerInsights;

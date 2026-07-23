@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Users, Zap, X, Check, Heart, Sparkles, Upload, Lock, Loader2, FilePlus, LayoutList } from "lucide-react";
-import { getResumes, getSwipeDeck, recordSwipe, uploadResume, type SwipeCompany, type SwipeDirection } from "@/lib/candidate";
+import { MapPin, Users, Zap, X, Check, Heart, Sparkles, Upload, Lock, Loader2, FilePlus, LayoutList, FileText } from "lucide-react";
+import { getResumes, getSwipeDeck, recordSwipe, uploadCoverLetter, uploadResume, type SwipeCompany, type SwipeDirection } from "@/lib/candidate";
 
 type FocusJob = Partial<SwipeCompany> & { name: string };
 
@@ -33,8 +33,12 @@ export default function MatchPage() {
   // uploaded a resume (done right on the card). null = still checking.
   const [hasResume, setHasResume] = useState<boolean | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Cover letter is optional — candidates may attach one or skip it entirely.
+  const [coverLetter, setCoverLetter] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [browseOpen, setBrowseOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const coverRef = useRef<HTMLInputElement>(null);
   const focusApplied = useRef(false);
 
   useEffect(() => {
@@ -123,6 +127,22 @@ export default function MatchPage() {
     }
   }
 
+  async function onPickCover(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    setUploadingCover(true);
+    try {
+      const { name } = await uploadCoverLetter(file);
+      setCoverLetter(name);
+      showToast("Cover letter attached.");
+    } catch {
+      showToast("Cover letter upload failed. Please try again.");
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
   const canMatch = hasResume === true;
 
   return (
@@ -155,6 +175,9 @@ export default function MatchPage() {
               c={card}
               hasResume={canMatch}
               uploading={uploading}
+              coverLetter={coverLetter}
+              uploadingCover={uploadingCover}
+              onUploadCover={() => coverRef.current?.click()}
               onUpload={() => fileRef.current?.click()}
               onCreateNew={() => router.push("/candidate/resume")}
               onCreateResume={(c) => showToast(`Tailor a new resume for ${c.role} at ${c.name}.`)}
@@ -169,8 +192,9 @@ export default function MatchPage() {
         )}
       </div>
 
-      {/* Hidden picker used by the on-card Upload Resume button. */}
+      {/* Hidden pickers used by the on-card Upload Resume / Cover Letter buttons. */}
       <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={onPickFile} />
+      <input ref={coverRef} type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={onPickCover} />
 
       {/* actions */}
       {card && !done && (
@@ -248,11 +272,14 @@ export default function MatchPage() {
 }
 
 function CompanyCard({
-  c, hasResume, uploading, onUpload, onCreateNew, onCreateResume,
+  c, hasResume, uploading, coverLetter, uploadingCover, onUploadCover, onUpload, onCreateNew, onCreateResume,
 }: {
   c: SwipeCompany;
   hasResume: boolean;
   uploading: boolean;
+  coverLetter: string | null;
+  uploadingCover: boolean;
+  onUploadCover: () => void;
   onUpload: () => void;
   onCreateNew: () => void;
   onCreateResume: (c: SwipeCompany) => void;
@@ -331,6 +358,29 @@ function CompanyCard({
           </div>
         </div>
       )}
+
+      {/* Optional cover letter — candidates may attach one or skip it. */}
+      <div className="mt-3">
+        {coverLetter ? (
+          <div className="flex items-center justify-between gap-2 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(216,180,90,0.3)" }}>
+            <span className="flex items-center gap-2 text-[#8fd6a0] text-[12px] min-w-0">
+              <Check size={14} className="shrink-0" /> <span className="truncate">Cover letter attached · {coverLetter}</span>
+            </span>
+            <button onClick={onUploadCover} disabled={uploadingCover} className="text-[#cfe6d2] text-[11px] underline underline-offset-2 hover:text-ink shrink-0 disabled:opacity-60">
+              Replace
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onUploadCover}
+            disabled={uploadingCover}
+            className="w-full flex items-center justify-center gap-2 rounded-xl py-3 font-mono text-[10.5px] tracking-wide uppercase text-[#cfe6d2] disabled:opacity-60"
+            style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.14)" }}
+          >
+            {uploadingCover ? <><Loader2 size={14} className="animate-spin" /> Uploading…</> : <><FileText size={14} /> Add Cover Letter</>}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

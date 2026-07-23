@@ -7,7 +7,7 @@ import { Eyebrow, ScreenBg } from "@/components/ui";
 import { SwipeDeck, SwipeDeckHandle } from "@/components/SwipeDeck";
 import SubmittedJobsModal from "@/components/SubmittedJobsModal";
 import * as DocumentPicker from "expo-document-picker";
-import { getResumes, getSubmittedJobs, getSwipeDeck, recordSwipe, uploadResume } from "@/data/repo";
+import { getResumes, getSubmittedJobs, getSwipeDeck, recordSwipe, uploadCoverLetter, uploadResume } from "@/data/repo";
 import { SubmittedJob, SwipeCompany, SwipeDirection } from "@/data/types";
 import { colors, gradients } from "@/theme/colors";
 
@@ -15,6 +15,9 @@ function CompanyCard({
   c,
   hasResume,
   uploading,
+  coverLetter,
+  uploadingCover,
+  onUploadCover,
   onUpload,
   onCreateNew,
   onCreateResume,
@@ -22,6 +25,9 @@ function CompanyCard({
   c: SwipeCompany;
   hasResume: boolean;
   uploading: boolean;
+  coverLetter: string | null;
+  uploadingCover: boolean;
+  onUploadCover: () => void;
   onUpload: () => void;
   onCreateNew: () => void;
   onCreateResume?: (c: SwipeCompany) => void;
@@ -135,6 +141,34 @@ function CompanyCard({
           </View>
         </View>
       )}
+
+      {/* Optional cover letter — candidates may attach one or skip it. */}
+      {coverLetter ? (
+        <View
+          className="flex-row items-center justify-between gap-[8px] rounded-[14px] px-4 py-[12px] mb-[6px]"
+          style={{ backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(216,180,90,0.3)" }}
+        >
+          <View className="flex-row items-center gap-[6px] flex-1 min-w-0">
+            <Feather name="check" size={13} color="#8fd6a0" />
+            <Text numberOfLines={1} className="text-[#8fd6a0] text-[12px] flex-1">Cover letter · {coverLetter}</Text>
+          </View>
+          <Pressable onPress={onUploadCover} disabled={uploadingCover} hitSlop={8}>
+            <Text className="text-[#cfe6d2] text-[11px] underline">Replace</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          onPress={onUploadCover}
+          disabled={uploadingCover}
+          className="flex-row items-center justify-center gap-[7px] rounded-[14px] py-[13px] mb-[6px]"
+          style={{ backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.14)" }}
+        >
+          <Feather name="file-text" size={14} color="#cfe6d2" />
+          <Text numberOfLines={1} className="font-mono text-[10.5px] tracking-[1px] uppercase" style={{ color: "#cfe6d2" }}>
+            {uploadingCover ? "Uploading…" : "Add Cover Letter"}
+          </Text>
+        </Pressable>
+      )}
     </LinearGradient>
   );
 }
@@ -171,6 +205,9 @@ export default function MatchScreen() {
   // null = still checking. Candidates must upload a resume before matching.
   const [hasResume, setHasResume] = useState<boolean | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Cover letter is optional — candidates may attach one or skip it entirely.
+  const [coverLetter, setCoverLetter] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const swiperRef = useRef<SwipeDeckHandle>(null);
 
   useEffect(() => {
@@ -261,6 +298,27 @@ export default function MatchScreen() {
     }
   }
 
+  // Upload an optional cover letter from the job card. Never gates matching.
+  async function handleUploadCover() {
+    if (uploadingCover) return;
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+    const file = result.assets[0];
+    if (!file) return;
+    setUploadingCover(true);
+    try {
+      const { name } = await uploadCoverLetter({ name: file.name, uri: file.uri, sizeBytes: file.size, mimeType: file.mimeType });
+      setCoverLetter(name);
+    } catch (e) {
+      Alert.alert("Cover letter upload failed", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
   // Matching (right-swipe) is locked until a resume is uploaded.
   const canMatch = hasResume === true;
 
@@ -313,6 +371,9 @@ export default function MatchScreen() {
                   c={c}
                   hasResume={canMatch}
                   uploading={uploading}
+                  coverLetter={coverLetter}
+                  uploadingCover={uploadingCover}
+                  onUploadCover={handleUploadCover}
                   onUpload={handleUpload}
                   onCreateNew={() => nav.navigate("Resume")}
                   onCreateResume={onCreateResume}
