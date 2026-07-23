@@ -452,9 +452,19 @@ create policy "messages send" on messages for insert to authenticated
     )
   );
 
--- resumes: private to the owner
+-- resumes: private to the owner …
 drop policy if exists "resumes own" on resumes;
 create policy "resumes own" on resumes for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- … but an employer may READ the resume metadata of any candidate matched to a
+-- company they own, so the Hiring board can show applicants' resumes. Permissive
+-- policies are OR'd, so "resumes own" above still fully covers the candidate.
+drop policy if exists "resumes employer read" on resumes;
+create policy "resumes employer read" on resumes for select to authenticated
+  using (exists (
+    select 1 from matches m
+    join companies co on co.id = m.company_id
+    where m.user_id = resumes.user_id and co.owner_id = auth.uid()
+  ));
 
 -- ============================================================================
 -- STORAGE — uploaded resume files live in a private "resumes" bucket. Each
@@ -470,6 +480,21 @@ drop policy if exists "resume files own" on storage.objects;
 create policy "resume files own" on storage.objects for all to authenticated
   using (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Employers may READ (list + download) the resume and cover-letter files of any
+-- candidate matched to a company they own. The folder's first segment is the
+-- candidate's uid (`${uid}/…` and `${uid}/cover-letters/…`), so this covers both.
+drop policy if exists "resume files employer read" on storage.objects;
+create policy "resume files employer read" on storage.objects for select to authenticated
+  using (
+    bucket_id = 'resumes'
+    and exists (
+      select 1 from matches m
+      join companies co on co.id = m.company_id
+      where co.owner_id = auth.uid()
+        and (storage.foldername(name))[1] = m.user_id::text
+    )
+  );
 
 -- ============================================================================
 -- AUTO-CREATE A PROFILE ROW ON SIGN-UP
