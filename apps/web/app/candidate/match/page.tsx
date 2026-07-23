@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Users, Zap, X, Check, Heart, Sparkles, Upload, Lock, Loader2, FilePlus, LayoutList, FileText, Eye } from "lucide-react";
+import { MapPin, Users, Zap, X, Check, Heart, Sparkles, Upload, Lock, Loader2, FilePlus, LayoutList, FileText, Eye, ChevronDown, ChevronUp, Briefcase } from "lucide-react";
 import { getResumes, getSwipeDeck, recordSwipe, uploadCoverLetter, uploadResume, type SwipeCompany, type SwipeDirection } from "@/lib/candidate";
 
 type FocusJob = Partial<SwipeCompany> & { name: string };
@@ -378,6 +378,9 @@ function CompanyCard({
 }) {
   // Show typed digits grouped with thousands separators; store stays digit-only.
   const fmt = (v: string) => (v ? Number(v).toLocaleString("en-US") : "");
+  const [showDetails, setShowDetails] = useState(false);
+  const hasDetails =
+    !!c.description || (c.responsibilities?.length ?? 0) > 0 || (c.requirements?.length ?? 0) > 0 || !!c.education;
   return (
     <div className="rounded-3xl p-6 border" style={{ borderColor: "#3d6b3f", background: "linear-gradient(135deg,#183a26,#0f2418)" }}>
       <div className="flex justify-between items-start">
@@ -404,6 +407,57 @@ function CompanyCard({
               {t}
             </span>
           ))}
+        </div>
+      )}
+
+      {(c.experienceLevel || hasDetails) && (
+        <div className="mt-4">
+          {c.experienceLevel && (
+            <span className="inline-flex items-center gap-1 rounded-full px-3 py-[6px] text-[#cfe6d2] text-[11.5px]" style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+              <Briefcase size={12} /> {c.experienceLevel} level
+            </span>
+          )}
+          {hasDetails && (
+            <>
+              <button
+                onClick={() => setShowDetails((v) => !v)}
+                className="flex items-center gap-1 mt-3 text-goldbright text-[12.5px] font-semibold"
+              >
+                {showDetails ? <ChevronUp size={15} /> : <ChevronDown size={15} />} {showDetails ? "Hide role details" : "View role details"}
+              </button>
+              {showDetails && (
+                <div className="mt-3 rounded-2xl p-4 flex flex-col gap-3" style={{ backgroundColor: "rgba(0,0,0,0.22)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  {c.description && <p className="text-[#cfe6d2] text-[12.5px] leading-[19px] whitespace-pre-line">{c.description}</p>}
+                  {(c.responsibilities?.length ?? 0) > 0 && (
+                    <div>
+                      <div className="font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase mb-1.5">Responsibilities</div>
+                      <ul className="flex flex-col gap-1">
+                        {c.responsibilities!.map((x, i) => (
+                          <li key={i} className="flex gap-2 text-[#cfe6d2] text-[12.5px]"><span className="text-goldbright">•</span> {x}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {(c.requirements?.length ?? 0) > 0 && (
+                    <div>
+                      <div className="font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase mb-1.5">Requirements</div>
+                      <ul className="flex flex-col gap-1">
+                        {c.requirements!.map((x, i) => (
+                          <li key={i} className="flex gap-2 text-[#cfe6d2] text-[12.5px]"><span className="text-goldbright">•</span> {x}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {c.education && (
+                    <div>
+                      <div className="font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase mb-1">Education</div>
+                      <div className="text-[#cfe6d2] text-[12.5px]">{c.education}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

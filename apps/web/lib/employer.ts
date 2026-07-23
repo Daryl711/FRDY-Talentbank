@@ -125,9 +125,15 @@ export interface Role {
   location: string | null;
   type: string | null;
   tags: string[];
+  perks: string[];
   package: string | null;
   salaryMin: number | null;
   salaryMax: number | null;
+  description: string | null;
+  responsibilities: string[];
+  requirements: string[];
+  experienceLevel: string | null;
+  education: string | null;
 }
 
 // Fields written when an employer posts a new role. `type` is a work_type enum
@@ -137,12 +143,19 @@ export interface NewRoleInput {
   location?: string | null;
   type?: string;
   tags?: string[];
+  perks?: string[];
   package?: string | null;
   salaryMin?: number | null;
   salaryMax?: number | null;
+  description?: string | null;
+  responsibilities?: string[];
+  requirements?: string[];
+  experienceLevel?: string | null;
+  education?: string | null;
 }
 
-const ROLE_COLS = "id,title,location,type,tags,package,salary_min,salary_max";
+const ROLE_COLS =
+  "id,title,location,type,tags,perks,package,salary_min,salary_max,description,responsibilities,requirements,experience_level,education";
 
 function mapRole(r: Record<string, unknown>): Role {
   return {
@@ -151,9 +164,15 @@ function mapRole(r: Record<string, unknown>): Role {
     location: (r.location as string | null) ?? null,
     type: (r.type as string | null) ?? null,
     tags: (r.tags as string[] | null) ?? [],
+    perks: (r.perks as string[] | null) ?? [],
     package: (r.package as string | null) ?? null,
     salaryMin: (r.salary_min as number | null) ?? null,
     salaryMax: (r.salary_max as number | null) ?? null,
+    description: (r.description as string | null) ?? null,
+    responsibilities: (r.responsibilities as string[] | null) ?? [],
+    requirements: (r.requirements as string[] | null) ?? [],
+    experienceLevel: (r.experience_level as string | null) ?? null,
+    education: (r.education as string | null) ?? null,
   };
 }
 
@@ -183,9 +202,15 @@ export async function createRole(companyId: string, input: NewRoleInput): Promis
       location: input.location ?? null,
       type: input.type ?? "Full-time",
       tags: input.tags ?? [],
+      perks: input.perks ?? [],
       package: input.package ?? null,
       salary_min: input.salaryMin ?? null,
       salary_max: input.salaryMax ?? null,
+      description: input.description ?? null,
+      responsibilities: input.responsibilities ?? [],
+      requirements: input.requirements ?? [],
+      experience_level: input.experienceLevel ?? null,
+      education: input.education ?? null,
     })
     .select(ROLE_COLS)
     .single();

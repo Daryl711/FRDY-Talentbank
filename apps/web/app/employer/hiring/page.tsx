@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, X, Check, Loader2, Radio, MessageSquare, Briefcase, FileSearch } from "lucide-react";
+import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Check, Loader2, Radio, MessageSquare, Briefcase, FileSearch } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
 import MatchChat from "@/components/MatchChat";
 import CandidateDossier from "@/components/employer/CandidateDossier";
@@ -170,23 +170,7 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {roles.map((r) => (
-              <div key={r.id} className="bg-surface2 border border-line rounded-xl p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-ink font-semibold text-[15px]">{r.title}</span>
-                  {r.package && <span className="text-gold text-[13px] font-semibold shrink-0">{r.package}</span>}
-                </div>
-                <div className="flex items-center gap-3 mt-2 text-mut text-[12px]">
-                  {r.location && <span className="flex items-center gap-1"><MapPin size={12} /> {r.location}</span>}
-                  {r.type && <span>{r.type}</span>}
-                </div>
-                {r.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {r.tags.map((t) => (
-                      <span key={t} className="text-dim text-[11px] bg-surface3 border border-line rounded-full px-2 py-[3px]">{t}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <RoleCard key={r.id} r={r} />
             ))}
           </div>
         )}
@@ -316,15 +300,23 @@ function LiveRoleForm({
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [type, setType] = useState("Full-time");
+  const [experienceLevel, setExperienceLevel] = useState("Mid");
+  const [education, setEducation] = useState("");
   const [pkg, setPkg] = useState("");
   const [tags, setTags] = useState("");
+  const [perks, setPerks] = useState("");
   const [salaryMin, setSalaryMin] = useState("");
   const [salaryMax, setSalaryMax] = useState("");
+  const [description, setDescription] = useState("");
+  const [responsibilities, setResponsibilities] = useState("");
+  const [requirements, setRequirements] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const field =
     "bg-surface2 border border-line rounded-xl px-4 py-[11px] text-ink text-[14px] outline-none placeholder:text-mut focus:border-gold/50";
+  // Split a textarea into a clean bullet list (one item per line).
+  const toList = (v: string) => v.split("\n").map((l) => l.replace(/^[-•\s]+/, "").trim()).filter(Boolean);
 
   async function submit() {
     if (!title.trim() || busy) return;
@@ -335,10 +327,16 @@ function LiveRoleForm({
         title: title.trim(),
         location: location.trim() || null,
         type,
+        experienceLevel,
+        education: education.trim() || null,
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        perks: perks.split(",").map((t) => t.trim()).filter(Boolean),
         package: pkg.trim() || null,
         salaryMin: salaryMin ? Number(salaryMin) : null,
         salaryMax: salaryMax ? Number(salaryMax) : null,
+        description: description.trim() || null,
+        responsibilities: toList(responsibilities),
+        requirements: toList(requirements),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't post the role. Please try again.");
@@ -349,6 +347,8 @@ function LiveRoleForm({
   return (
     <div className="border border-line rounded-2xl bg-surface p-5 mb-5">
       <h3 className="font-serif text-[17px] font-bold text-ink mb-4">Post a new role</h3>
+
+      <p className="eyebrow mb-2">Basics</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Role title *" className={field} />
         <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location" className={field} />
@@ -357,10 +357,53 @@ function LiveRoleForm({
           <option>Hybrid</option>
           <option>Remote</option>
         </select>
+        <select value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)} className={field}>
+          <option value="Entry">Entry level</option>
+          <option value="Mid">Mid level</option>
+          <option value="Senior">Senior level</option>
+          <option value="Lead">Lead / Manager</option>
+        </select>
+        <input value={education} onChange={(e) => setEducation(e.target.value)} placeholder="Education (e.g. Bachelor's degree)" className={field} />
         <input value={pkg} onChange={(e) => setPkg(e.target.value)} placeholder="Package (e.g. $120K)" className={field} />
         <input value={salaryMin} onChange={(e) => setSalaryMin(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Salary min" className={field} />
         <input value={salaryMax} onChange={(e) => setSalaryMax(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Salary max" className={field} />
-        <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="Tags (comma separated)" className={`${field} sm:col-span-2 lg:col-span-3`} />
+      </div>
+
+      <p className="eyebrow mt-5 mb-2">Job description</p>
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        rows={4}
+        placeholder="Describe the role, the team, and what success looks like…"
+        className={`${field} w-full resize-y`}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+        <div>
+          <p className="eyebrow mb-2">Responsibilities <span className="text-mut normal-case tracking-normal">· one per line</span></p>
+          <textarea
+            value={responsibilities}
+            onChange={(e) => setResponsibilities(e.target.value)}
+            rows={4}
+            placeholder={"Own the product roadmap\nPartner with engineering & design\nReport on KPIs"}
+            className={`${field} w-full resize-y`}
+          />
+        </div>
+        <div>
+          <p className="eyebrow mb-2">Requirements <span className="text-mut normal-case tracking-normal">· one per line</span></p>
+          <textarea
+            value={requirements}
+            onChange={(e) => setRequirements(e.target.value)}
+            rows={4}
+            placeholder={"5+ years in product\nStrong analytical skills\nExperience in B2B SaaS"}
+            className={`${field} w-full resize-y`}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+        <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="Tags (comma separated)" className={field} />
+        <input value={perks} onChange={(e) => setPerks(e.target.value)} placeholder="Perks (comma separated, e.g. Medical, Remote)" className={field} />
       </div>
 
       {error && <p className="mt-4 text-[13px] text-danger bg-danger/10 border border-danger/30 rounded-xl px-4 py-3">{error}</p>}
@@ -378,6 +421,83 @@ function LiveRoleForm({
           Cancel
         </button>
       </div>
+    </div>
+  );
+}
+
+/* -------------------------------------- open-role card with expandable detail */
+function RoleCard({ r }: { r: Role }) {
+  const [open, setOpen] = useState(false);
+  const hasDetail =
+    !!r.description || r.responsibilities.length > 0 || r.requirements.length > 0 || r.perks.length > 0 || !!r.education;
+
+  return (
+    <div className="bg-surface2 border border-line rounded-xl p-4">
+      <div className="flex items-start justify-between gap-3">
+        <span className="text-ink font-semibold text-[15px]">{r.title}</span>
+        {r.package && <span className="text-gold text-[13px] font-semibold shrink-0">{r.package}</span>}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-mut text-[12px]">
+        {r.location && <span className="flex items-center gap-1"><MapPin size={12} /> {r.location}</span>}
+        {r.type && <span>{r.type}</span>}
+        {r.experienceLevel && <span className="text-dim">· {r.experienceLevel} level</span>}
+      </div>
+
+      {r.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {r.tags.map((t) => (
+            <span key={t} className="text-dim text-[11px] bg-surface3 border border-line rounded-full px-2 py-[3px]">{t}</span>
+          ))}
+        </div>
+      )}
+
+      {hasDetail && (
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1 mt-3 text-gold text-[12px] font-semibold hover:text-goldbright"
+        >
+          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />} {open ? "Hide details" : "View details"}
+        </button>
+      )}
+
+      {open && (
+        <div className="mt-3 pt-3 border-t border-line flex flex-col gap-3">
+          {r.description && <p className="text-dim text-[12.5px] leading-[19px] whitespace-pre-line">{r.description}</p>}
+          {r.responsibilities.length > 0 && (
+            <div>
+              <p className="eyebrow mb-1.5">Responsibilities</p>
+              <ul className="flex flex-col gap-1">
+                {r.responsibilities.map((x, i) => (
+                  <li key={i} className="flex gap-2 text-dim text-[12.5px]"><span className="text-gold">•</span> {x}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {r.requirements.length > 0 && (
+            <div>
+              <p className="eyebrow mb-1.5">Requirements</p>
+              <ul className="flex flex-col gap-1">
+                {r.requirements.map((x, i) => (
+                  <li key={i} className="flex gap-2 text-dim text-[12.5px]"><span className="text-gold">•</span> {x}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {r.education && (
+            <div>
+              <p className="eyebrow mb-1">Education</p>
+              <p className="text-dim text-[12.5px]">{r.education}</p>
+            </div>
+          )}
+          {r.perks.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {r.perks.map((p) => (
+                <span key={p} className="text-goldbright text-[11px] bg-gold/[0.12] border border-gold/25 rounded-full px-2 py-[3px]">{p}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

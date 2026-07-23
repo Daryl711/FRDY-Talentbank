@@ -73,6 +73,12 @@ export interface SwipeCompany {
   tags: string[];
   package: string;
   perks: string[];
+  // Richer job detail the employer posts (see the employer Post New Role form).
+  description?: string | null;
+  responsibilities?: string[];
+  requirements?: string[];
+  experienceLevel?: string | null;
+  education?: string | null;
 }
 
 export interface Connection {
@@ -224,7 +230,25 @@ export const mockFeaturedRoles: Role[] = [
 ];
 
 export const mockSwipeDeck: SwipeCompany[] = [
-  { id: "c6", initials: "CD", name: "CelcomDigi", role: "Senior Product Manager, Digital", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 90, tags: ["Product", "Telco", "Digital"], package: "$110K", perks: ["Medical", "Hybrid", "Bonus"] },
+  {
+    id: "c6", initials: "CD", name: "CelcomDigi", role: "Senior Product Manager, Digital",
+    location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 90,
+    tags: ["Product", "Telco", "Digital"], package: "$110K", perks: ["Medical", "Hybrid", "Bonus"],
+    experienceLevel: "Senior",
+    education: "Bachelor's degree in Business, Engineering, or related field",
+    description:
+      "Own the digital product roadmap for CelcomDigi's consumer app, partnering with engineering, design, and data to ship features used by millions across Malaysia.",
+    responsibilities: [
+      "Define and prioritise the product roadmap",
+      "Partner with engineering & design from discovery to launch",
+      "Analyse usage data and report on KPIs to leadership",
+    ],
+    requirements: [
+      "5+ years in product management",
+      "Experience shipping consumer mobile products",
+      "Strong analytical and stakeholder-management skills",
+    ],
+  },
 ];
 
 export const mockConnections: Connection[] = [
@@ -362,7 +386,23 @@ export async function getSwipeDeck(): Promise<SwipeCompany[]> {
   if (!isSupabaseConfigured) return mockSwipeDeck;
   const { data, error } = await supabase.rpc("get_swipe_deck");
   if (error || !data) return mockSwipeDeck;
-  return data as unknown as SwipeCompany[];
+  return (data as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id),
+    initials: (r.initials as string) ?? "•",
+    name: (r.name as string) ?? "Company",
+    role: (r.role as string) ?? "Open Role",
+    location: (r.location as string) ?? "",
+    employees: (r.employees as string) ?? "",
+    match: (r.match as number) ?? 0,
+    tags: (r.tags as string[] | null) ?? [],
+    package: (r.package as string) ?? "",
+    perks: (r.perks as string[] | null) ?? [],
+    description: (r.description as string | null) ?? null,
+    responsibilities: (r.responsibilities as string[] | null) ?? [],
+    requirements: (r.requirements as string[] | null) ?? [],
+    experienceLevel: (r.experience_level as string | null) ?? null,
+    education: (r.education as string | null) ?? null,
+  }));
 }
 
 /** Salary details a candidate fills in on the job card when matching a role. */
