@@ -271,19 +271,23 @@ $$;
 -- ============================================================================
 -- EMPLOYER: matched candidates for the caller's company (Hiring page board)
 -- Joins matches -> profiles (matches.user_id FKs auth.users, not profiles, so
--- PostgREST can't auto-embed — hence an RPC). Only returns rows for companies
--- the caller owns.
+-- PostgREST can't auto-embed — hence an RPC). `role` is the job title the
+-- candidate applied to (matches.role_id -> roles.title), so the board can show
+-- which opening each candidate matched. Only returns rows for owned companies.
+-- Return signature changed (added role), so drop the old function first.
 -- ============================================================================
+drop function if exists get_company_matches();
 create or replace function get_company_matches()
 returns table (
   match_id uuid, candidate_id uuid, name text, initials text,
-  trait text, score int, stage text, headline text, created_at timestamptz
+  trait text, score int, stage text, headline text, role text, created_at timestamptz
 ) language sql security definer as $$
   select
     m.id, p.id, p.name, p.initials,
-    p.animal_trait, m.score, m.stage, p.headline, m.created_at
+    p.animal_trait, m.score, m.stage, p.headline, r.title as role, m.created_at
   from matches m
   join profiles p on p.id = m.user_id
+  left join roles r on r.id = m.role_id
   where m.company_id in (select id from companies where owner_id = auth.uid())
   order by m.created_at desc;
 $$;
