@@ -2,7 +2,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Eyebrow, ScreenBg } from "@/components/ui";
 import { SwipeDeck, SwipeDeckHandle } from "@/components/SwipeDeck";
 import SubmittedJobsModal from "@/components/SubmittedJobsModal";
@@ -17,6 +17,9 @@ function CompanyCard({
   uploading,
   coverLetter,
   uploadingCover,
+  expectedSalary,
+  lastDrawnSalary,
+  onSalaryChange,
   onUploadCover,
   onUpload,
   onCreateNew,
@@ -27,11 +30,16 @@ function CompanyCard({
   uploading: boolean;
   coverLetter: string | null;
   uploadingCover: boolean;
+  expectedSalary: string;
+  lastDrawnSalary: string;
+  onSalaryChange: (field: "expected" | "lastDrawn", value: string) => void;
   onUploadCover: () => void;
   onUpload: () => void;
   onCreateNew: () => void;
   onCreateResume?: (c: SwipeCompany) => void;
 }) {
+  // Show typed digits grouped with thousands separators; store stays digit-only.
+  const fmt = (v: string) => (v ? Number(v).toLocaleString("en-US") : "");
   return (
     <LinearGradient
       colors={gradients.matchCard}
@@ -93,6 +101,38 @@ function CompanyCard({
               <Text className="text-goldbright text-[10.5px]">{p}</Text>
             </View>
           ))}
+        </View>
+      </View>
+
+      {/* Salary details the candidate fills in for this job (optional). */}
+      <View className="flex-row gap-[10px] mt-[14px]">
+        <View className="flex-1">
+          <Text className="font-mono text-[9px] tracking-[1.2px] text-[#9dc4a4] uppercase mb-[6px]">Expected Salary</Text>
+          <View className="flex-row items-center rounded-[12px] px-[10px]" style={{ backgroundColor: "rgba(0,0,0,0.22)", borderWidth: 1, borderColor: "rgba(216,180,90,0.25)" }}>
+            <Text className="text-[#9dc4a4] text-[13px] mr-[2px]">$</Text>
+            <TextInput
+              value={fmt(expectedSalary)}
+              onChangeText={(t) => onSalaryChange("expected", t)}
+              keyboardType="number-pad"
+              placeholder="120,000"
+              placeholderTextColor="#6f9277"
+              className="flex-1 text-ink text-[14px] py-[9px]"
+            />
+          </View>
+        </View>
+        <View className="flex-1">
+          <Text className="font-mono text-[9px] tracking-[1.2px] text-[#9dc4a4] uppercase mb-[6px]">Last Drawn Salary</Text>
+          <View className="flex-row items-center rounded-[12px] px-[10px]" style={{ backgroundColor: "rgba(0,0,0,0.22)", borderWidth: 1, borderColor: "rgba(216,180,90,0.25)" }}>
+            <Text className="text-[#9dc4a4] text-[13px] mr-[2px]">$</Text>
+            <TextInput
+              value={fmt(lastDrawnSalary)}
+              onChangeText={(t) => onSalaryChange("lastDrawn", t)}
+              keyboardType="number-pad"
+              placeholder="98,000"
+              placeholderTextColor="#6f9277"
+              className="flex-1 text-ink text-[14px] py-[9px]"
+            />
+          </View>
         </View>
       </View>
 
@@ -208,7 +248,18 @@ export default function MatchScreen() {
   // Cover letter is optional — candidates may attach one or skip it entirely.
   const [coverLetter, setCoverLetter] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
+  // Per-job salary the candidate fills in on the card (keyed by job id).
+  const [salary, setSalary] = useState<Record<string, { expected: string; lastDrawn: string }>>({});
   const swiperRef = useRef<SwipeDeckHandle>(null);
+
+  function setCardSalary(id: string, field: "expected" | "lastDrawn", value: string) {
+    // Keep only digits so the value maps cleanly to the integer salary columns.
+    const digits = value.replace(/[^\d]/g, "");
+    setSalary((prev) => {
+      const cur = prev[id] ?? { expected: "", lastDrawn: "" };
+      return { ...prev, [id]: { ...cur, [field]: digits } };
+    });
+  }
 
   useEffect(() => {
     getSwipeDeck().then((d) => {
@@ -267,7 +318,13 @@ export default function MatchScreen() {
 
   function onSwiped(index: number, dir: SwipeDirection) {
     const card = deck[index];
-    if (card) recordSwipe(card.id, dir);
+    if (card) {
+      const s = salary[card.id];
+      recordSwipe(card.id, dir, {
+        expectedSalary: s?.expected ? Number(s.expected) : null,
+        lastDrawnSalary: s?.lastDrawn ? Number(s.lastDrawn) : null,
+      });
+    }
     if (dir === "right") setMatched((m) => m + 1);
     setRemaining((r) => Math.max(0, r - 1));
   }
@@ -373,6 +430,9 @@ export default function MatchScreen() {
                   uploading={uploading}
                   coverLetter={coverLetter}
                   uploadingCover={uploadingCover}
+                  expectedSalary={salary[c.id]?.expected ?? ""}
+                  lastDrawnSalary={salary[c.id]?.lastDrawn ?? ""}
+                  onSalaryChange={(field, value) => setCardSalary(c.id, field, value)}
                   onUploadCover={handleUploadCover}
                   onUpload={handleUpload}
                   onCreateNew={() => nav.navigate("Resume")}

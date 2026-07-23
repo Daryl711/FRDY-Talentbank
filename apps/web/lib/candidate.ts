@@ -18,6 +18,17 @@ export interface Experience {
   description: string;
 }
 
+export interface Education {
+  id: string;
+  /** University / institution name. */
+  school: string;
+  /** Degree and field of study, e.g. "BSc Computer Science". */
+  degree: string;
+  /** Grade / CGPA / classification, e.g. "First Class · 3.8". */
+  grade: string;
+  dates: string;
+}
+
 export interface CandidateProfile {
   id: string;
   name: string;
@@ -28,6 +39,7 @@ export interface CandidateProfile {
   about: string;
   skills: string[];
   experience: Experience[];
+  education: Education[];
   initials: string;
   profile_score: number;
   views: number;
@@ -168,6 +180,22 @@ export const mockProfile: CandidateProfile = {
       dates: "2018 — 2021",
       description:
         "Owned the analytics suite from 0→1, partnering with design and engineering to launch dashboards adopted by 12k monthly active users.",
+    },
+  ],
+  education: [
+    {
+      id: "edu1",
+      school: "Cornell University",
+      degree: "MBA, Technology Management",
+      grade: "GPA 3.9 / 4.0",
+      dates: "2015 — 2017",
+    },
+    {
+      id: "edu2",
+      school: "University of Michigan",
+      degree: "BSc Computer Science",
+      grade: "First Class Honours · 3.8",
+      dates: "2010 — 2014",
     },
   ],
   initials: "AC",
@@ -313,7 +341,17 @@ export async function getSwipeDeck(): Promise<SwipeCompany[]> {
   return data as unknown as SwipeCompany[];
 }
 
-export async function recordSwipe(targetId: string, direction: SwipeDirection): Promise<void> {
+/** Salary details a candidate fills in on the job card when matching a role. */
+export interface ApplicationDetails {
+  expectedSalary?: number | null;
+  lastDrawnSalary?: number | null;
+}
+
+export async function recordSwipe(
+  targetId: string,
+  direction: SwipeDirection,
+  details?: ApplicationDetails,
+): Promise<void> {
   if (!isSupabaseConfigured) return;
   const { data: auth } = await supabase.auth.getUser();
   const uid = auth.user?.id;
@@ -323,6 +361,8 @@ export async function recordSwipe(targetId: string, direction: SwipeDirection): 
     target_id: targetId,
     target_type: "role",
     direction,
+    expected_salary: details?.expectedSalary ?? null,
+    last_drawn_salary: details?.lastDrawnSalary ?? null,
   });
   // Right-swiping a role creates a match on its company via a DB trigger.
 }

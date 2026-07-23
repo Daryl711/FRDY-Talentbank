@@ -55,7 +55,17 @@ export async function getSwipeDeck(): Promise<SwipeCompany[]> {
   return data as unknown as SwipeCompany[];
 }
 
-export async function recordSwipe(targetId: string, direction: SwipeDirection): Promise<void> {
+/** Salary details a candidate fills in on the job card when matching a role. */
+export interface ApplicationDetails {
+  expectedSalary?: number | null;
+  lastDrawnSalary?: number | null;
+}
+
+export async function recordSwipe(
+  targetId: string,
+  direction: SwipeDirection,
+  details?: ApplicationDetails,
+): Promise<void> {
   if (!isSupabaseConfigured) return;
   const { data: auth } = await supabase.auth.getUser();
   const uid = auth.user?.id;
@@ -65,6 +75,8 @@ export async function recordSwipe(targetId: string, direction: SwipeDirection): 
     target_id: targetId,
     target_type: "role",
     direction,
+    expected_salary: details?.expectedSalary ?? null,
+    last_drawn_salary: details?.lastDrawnSalary ?? null,
   });
   // Right-swiping a role creates a match on its company via a DB trigger.
 }

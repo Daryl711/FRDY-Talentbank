@@ -36,6 +36,8 @@ export default function MatchPage() {
   // Cover letter is optional — candidates may attach one or skip it entirely.
   const [coverLetter, setCoverLetter] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
+  // Per-job salary the candidate fills in on the card (keyed by job id).
+  const [salary, setSalary] = useState<Record<string, { expected: string; lastDrawn: string }>>({});
   const [browseOpen, setBrowseOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
@@ -76,6 +78,17 @@ export default function MatchPage() {
   const remaining = deck.length - index;
   const done = index >= deck.length && deck.length > 0;
 
+  const cardSalary = (card && salary[card.id]) || { expected: "", lastDrawn: "" };
+
+  function setCardSalary(id: string, field: "expected" | "lastDrawn", value: string) {
+    // Keep only digits so the value maps cleanly to the integer salary columns.
+    const digits = value.replace(/[^\d]/g, "");
+    setSalary((prev) => {
+      const cur = prev[id] ?? { expected: "", lastDrawn: "" };
+      return { ...prev, [id]: { ...cur, [field]: digits } };
+    });
+  }
+
   function swipe(dir: SwipeDirection) {
     if (!card || leaving) return;
     // Match (right-swipe) is locked until a resume is uploaded; Pass is free.
@@ -83,7 +96,11 @@ export default function MatchPage() {
       showToast("Upload your resume on the card to match.");
       return;
     }
-    recordSwipe(card.id, dir);
+    const s = salary[card.id];
+    recordSwipe(card.id, dir, {
+      expectedSalary: s?.expected ? Number(s.expected) : null,
+      lastDrawnSalary: s?.lastDrawn ? Number(s.lastDrawn) : null,
+    });
     if (dir === "right") setMatched((m) => m + 1);
     setLeaving(dir);
     setTimeout(() => {
@@ -177,6 +194,9 @@ export default function MatchPage() {
               uploading={uploading}
               coverLetter={coverLetter}
               uploadingCover={uploadingCover}
+              expectedSalary={cardSalary.expected}
+              lastDrawnSalary={cardSalary.lastDrawn}
+              onSalaryChange={(field, value) => setCardSalary(card.id, field, value)}
               onUploadCover={() => coverRef.current?.click()}
               onUpload={() => fileRef.current?.click()}
               onCreateNew={() => router.push("/candidate/resume")}
@@ -272,18 +292,23 @@ export default function MatchPage() {
 }
 
 function CompanyCard({
-  c, hasResume, uploading, coverLetter, uploadingCover, onUploadCover, onUpload, onCreateNew, onCreateResume,
+  c, hasResume, uploading, coverLetter, uploadingCover, expectedSalary, lastDrawnSalary, onSalaryChange, onUploadCover, onUpload, onCreateNew, onCreateResume,
 }: {
   c: SwipeCompany;
   hasResume: boolean;
   uploading: boolean;
   coverLetter: string | null;
   uploadingCover: boolean;
+  expectedSalary: string;
+  lastDrawnSalary: string;
+  onSalaryChange: (field: "expected" | "lastDrawn", value: string) => void;
   onUploadCover: () => void;
   onUpload: () => void;
   onCreateNew: () => void;
   onCreateResume: (c: SwipeCompany) => void;
 }) {
+  // Show typed digits grouped with thousands separators; store stays digit-only.
+  const fmt = (v: string) => (v ? Number(v).toLocaleString("en-US") : "");
   return (
     <div className="rounded-3xl p-6 border" style={{ borderColor: "#3d6b3f", background: "linear-gradient(135deg,#183a26,#0f2418)" }}>
       <div className="flex justify-between items-start">
@@ -323,6 +348,36 @@ function CompanyCard({
             <span key={p} className="rounded-lg px-[10px] py-1 text-goldbright text-[10.5px]" style={{ backgroundColor: "rgba(216,180,90,0.12)" }}>{p}</span>
           ))}
         </div>
+      </div>
+
+      {/* Salary details the candidate fills in for this job (optional). */}
+      <div className="flex gap-3 mt-4">
+        <label className="flex-1">
+          <span className="block font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase mb-[6px]">Expected Salary</span>
+          <div className="flex items-center rounded-xl px-3" style={{ backgroundColor: "rgba(0,0,0,0.22)", border: "1px solid rgba(216,180,90,0.25)" }}>
+            <span className="text-[#9dc4a4] text-[13px] mr-1">$</span>
+            <input
+              inputMode="numeric"
+              value={fmt(expectedSalary)}
+              onChange={(e) => onSalaryChange("expected", e.target.value)}
+              placeholder="e.g. 120,000"
+              className="w-full bg-transparent py-[10px] text-ink text-[14px] outline-none placeholder:text-[#6f9277]"
+            />
+          </div>
+        </label>
+        <label className="flex-1">
+          <span className="block font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase mb-[6px]">Last Drawn Salary</span>
+          <div className="flex items-center rounded-xl px-3" style={{ backgroundColor: "rgba(0,0,0,0.22)", border: "1px solid rgba(216,180,90,0.25)" }}>
+            <span className="text-[#9dc4a4] text-[13px] mr-1">$</span>
+            <input
+              inputMode="numeric"
+              value={fmt(lastDrawnSalary)}
+              onChange={(e) => onSalaryChange("lastDrawn", e.target.value)}
+              placeholder="e.g. 98,000"
+              className="w-full bg-transparent py-[10px] text-ink text-[14px] outline-none placeholder:text-[#6f9277]"
+            />
+          </div>
+        </label>
       </div>
 
       {hasResume ? (
