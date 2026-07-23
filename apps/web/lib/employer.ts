@@ -119,6 +119,135 @@ export async function getCompanyMatches(): Promise<MatchedCandidate[]> {
   }));
 }
 
+// ---------------------------------------------------------------------------
+// CANDIDATE DOSSIER — the employer reviews a matched candidate's profile,
+// resume, and cover letter from the Hiring board. Profiles are readable to any
+// authenticated user; resume rows + Storage files are gated by the
+// "resumes/resume files employer read" policies (a company owner may read the
+// files of candidates matched to a company they own). See supabase/schema.sql.
+// ---------------------------------------------------------------------------
+
+export interface CandidateExperience {
+  id: string;
+  title: string;
+  company: string;
+  dates: string;
+  description: string;
+}
+
+export interface CandidateEducation {
+  id: string;
+  school: string;
+  degree: string;
+  grade: string;
+  dates: string;
+}
+
+export interface CandidateDetail {
+  id: string;
+  name: string;
+  initials: string;
+  headline: string | null;
+  location: string | null;
+  yearsExp: number;
+  about: string | null;
+  skills: string[];
+  experience: CandidateExperience[];
+  education: CandidateEducation[];
+  animalTrait: string | null;
+  profileScore: number;
+}
+
+/** Full profile of a candidate (for the dossier). Returns null if unavailable. */
+export async function getCandidateProfile(candidateId: string): Promise<CandidateDetail | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id,name,initials,headline,location,years_exp,about,skills,experience,education,animal_trait,profile_score")
+    .eq("id", candidateId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const r = data as Record<string, unknown>;
+  return {
+    id: String(r.id),
+    name: (r.name as string) ?? "Candidate",
+    initials: (r.initials as string) ?? "•",
+    headline: (r.headline as string | null) ?? null,
+    location: (r.location as string | null) ?? null,
+    yearsExp: (r.years_exp as number) ?? 0,
+    about: (r.about as string | null) ?? null,
+    skills: (r.skills as string[] | null) ?? [],
+    experience: (r.experience as CandidateExperience[] | null) ?? [],
+    education: (r.education as CandidateEducation[] | null) ?? [],
+    animalTrait: (r.animal_trait as string | null) ?? null,
+    profileScore: (r.profile_score as number) ?? 0,
+  };
+}
+
+export interface CandidateResume {
+  id: string;
+  title: string;
+  kind: "ai" | "uploaded";
+  atsScore: number;
+  sizeKb: number;
+  /** Storage path for uploaded files; null for AI-generated resumes (no file). */
+  storagePath: string | null;
+  date: string;
+}
+
+/** Resumes a matched candidate has, newest first (metadata only). */
+export async function getCandidateResumes(candidateId: string): Promise<CandidateResume[]> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from("resumes")
+    .select("id,title,label,kind,ats_score,size_kb,storage_path,created_at")
+    .eq("user_id", candidateId)
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id),
+    title: (r.title as string) ?? (r.label as string) ?? "Resume",
+    kind: ((r.kind as string) ?? "uploaded") as "ai" | "uploaded",
+    atsScore: (r.ats_score as number) ?? 0,
+    sizeKb: (r.size_kb as number) ?? 0,
+    storagePath: (r.storage_path as string | null) ?? null,
+    date: r.created_at
+      ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : "",
+  }));
+}
+
+export interface CandidateFile {
+  name: string;
+  path: string;
+}
+
+/**
+ * Cover letters a matched candidate uploaded. Cover letters have no metadata
+ * row (see uploadCoverLetter), so we list the candidate's `cover-letters` folder
+ * in Storage directly. Requires the employer Storage read policy.
+ */
+export async function getCandidateCoverLetters(candidateId: string): Promise<CandidateFile[]> {
+  if (!isSupabaseConfigured) return [];
+  const folder = `${candidateId}/cover-letters`;
+  const { data, error } = await supabase.storage.from("resumes").list(folder, { limit: 100 });
+  if (error || !data) return [];
+  return data
+    .filter((f) => f.name && f.name !== ".emptyFolderPlaceholder")
+    .map((f) => ({ name: f.name, path: `${folder}/${f.name}` }));
+}
+
+/**
+ * A short-lived signed URL to view/download a resume or cover-letter file from
+ * the private `resumes` bucket. Access is enforced by Storage RLS.
+ */
+export async function getResumeFileUrl(storagePath: string): Promise<string | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase.storage.from("resumes").createSignedUrl(storagePath, 3600);
+  if (error || !data) return null;
+  return data.signedUrl;
+}
+
 /** Move a matched candidate to a new hiring stage. Persisted via RLS. */
 export async function setMatchStage(matchId: string, stage: HireStage): Promise<void> {
   if (!isSupabaseConfigured) return;
