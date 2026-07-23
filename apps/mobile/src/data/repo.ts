@@ -76,19 +76,25 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
   if (!isSupabaseConfigured) return mock.submittedJobs;
   const { data, error } = await supabase.rpc("get_my_submitted_jobs");
   if (error || !data) return mock.submittedJobs;
-  return (data as Record<string, unknown>[]).map((r) => ({
-    id: String(r.id),
-    initials: (r.initials as string) ?? "•",
-    name: (r.name as string) ?? "Company",
-    role: (r.role as string) ?? "Open Role",
-    location: (r.location as string) ?? "",
-    employees: (r.employees as string) ?? "",
-    match: (r.match as number) ?? 0,
-    matched: !!r.matched,
-    date: r.created_at
-      ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-      : "",
-  }));
+  return (data as Record<string, unknown>[]).map((r) => {
+    const matched = !!r.matched;
+    return {
+      id: String(r.id),
+      initials: (r.initials as string) ?? "•",
+      name: (r.name as string) ?? "Company",
+      role: (r.role as string) ?? "Open Role",
+      location: (r.location as string) ?? "",
+      employees: (r.employees as string) ?? "",
+      match: (r.match as number) ?? 0,
+      matched,
+      // Until employers set an explicit status, a mutual match is the only live
+      // signal that an application has moved past the "Applied" stage.
+      stage: (matched ? "review" : "applied") as SubmittedJob["stage"],
+      date: r.created_at
+        ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        : "",
+    };
+  });
 }
 
 export async function getConnections(kind: Connection["kind"]): Promise<Connection[]> {

@@ -1,8 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { MapPin, Users, Clock, Heart, Send, Loader2 } from "lucide-react";
-import { getSubmittedJobs, type SubmittedJob } from "@/lib/candidate";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { MapPin, Users, Clock, Heart, Send, Loader2, Check } from "lucide-react";
+import { getSubmittedJobs, APPLICATION_STAGES, type ApplicationStage, type SubmittedJob } from "@/lib/candidate";
+
+/** Horizontal pipeline showing how far an application has progressed. */
+function StageTracker({ stage }: { stage: ApplicationStage }) {
+  const currentIdx = APPLICATION_STAGES.findIndex((s) => s.key === stage);
+  return (
+    <div className="flex items-start mt-4">
+      {APPLICATION_STAGES.map((s, i) => {
+        const reached = i <= currentIdx;
+        const isCurrent = i === currentIdx;
+        return (
+          <Fragment key={s.key}>
+            {i > 0 && (
+              <div className={`flex-1 h-[2px] mt-[10px] ${i <= currentIdx ? "bg-gold/50" : "bg-line"}`} />
+            )}
+            <div className="flex flex-col items-center gap-[6px] w-[74px] shrink-0">
+              <div
+                className={`w-[22px] h-[22px] rounded-full flex items-center justify-center border text-[10px] font-mono ${
+                  reached ? "bg-gold/20 border-gold/50 text-goldbright" : "bg-surface2 border-line text-mut"
+                }`}
+              >
+                {i < currentIdx ? <Check size={12} /> : i + 1}
+              </div>
+              <span className={`text-[11px] text-center leading-tight ${isCurrent ? "text-ink font-semibold" : reached ? "text-dim" : "text-mut"}`}>
+                {s.label}
+              </span>
+            </div>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function ApplicationsPage() {
   const [jobs, setJobs] = useState<SubmittedJob[]>([]);
@@ -38,29 +70,34 @@ export default function ApplicationsPage() {
       ) : (
         <div className="flex flex-col gap-3 mt-6">
           {jobs.map((j) => (
-            <div key={j.id} className="flex items-center gap-4 bg-surface border border-line rounded-2xl p-4">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-gold/[0.12] border border-gold/30 font-serif text-[17px] text-goldbright shrink-0">
-                {j.initials}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[15.5px] text-ink truncate">{j.role}</div>
-                <div className="text-dim text-[13px] mt-[2px]">{j.name}</div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-[7px] text-mut text-[12px]">
-                  {j.location && <span className="flex items-center gap-1"><MapPin size={12} /> {j.location}</span>}
-                  {j.employees && <span className="flex items-center gap-1"><Users size={12} /> {j.employees}</span>}
-                  <span className="flex items-center gap-1"><Clock size={12} /> {j.date}</span>
-                  <span className="text-gold">{j.match}% match</span>
+            <div key={j.id} className="bg-surface border border-line rounded-2xl p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-gold/[0.12] border border-gold/30 font-serif text-[17px] text-goldbright shrink-0">
+                  {j.initials}
                 </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[15.5px] text-ink truncate">{j.role}</div>
+                  <div className="text-dim text-[13px] mt-[2px]">{j.name}</div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-[7px] text-mut text-[12px]">
+                    {j.location && <span className="flex items-center gap-1"><MapPin size={12} /> {j.location}</span>}
+                    {j.employees && <span className="flex items-center gap-1"><Users size={12} /> {j.employees}</span>}
+                    <span className="flex items-center gap-1"><Clock size={12} /> {j.date}</span>
+                    <span className="text-gold">{j.match}% match</span>
+                  </div>
+                </div>
+                {j.matched ? (
+                  <span className="flex items-center gap-[5px] rounded-lg px-[10px] py-[6px] bg-ok/[0.14] border border-ok/35 font-mono text-[9.5px] tracking-wide font-bold text-ok shrink-0">
+                    <Heart size={11} /> MATCHED
+                  </span>
+                ) : (
+                  <span className="rounded-lg px-[10px] py-[6px] bg-surface2 border border-line font-mono text-[9.5px] tracking-wide text-dim shrink-0">
+                    APPLIED
+                  </span>
+                )}
               </div>
-              {j.matched ? (
-                <span className="flex items-center gap-[5px] rounded-lg px-[10px] py-[6px] bg-ok/[0.14] border border-ok/35 font-mono text-[9.5px] tracking-wide font-bold text-ok">
-                  <Heart size={11} /> MATCHED
-                </span>
-              ) : (
-                <span className="rounded-lg px-[10px] py-[6px] bg-surface2 border border-line font-mono text-[9.5px] tracking-wide text-dim">
-                  APPLIED
-                </span>
-              )}
+
+              {/* Application progress pipeline */}
+              <StageTracker stage={j.stage} />
             </div>
           ))}
         </div>

@@ -58,6 +58,16 @@ export interface SwipeCompany {
 }
 
 /** A job the candidate has applied to (swiped right on). */
+/** Ordered stages an application moves through, earliest first. */
+export type ApplicationStage = "applied" | "review" | "interview" | "offer";
+
+export const APPLICATION_STAGES: { key: ApplicationStage; label: string }[] = [
+  { key: "applied", label: "Applied" },
+  { key: "review", label: "Under Review" },
+  { key: "interview", label: "Interview" },
+  { key: "offer", label: "Offer" },
+];
+
 export interface SubmittedJob {
   id: string;
   initials: string;
@@ -68,6 +78,8 @@ export interface SubmittedJob {
   match: number;
   /** True once the company swiped right back (a mutual match). */
   matched: boolean;
+  /** How far the application has progressed through the hiring pipeline. */
+  stage: ApplicationStage;
   /** Date the application was submitted, pre-formatted for display. */
   date: string;
 }

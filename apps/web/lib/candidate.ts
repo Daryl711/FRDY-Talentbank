@@ -92,6 +92,16 @@ export interface DirectMessage {
   mine: boolean;
 }
 
+/** Ordered stages an application moves through, earliest first. */
+export type ApplicationStage = "applied" | "review" | "interview" | "offer";
+
+export const APPLICATION_STAGES: { key: ApplicationStage; label: string }[] = [
+  { key: "applied", label: "Applied" },
+  { key: "review", label: "Under Review" },
+  { key: "interview", label: "Interview" },
+  { key: "offer", label: "Offer" },
+];
+
 /** A job the candidate has applied to (swiped right on). */
 export interface SubmittedJob {
   id: string;
@@ -103,6 +113,8 @@ export interface SubmittedJob {
   match: number;
   /** True once the company swiped right back (a mutual match). */
   matched: boolean;
+  /** How far the application has progressed through the hiring pipeline. */
+  stage: ApplicationStage;
   /** Date the application was submitted, pre-formatted for display. */
   date: string;
 }
@@ -199,8 +211,10 @@ export const mockConnections: Connection[] = [
 
 // Applications shown when Supabase isn't configured (demo fallback).
 export const mockSubmittedJobs: SubmittedJob[] = [
-  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, date: "Jul 14, 2026" },
-  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: false, date: "Jul 12, 2026" },
+  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, stage: "interview", date: "Jul 14, 2026" },
+  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: true, stage: "offer", date: "Jul 12, 2026" },
+  { id: "c6c", initials: "CD", name: "CelcomDigi", role: "Backend Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 88, matched: true, stage: "review", date: "Jul 10, 2026" },
+  { id: "c6d", initials: "CD", name: "CelcomDigi", role: "Corporate Strategy Manager", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 84, matched: false, stage: "applied", date: "Jul 08, 2026" },
 ];
 
 export const trendingSectors = [
@@ -322,19 +336,25 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
   if (!isSupabaseConfigured) return mockSubmittedJobs;
   const { data, error } = await supabase.rpc("get_my_submitted_jobs");
   if (error || !data) return mockSubmittedJobs;
-  return (data as Record<string, unknown>[]).map((r) => ({
-    id: String(r.id),
-    initials: (r.initials as string) ?? "•",
-    name: (r.name as string) ?? "Company",
-    role: (r.role as string) ?? "Open Role",
-    location: (r.location as string) ?? "",
-    employees: (r.employees as string) ?? "",
-    match: (r.match as number) ?? 0,
-    matched: !!r.matched,
-    date: r.created_at
-      ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-      : "",
-  }));
+  return (data as Record<string, unknown>[]).map((r) => {
+    const matched = !!r.matched;
+    return {
+      id: String(r.id),
+      initials: (r.initials as string) ?? "•",
+      name: (r.name as string) ?? "Company",
+      role: (r.role as string) ?? "Open Role",
+      location: (r.location as string) ?? "",
+      employees: (r.employees as string) ?? "",
+      match: (r.match as number) ?? 0,
+      matched,
+      // Until employers set an explicit status, a mutual match is the only live
+      // signal we have that an application has moved past the "Applied" stage.
+      stage: (matched ? "review" : "applied") as ApplicationStage,
+      date: r.created_at
+        ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        : "",
+    };
+  });
 }
 
 export async function getConnections(kind: Connection["kind"]): Promise<Connection[]> {

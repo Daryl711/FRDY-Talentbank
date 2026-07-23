@@ -1,7 +1,54 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { Fragment } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
-import { SubmittedJob } from "@/data/types";
+import { APPLICATION_STAGES, ApplicationStage, SubmittedJob } from "@/data/types";
 import { colors } from "@/theme/colors";
+
+/** Compact horizontal pipeline showing how far an application has progressed. */
+function StageTracker({ stage }: { stage: ApplicationStage }) {
+  const currentIdx = APPLICATION_STAGES.findIndex((s) => s.key === stage);
+  return (
+    <View className="flex-row items-start mt-[14px]">
+      {APPLICATION_STAGES.map((s, i) => {
+        const reached = i <= currentIdx;
+        const isCurrent = i === currentIdx;
+        return (
+          <Fragment key={s.key}>
+            {i > 0 && (
+              <View
+                className="flex-1 mt-[10px]"
+                style={{ height: 2, backgroundColor: i <= currentIdx ? "rgba(216,180,90,0.5)" : colors.line }}
+              />
+            )}
+            <View className="items-center" style={{ width: 66 }}>
+              <View
+                className="w-[22px] h-[22px] rounded-full items-center justify-center"
+                style={{
+                  backgroundColor: reached ? "rgba(216,180,90,0.2)" : colors.surface2,
+                  borderWidth: 1,
+                  borderColor: reached ? "rgba(216,180,90,0.5)" : colors.line,
+                }}
+              >
+                {i < currentIdx ? (
+                  <Feather name="check" size={12} color={colors.goldbright} />
+                ) : (
+                  <Text className="font-mono text-[10px]" style={{ color: reached ? colors.goldbright : colors.mut }}>{i + 1}</Text>
+                )}
+              </View>
+              <Text
+                numberOfLines={1}
+                className="text-[10.5px] mt-[6px] text-center"
+                style={{ color: isCurrent ? colors.ink : reached ? colors.dim : colors.mut, fontWeight: isCurrent ? "600" : "400" }}
+              >
+                {s.label}
+              </Text>
+            </View>
+          </Fragment>
+        );
+      })}
+    </View>
+  );
+}
 
 /**
  * Bottom sheet listing the jobs the candidate has applied to (right-swiped).
@@ -44,30 +91,35 @@ export default function SubmittedJobsModal({
           ) : (
             <ScrollView showsVerticalScrollIndicator={false}>
               {jobs.map((j) => (
-                <View key={j.id} className="flex-row items-center gap-[14px] bg-surface border border-line rounded-2xl p-4 mb-3">
-                  <View className="w-[46px] h-[46px] rounded-[12px] items-center justify-center" style={{ backgroundColor: "rgba(216,180,90,0.13)", borderWidth: 1, borderColor: "rgba(216,180,90,0.3)" }}>
-                    <Text className="font-serif text-[16px] text-goldbright">{j.initials}</Text>
+                <View key={j.id} className="bg-surface border border-line rounded-2xl p-4 mb-3">
+                  <View className="flex-row items-center gap-[14px]">
+                    <View className="w-[46px] h-[46px] rounded-[12px] items-center justify-center" style={{ backgroundColor: "rgba(216,180,90,0.13)", borderWidth: 1, borderColor: "rgba(216,180,90,0.3)" }}>
+                      <Text className="font-serif text-[16px] text-goldbright">{j.initials}</Text>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="font-semibold text-[15.5px] text-ink">{j.role}</Text>
+                      <Text className="text-dim text-[13px] mt-[2px]">{j.name}</Text>
+                      <View className="flex-row items-center gap-[6px] mt-[6px]">
+                        <Feather name="clock" size={11} color={colors.mut} />
+                        <Text className="text-mut text-[12px]">{j.date}</Text>
+                        <Text className="text-gold text-[12px] ml-1">· {j.match}% match</Text>
+                      </View>
+                    </View>
+                    {/* status pill */}
+                    {j.matched ? (
+                      <View className="flex-row items-center gap-[5px] rounded-[10px] px-[9px] py-[5px]" style={{ backgroundColor: "rgba(63,191,106,0.14)", borderWidth: 1, borderColor: "rgba(63,191,106,0.35)" }}>
+                        <Ionicons name="heart" size={11} color={colors.ok} />
+                        <Text className="font-mono text-[9px] tracking-[0.5px] font-bold text-ok">MATCHED</Text>
+                      </View>
+                    ) : (
+                      <View className="rounded-[10px] px-[9px] py-[5px]" style={{ backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.line }}>
+                        <Text className="font-mono text-[9px] tracking-[0.5px] text-dim">APPLIED</Text>
+                      </View>
+                    )}
                   </View>
-                  <View className="flex-1">
-                    <Text className="font-semibold text-[15.5px] text-ink">{j.role}</Text>
-                    <Text className="text-dim text-[13px] mt-[2px]">{j.name}</Text>
-                    <View className="flex-row items-center gap-[6px] mt-[6px]">
-                      <Feather name="clock" size={11} color={colors.mut} />
-                      <Text className="text-mut text-[12px]">{j.date}</Text>
-                      <Text className="text-gold text-[12px] ml-1">· {j.match}% match</Text>
-                    </View>
-                  </View>
-                  {/* status pill */}
-                  {j.matched ? (
-                    <View className="flex-row items-center gap-[5px] rounded-[10px] px-[9px] py-[5px]" style={{ backgroundColor: "rgba(63,191,106,0.14)", borderWidth: 1, borderColor: "rgba(63,191,106,0.35)" }}>
-                      <Ionicons name="heart" size={11} color={colors.ok} />
-                      <Text className="font-mono text-[9px] tracking-[0.5px] font-bold text-ok">MATCHED</Text>
-                    </View>
-                  ) : (
-                    <View className="rounded-[10px] px-[9px] py-[5px]" style={{ backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.line }}>
-                      <Text className="font-mono text-[9px] tracking-[0.5px] text-dim">APPLIED</Text>
-                    </View>
-                  )}
+
+                  {/* Application progress pipeline */}
+                  <StageTracker stage={j.stage} />
                 </View>
               ))}
             </ScrollView>
