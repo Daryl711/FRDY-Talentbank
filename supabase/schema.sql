@@ -297,11 +297,15 @@ $$;
 -- ============================================================================
 -- Role-based: the jobs the candidate applied to (right-swiped a role), newest
 -- first. `id` is the role id; `matched` flags roles whose company became a
--- mutual match.
+-- mutual match. `match_id` is the matches row for that company (one per
+-- candidate+company) — the thread the candidate messages the employer on.
+-- Return signature changed (added match_id), so drop the old function first:
+-- create-or-replace can't alter a function's OUT columns.
+drop function if exists get_my_submitted_jobs();
 create or replace function get_my_submitted_jobs()
 returns table (
   id uuid, initials text, name text, role text, location text,
-  employees text, match int, matched boolean, created_at timestamptz
+  employees text, match int, matched boolean, match_id uuid, created_at timestamptz
 ) language sql security definer as $$
   select
     r.id, c.initials, c.name, r.title as role,
@@ -310,6 +314,7 @@ returns table (
       select embedding from profiles where id = auth.uid()
     ))) * 100)::int, 75) as match,
     exists(select 1 from matches m where m.user_id = auth.uid() and m.company_id = c.id) as matched,
+    (select m.id from matches m where m.user_id = auth.uid() and m.company_id = c.id) as match_id,
     s.created_at
   from swipes s
   join roles r on r.id = s.target_id
@@ -404,26 +409,42 @@ drop policy if exists "connections update" on connections;
 create policy "connections update" on connections for update to authenticated using (auth.uid() = addressee_id);
 
 -- messages: readable/sendable by participants of the company match OR the peer
--- connection the message belongs to.
+-- connection the message belongs to. On a company match the two participants
+-- are the candidate (matches.user_id) AND the employer who owns the company
+-- (companies.owner_id) — so both can read the thread and message each other.
 drop policy if exists "messages read" on messages;
 create policy "messages read" on messages for select to authenticated
   using (
-    exists (select 1 from matches m where m.id = match_id and m.user_id = auth.uid())
+    exists (
+      select 1 from matches m
+      join companies co on co.id = m.company_id
+      where m.id = match_id
+        and (m.user_id = auth.uid() or co.owner_id = auth.uid())
+    )
     or exists (
       select 1 from connections c
       where c.id = connection_id and auth.uid() in (c.requester_id, c.addressee_id)
     )
   );
+-- Send: the sender must be a participant of the thread. For a company-match
+-- message that's the candidate or the company owner; for a peer DM it's either
+-- side of the connection. (Previously any authenticated user could insert a
+-- match message as long as they set sender_id to themselves — this closes that.)
 drop policy if exists "messages send" on messages;
 create policy "messages send" on messages for insert to authenticated
   with check (
     sender_id = auth.uid()
     and (
-      connection_id is null
-      or exists (
+      (match_id is not null and exists (
+        select 1 from matches m
+        join companies co on co.id = m.company_id
+        where m.id = match_id
+          and (m.user_id = auth.uid() or co.owner_id = auth.uid())
+      ))
+      or (connection_id is not null and exists (
         select 1 from connections c
         where c.id = connection_id and auth.uid() in (c.requester_id, c.addressee_id)
-      )
+      ))
     )
   );
 
