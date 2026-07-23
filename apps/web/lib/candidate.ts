@@ -129,6 +129,8 @@ export interface SubmittedJob {
   stage: ApplicationStage;
   /** Date the application was submitted, pre-formatted for display. */
   date: string;
+  /** The company-match thread id, so the candidate can message the employer. */
+  matchId?: string | null;
 }
 
 export interface ChatMessage {
@@ -239,10 +241,10 @@ export const mockConnections: Connection[] = [
 
 // Applications shown when Supabase isn't configured (demo fallback).
 export const mockSubmittedJobs: SubmittedJob[] = [
-  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, stage: "interview", date: "Jul 14, 2026" },
-  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: true, stage: "offer", date: "Jul 12, 2026" },
-  { id: "c6c", initials: "CD", name: "CelcomDigi", role: "Backend Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 88, matched: true, stage: "review", date: "Jul 10, 2026" },
-  { id: "c6d", initials: "CD", name: "CelcomDigi", role: "Corporate Strategy Manager", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 84, matched: false, stage: "applied", date: "Jul 08, 2026" },
+  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, stage: "interview", date: "Jul 14, 2026", matchId: "mock_match_c6" },
+  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: true, stage: "offer", date: "Jul 12, 2026", matchId: "mock_match_c6b" },
+  { id: "c6c", initials: "CD", name: "CelcomDigi", role: "Backend Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 88, matched: true, stage: "review", date: "Jul 10, 2026", matchId: "mock_match_c6c" },
+  { id: "c6d", initials: "CD", name: "CelcomDigi", role: "Corporate Strategy Manager", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 84, matched: false, stage: "applied", date: "Jul 08, 2026", matchId: null },
 ];
 
 export const trendingSectors = [
@@ -415,6 +417,7 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
       date: r.created_at
         ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
         : "",
+      matchId: r.match_id ? String(r.match_id) : null,
     };
   });
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, X, Check, Loader2, Radio } from "lucide-react";
+import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, X, Check, Loader2, Radio, MessageSquare } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
+import MatchChat from "@/components/MatchChat";
 import { jobRoles, traitEmoji } from "@/lib/mock";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -71,6 +72,8 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
   const [roles, setRoles] = useState<Role[]>([]);
   const [composing, setComposing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // The matched candidate whose chat thread is open, or null.
+  const [chatWith, setChatWith] = useState<MatchedCandidate | null>(null);
 
   // The company's open job postings, shown above the pipeline.
   useEffect(() => {
@@ -251,6 +254,13 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
                             </button>
                           )}
                         </div>
+                        <button
+                          onClick={() => setChatWith(c)}
+                          title={`Message ${c.name}`}
+                          className="mt-[10px] w-full flex items-center justify-center gap-1.5 rounded-md py-[6px] bg-gold/[0.12] border border-gold/30 text-goldbright text-[11px] font-semibold hover:bg-gold/20"
+                        >
+                          <MessageSquare size={13} /> Message
+                        </button>
                       </div>
                     ))}
                     {col.length === 0 && (
@@ -263,6 +273,14 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
           </div>
         )}
       </Panel>
+
+      <MatchChat
+        matchId={chatWith?.matchId ?? null}
+        title={chatWith?.name ?? ""}
+        subtitle={chatWith?.headline ?? chatWith?.trait ?? undefined}
+        initials={chatWith?.initials ?? "•"}
+        onClose={() => setChatWith(null)}
+      />
     </>
   );
 }

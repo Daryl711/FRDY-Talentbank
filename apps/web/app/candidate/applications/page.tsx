@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { MapPin, Users, Clock, Heart, Send, Loader2, Check } from "lucide-react";
+import { MapPin, Users, Clock, Heart, Send, Loader2, Check, MessageSquare } from "lucide-react";
 import { getSubmittedJobs, APPLICATION_STAGES, type ApplicationStage, type SubmittedJob } from "@/lib/candidate";
+import MatchChat from "@/components/MatchChat";
 
 /** Horizontal pipeline showing how far an application has progressed. */
 function StageTracker({ stage }: { stage: ApplicationStage }) {
@@ -39,6 +40,8 @@ function StageTracker({ stage }: { stage: ApplicationStage }) {
 export default function ApplicationsPage() {
   const [jobs, setJobs] = useState<SubmittedJob[]>([]);
   const [loading, setLoading] = useState(true);
+  // The application whose employer chat is open, or null.
+  const [chatJob, setChatJob] = useState<SubmittedJob | null>(null);
 
   useEffect(() => {
     getSubmittedJobs()
@@ -98,10 +101,30 @@ export default function ApplicationsPage() {
 
               {/* Application progress pipeline */}
               <StageTracker stage={j.stage} />
+
+              {/* Message the employer — available once a match thread exists. */}
+              {j.matchId && (
+                <div className="flex justify-end mt-4 pt-4 border-t border-line">
+                  <button
+                    onClick={() => setChatJob(j)}
+                    className="flex items-center gap-2 rounded-xl px-4 py-[9px] bg-gold/[0.12] border border-gold/30 text-goldbright text-[13px] font-semibold hover:bg-gold/20"
+                  >
+                    <MessageSquare size={15} /> Message {j.name}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
+
+      <MatchChat
+        matchId={chatJob?.matchId ?? null}
+        title={chatJob?.name ?? ""}
+        subtitle={chatJob?.role ? `Re: ${chatJob.role}` : undefined}
+        initials={chatJob?.initials ?? "•"}
+        onClose={() => setChatJob(null)}
+      />
     </div>
   );
 }
