@@ -115,6 +115,7 @@ export async function getCompanyMatches(): Promise<MatchedCandidate[]> {
     score: (r.score as number) ?? 0,
     stage: ((r.stage as HireStage) ?? "Applied") as HireStage,
     headline: (r.headline as string | null) ?? null,
+    role: (r.role as string | null) ?? null,
   }));
 }
 

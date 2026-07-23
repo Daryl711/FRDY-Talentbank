@@ -20,6 +20,8 @@ export interface MatchedCandidate {
   score: number;
   stage: HireStage;
   headline: string | null;
+  /** The job title the candidate applied to (null for older company-level matches). */
+  role: string | null;
 }
 
 export type AnimalTrait = 

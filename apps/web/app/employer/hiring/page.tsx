@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, X, Check, Loader2, Radio, MessageSquare } from "lucide-react";
+import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, X, Check, Loader2, Radio, MessageSquare, Briefcase } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
 import MatchChat from "@/components/MatchChat";
 import { jobRoles, traitEmoji } from "@/lib/mock";
@@ -213,6 +213,12 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
                           <span className="text-[15px]">{c.trait ? traitEmoji[c.trait] ?? "•" : "•"}</span>
                           <span className="text-ink text-[13px] font-semibold truncate">{c.name}</span>
                         </div>
+                        {c.role && (
+                          <div className="flex items-center gap-1 mt-[6px] text-gold text-[11px] truncate">
+                            <Briefcase size={11} className="shrink-0" />
+                            <span className="truncate">{c.role}</span>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-dim text-[12px]">{c.trait ?? "—"}</span>
                           <span className={`text-[12px] font-semibold ${c.score >= 90 ? "text-ok" : "text-gold"}`}>{c.score}%</span>
@@ -277,7 +283,7 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
       <MatchChat
         matchId={chatWith?.matchId ?? null}
         title={chatWith?.name ?? ""}
-        subtitle={chatWith?.headline ?? chatWith?.trait ?? undefined}
+        subtitle={chatWith?.role ? `Applied for ${chatWith.role}` : chatWith?.headline ?? chatWith?.trait ?? undefined}
         initials={chatWith?.initials ?? "•"}
         onClose={() => setChatWith(null)}
       />
