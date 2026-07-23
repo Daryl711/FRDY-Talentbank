@@ -52,6 +52,9 @@ create table if not exists profiles (
 -- `create table if not exists` above is a no-op on an existing table, so new
 -- columns must be added explicitly for the app's profile edits to persist.
 alter table profiles add column if not exists experience jsonb default '[]';
+-- Education history [{id,school,degree,grade,dates}] — universities + grades the
+-- candidate fills in on their profile.
+alter table profiles add column if not exists education jsonb default '[]';
 -- Animal Persona quiz result (onboarding). animal_trait feeds the employer
 -- dashboard's "Animal Trait" column; animal_scores keeps the full breakdown.
 alter table profiles add column if not exists animal_trait text;
@@ -110,6 +113,11 @@ create table if not exists swipes (
   created_at  timestamptz default now(),
   unique (user_id, target_id, target_type)
 );
+
+-- Per-application salary the candidate fills in on the job card when they match
+-- (right-swipe). Nullable — candidates may leave them blank.
+alter table swipes add column if not exists expected_salary   int;
+alter table swipes add column if not exists last_drawn_salary int;
 
 -- ----------------------------------------------------------------------------
 -- MATCHES — created when both sides swipe right (mutual)
