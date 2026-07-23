@@ -242,6 +242,9 @@ export default function MatchScreen() {
   const [submitted, setSubmitted] = useState<SubmittedJob[]>([]);
   const [submittedOpen, setSubmittedOpen] = useState(false);
   const [browseOpen, setBrowseOpen] = useState(false);
+  // Nudge shown when a candidate tries to match with only a resume — no cover
+  // letter and/or salary details — since complete applications get seen more.
+  const [showBoost, setShowBoost] = useState(false);
   // null = still checking. Candidates must upload a resume before matching.
   const [hasResume, setHasResume] = useState<boolean | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -379,9 +382,28 @@ export default function MatchScreen() {
   // Matching (right-swipe) is locked until a resume is uploaded.
   const canMatch = hasResume === true;
 
+  // The top card currently facing the user. The deck is consumed front-to-back
+  // and `remaining` counts down as cards are swiped, so this stays in sync.
+  const topCard = deck[deck.length - remaining];
+
+  // A match is "complete" once a cover letter is attached AND both salary fields
+  // are filled — not just a resume. Incomplete matches still work; we nudge first.
+  const salaryFilled = !!topCard && !!salary[topCard.id]?.expected && !!salary[topCard.id]?.lastDrawn;
+  const detailsComplete = (c?: SwipeCompany) =>
+    !!c && !!coverLetter && !!salary[c.id]?.expected && !!salary[c.id]?.lastDrawn;
+  const boostNeeded = canMatch && !!topCard && !detailsComplete(topCard);
+
   function attemptMatch() {
-    if (canMatch) swiperRef.current?.swipeRight();
-    else Alert.alert("Upload your resume", "Upload a resume on the card to unlock matching.");
+    if (!canMatch) {
+      Alert.alert("Upload your resume", "Upload a resume on the card to unlock matching.");
+      return;
+    }
+    // Only a resume so far — nudge for a cover letter and salary details first.
+    if (boostNeeded) {
+      setShowBoost(true);
+      return;
+    }
+    swiperRef.current?.swipeRight();
   }
 
   return (
@@ -441,8 +463,11 @@ export default function MatchScreen() {
               )}
               onSwiped={(i, dir) => onSwiped(i, dir)}
               onSwipedAll={() => setDone(true)}
-              rightLocked={!canMatch}
-              onRightLocked={() => Alert.alert("Upload your resume", "Upload a resume on the card to unlock matching.")}
+              rightLocked={!canMatch || boostNeeded}
+              onRightLocked={() => {
+                if (!canMatch) Alert.alert("Upload your resume", "Upload a resume on the card to unlock matching.");
+                else setShowBoost(true);
+              }}
               labels={{
                 left: { text: "PASS", color: "#e25555" },
                 right: { text: canMatch ? "MATCH" : "LOCKED", color: canMatch ? "#3fbf6a" : "#8a8f9c" },
@@ -536,6 +561,56 @@ export default function MatchScreen() {
             )}
           </Pressable>
         </Pressable>
+      </Modal>
+
+      {/* Boost-your-chances nudge — shown when matching with only a resume. */}
+      <Modal visible={showBoost} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowBoost(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <View className="w-full border border-line rounded-[24px] p-6" style={{ backgroundColor: colors.bg, maxWidth: 430 }}>
+            <View className="items-center">
+              <View className="w-[58px] h-[58px] rounded-full items-center justify-center" style={{ backgroundColor: "rgba(216,180,90,0.12)", borderWidth: 1, borderColor: "rgba(216,180,90,0.4)" }}>
+                <Feather name="eye" size={26} color={colors.gold} />
+              </View>
+              <Text className="font-serif text-[23px] text-ink mt-4 text-center leading-[29px]">Boost your chances of being seen</Text>
+              <Text className="text-dim text-[14px] mt-3 leading-[22px] text-center">
+                You&apos;ve only attached a resume. Applications that also include a{" "}
+                <Text className="text-gold font-semibold">cover letter and your salary details</Text> get a higher chance of employers viewing them. Add them before you match to stand out.
+              </Text>
+
+              <View className="w-full mt-4 gap-2">
+                <View className="flex-row items-center gap-2">
+                  <Feather name={coverLetter ? "check" : "x"} size={15} color={coverLetter ? colors.ok : colors.mut} />
+                  <Text className={coverLetter ? "text-dim text-[13px]" : "text-ink text-[13px]"}>
+                    Cover letter {coverLetter ? "attached" : "not added"}
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-2">
+                  <Feather name={salaryFilled ? "check" : "x"} size={15} color={salaryFilled ? colors.ok : colors.mut} />
+                  <Text className={salaryFilled ? "text-dim text-[13px]" : "text-ink text-[13px]"}>
+                    Expected &amp; last drawn salary {salaryFilled ? "filled in" : "incomplete"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={() => setShowBoost(false)}
+              className="flex-row items-center justify-center gap-2 rounded-[14px] py-[15px] mt-6"
+              style={{ backgroundColor: colors.gold }}
+            >
+              <Text className="text-[14.5px] font-semibold" style={{ color: "#2b2106" }}>Add cover letter &amp; details</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setShowBoost(false);
+                swiperRef.current?.swipeRight();
+              }}
+              className="items-center rounded-[14px] py-[13px] mt-3 border border-line"
+            >
+              <Text className="text-dim text-[14px] font-medium">Match anyway</Text>
+            </Pressable>
+          </View>
+        </View>
       </Modal>
     </ScreenBg>
   );

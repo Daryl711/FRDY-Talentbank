@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Users, Zap, X, Check, Heart, Sparkles, Upload, Lock, Loader2, FilePlus, LayoutList, FileText } from "lucide-react";
+import { MapPin, Users, Zap, X, Check, Heart, Sparkles, Upload, Lock, Loader2, FilePlus, LayoutList, FileText, Eye } from "lucide-react";
 import { getResumes, getSwipeDeck, recordSwipe, uploadCoverLetter, uploadResume, type SwipeCompany, type SwipeDirection } from "@/lib/candidate";
 
 type FocusJob = Partial<SwipeCompany> & { name: string };
@@ -39,6 +39,9 @@ export default function MatchPage() {
   // Per-job salary the candidate fills in on the card (keyed by job id).
   const [salary, setSalary] = useState<Record<string, { expected: string; lastDrawn: string }>>({});
   const [browseOpen, setBrowseOpen] = useState(false);
+  // Nudge shown when a candidate tries to match with only a resume — no cover
+  // letter and/or salary details — since complete applications get seen more.
+  const [showBoost, setShowBoost] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
   const focusApplied = useRef(false);
@@ -89,13 +92,13 @@ export default function MatchPage() {
     });
   }
 
-  function swipe(dir: SwipeDirection) {
-    if (!card || leaving) return;
-    // Match (right-swipe) is locked until a resume is uploaded; Pass is free.
-    if (dir === "right" && !hasResume) {
-      showToast("Upload your resume on the card to match.");
-      return;
-    }
+  // A match is "complete" once the candidate has attached a cover letter AND
+  // filled in both salary fields — not just a resume. Incomplete matches still
+  // work, but we nudge first (see swipe → showBoost).
+  const detailsComplete = !!coverLetter && !!cardSalary.expected && !!cardSalary.lastDrawn;
+
+  function performSwipe(dir: SwipeDirection) {
+    if (!card) return;
     const s = salary[card.id];
     recordSwipe(card.id, dir, {
       expectedSalary: s?.expected ? Number(s.expected) : null,
@@ -107,6 +110,22 @@ export default function MatchPage() {
       setIndex((i) => i + 1);
       setLeaving(null);
     }, 260);
+  }
+
+  function swipe(dir: SwipeDirection) {
+    if (!card || leaving) return;
+    // Match (right-swipe) is locked until a resume is uploaded; Pass is free.
+    if (dir === "right" && !hasResume) {
+      showToast("Upload your resume on the card to match.");
+      return;
+    }
+    // Only a resume so far — nudge the candidate to add a cover letter and their
+    // salary details for a higher chance of employers viewing the application.
+    if (dir === "right" && !detailsComplete) {
+      setShowBoost(true);
+      return;
+    }
+    performSwipe(dir);
   }
 
   function showToast(msg: string) {
@@ -243,6 +262,56 @@ export default function MatchPage() {
       {toast && (
         <div className="fixed left-1/2 -translate-x-1/2 bottom-8 bg-surface3 border border-line2 rounded-xl px-5 py-3 text-ink text-[13px] shadow-lg">
           {toast}
+        </div>
+      )}
+
+      {/* Boost-your-chances nudge — shown when matching with only a resume. */}
+      {showBoost && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/70"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowBoost(false)}
+        >
+          <div className="w-full max-w-[430px] bg-bg border border-line rounded-[24px] p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-[58px] h-[58px] rounded-full flex items-center justify-center bg-gold/[0.12] border border-gold/40">
+                <Eye size={26} className="text-gold" />
+              </div>
+              <h2 className="font-serif text-[23px] font-bold text-ink mt-4 leading-[29px]">Boost your chances of being seen</h2>
+              <p className="text-dim text-[14px] mt-3 leading-[22px]">
+                You&apos;ve only attached a resume. Applications that also include a{" "}
+                <span className="text-gold font-semibold">cover letter and your salary details</span> get a higher chance of employers viewing them. Add them before you match to stand out.
+              </p>
+              <ul className="w-full mt-4 flex flex-col gap-2">
+                <li className="flex items-center gap-2 text-[13px]">
+                  {coverLetter ? <Check size={15} className="text-ok shrink-0" /> : <X size={15} className="text-mut shrink-0" />}
+                  <span className={coverLetter ? "text-dim" : "text-ink"}>Cover letter {coverLetter ? "attached" : "not added"}</span>
+                </li>
+                <li className="flex items-center gap-2 text-[13px]">
+                  {cardSalary.expected && cardSalary.lastDrawn ? <Check size={15} className="text-ok shrink-0" /> : <X size={15} className="text-mut shrink-0" />}
+                  <span className={cardSalary.expected && cardSalary.lastDrawn ? "text-dim" : "text-ink"}>Expected &amp; last drawn salary {cardSalary.expected && cardSalary.lastDrawn ? "filled in" : "incomplete"}</span>
+                </li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() => setShowBoost(false)}
+              className="mt-6 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-goldbright to-golddeep rounded-xl py-[14px] font-semibold text-[14.5px]"
+              style={{ color: "#2b2106" }}
+            >
+              Add cover letter &amp; details
+            </button>
+            <button
+              onClick={() => {
+                setShowBoost(false);
+                performSwipe("right");
+              }}
+              className="mt-3 w-full py-[13px] text-dim text-[14px] font-medium rounded-xl border border-line hover:text-ink"
+            >
+              Match anyway
+            </button>
+          </div>
         </div>
       )}
 
