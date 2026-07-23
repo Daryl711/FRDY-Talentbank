@@ -28,6 +28,22 @@ export const me: Profile = {
         "Owned the analytics suite from 0→1, partnering with design and engineering to launch dashboards adopted by 12k monthly active users.",
     },
   ],
+  education: [
+    {
+      id: "edu1",
+      school: "Cornell University",
+      degree: "MBA, Technology Management",
+      grade: "GPA 3.9 / 4.0",
+      dates: "2015 — 2017",
+    },
+    {
+      id: "edu2",
+      school: "University of Michigan",
+      degree: "BSc Computer Science",
+      grade: "First Class Honours · 3.8",
+      dates: "2010 — 2014",
+    },
+  ],
   initials: "AC",
   profile_score: 94,
   views: 347,

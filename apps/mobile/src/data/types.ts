@@ -11,6 +11,17 @@ export interface Experience {
   description: string;
 }
 
+export interface Education {
+  id: string;
+  /** University / institution name. */
+  school: string;
+  /** Degree and field of study, e.g. "BSc Computer Science". */
+  degree: string;
+  /** Grade / CGPA / classification, e.g. "First Class · 3.8". */
+  grade: string;
+  dates: string;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -21,6 +32,7 @@ export interface Profile {
   about: string;
   skills: string[];
   experience: Experience[];
+  education: Education[];
   initials: string;
   profile_score: number;
   views: number;

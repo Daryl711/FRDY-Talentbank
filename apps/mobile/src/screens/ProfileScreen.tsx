@@ -5,7 +5,7 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-nativ
 import { Avatar, ScreenBg } from "@/components/ui";
 import { getMyProfile, signOut, updateMyProfile } from "@/data/repo";
 import { ANIMALS, AnimalTrait, PersonaScores } from "@/data/persona";
-import { Experience, Profile } from "@/data/types";
+import { Education, Experience, Profile } from "@/data/types";
 import { colors, gradients } from "@/theme/colors";
 
 // Experience cards show a colored company monogram. Since users type a free-form
@@ -45,6 +45,7 @@ export default function ProfileScreen() {
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
   const [experience, setExperience] = useState<Experience[]>([]);
+  const [education, setEducation] = useState<Education[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,8 +69,21 @@ export default function ProfileScreen() {
     setSkillInput("");
     // Clone so per-field edits don't mutate the saved profile until we save.
     setExperience((me!.experience ?? []).map((e) => ({ ...e })));
+    setEducation((me!.education ?? []).map((e) => ({ ...e })));
     setError(null);
     setEditing(true);
+  }
+
+  function addEducation() {
+    setEducation([...education, { id: `edu-${Date.now()}`, school: "", degree: "", grade: "", dates: "" }]);
+  }
+
+  function updateEducation(id: string, patch: Partial<Education>) {
+    setEducation(education.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }
+
+  function removeEducation(id: string) {
+    setEducation(education.filter((e) => e.id !== id));
   }
 
   function addExperience() {
@@ -120,7 +134,16 @@ export default function ProfileScreen() {
         description: e.description.trim(),
       }))
       .filter((e) => e.title || e.company || e.description);
-    const patch = { about: about.trim(), skills: finalSkills, experience: finalExperience };
+    const finalEducation = education
+      .map((e) => ({
+        ...e,
+        school: e.school.trim(),
+        degree: e.degree.trim(),
+        grade: e.grade.trim(),
+        dates: e.dates.trim(),
+      }))
+      .filter((e) => e.school || e.degree || e.grade);
+    const patch = { about: about.trim(), skills: finalSkills, experience: finalExperience, education: finalEducation };
     try {
       const updated = await updateMyProfile(patch);
       // updateMyProfile returns null in mock mode (no Supabase) — keep the
@@ -376,6 +399,82 @@ export default function ProfileScreen() {
                     <Text className="text-dim text-[12.5px] mt-[2px]">{e.company}</Text>
                     {e.dates ? <Text className="font-mono text-[10.5px] text-mut mt-[5px]">{e.dates}</Text> : null}
                     {e.description ? <Text className="text-dim text-[13px] leading-[20px] mt-[9px]">{e.description}</Text> : null}
+                  </View>
+                </View>
+              ))
+            )}
+
+            <Text className="font-serif text-[20px] text-ink mt-6 mb-3">Education</Text>
+            {editing ? (
+              <>
+                {education.map((e, idx) => (
+                  <View key={e.id} className="bg-surface border border-line rounded-[14px] p-[15px] mb-[11px]">
+                    <View className="flex-row items-center justify-between mb-[11px]">
+                      <Text className="font-mono text-[10px] tracking-[1.5px] text-mut uppercase">School {idx + 1}</Text>
+                      <Pressable onPress={() => removeEducation(e.id)} hitSlop={8} className="flex-row items-center gap-[5px]">
+                        <Feather name="trash-2" size={14} color={colors.danger} />
+                        <Text className="text-danger text-[12px]">Remove</Text>
+                      </Pressable>
+                    </View>
+                    <TextInput
+                      value={e.school}
+                      onChangeText={(t) => updateEducation(e.id, { school: t })}
+                      placeholder="University / institution"
+                      placeholderTextColor={colors.mut}
+                      autoCapitalize="words"
+                      className="bg-surface2 border border-line rounded-[11px] px-[13px] py-[11px] text-ink text-[14px] mb-[9px]"
+                    />
+                    <TextInput
+                      value={e.degree}
+                      onChangeText={(t) => updateEducation(e.id, { degree: t })}
+                      placeholder="Degree & field — e.g. BSc Computer Science"
+                      placeholderTextColor={colors.mut}
+                      autoCapitalize="words"
+                      className="bg-surface2 border border-line rounded-[11px] px-[13px] py-[11px] text-ink text-[14px] mb-[9px]"
+                    />
+                    <TextInput
+                      value={e.grade}
+                      onChangeText={(t) => updateEducation(e.id, { grade: t })}
+                      placeholder="Grade — e.g. First Class · CGPA 3.8"
+                      placeholderTextColor={colors.mut}
+                      className="bg-surface2 border border-line rounded-[11px] px-[13px] py-[11px] text-ink text-[14px] mb-[9px]"
+                    />
+                    <TextInput
+                      value={e.dates}
+                      onChangeText={(t) => updateEducation(e.id, { dates: t })}
+                      placeholder="Dates — e.g. 2016 — 2020"
+                      placeholderTextColor={colors.mut}
+                      className="bg-surface2 border border-line rounded-[11px] px-[13px] py-[11px] text-ink text-[14px]"
+                    />
+                  </View>
+                ))}
+                <Pressable
+                  onPress={addEducation}
+                  className="flex-row items-center justify-center gap-[8px] bg-surface2 border border-line rounded-[14px] py-[14px] mb-[11px]"
+                  style={{ borderStyle: "dashed" }}
+                >
+                  <Feather name="plus" size={17} color={colors.gold} />
+                  <Text className="text-gold text-[13.5px] font-medium">Add education</Text>
+                </Pressable>
+              </>
+            ) : (me.education ?? []).length === 0 ? (
+              <Text className="text-dim text-[14px] leading-[23px]">No education yet. Tap Edit to add your universities and grades.</Text>
+            ) : (
+              (me.education ?? []).map((e) => (
+                <View key={e.id} className="flex-row gap-[13px] bg-surface border border-line rounded-[14px] p-[15px] mb-[11px]">
+                  <View
+                    className="w-[44px] h-[44px] rounded-[11px] items-center justify-center"
+                    style={{ backgroundColor: "rgba(216,180,90,0.12)", borderWidth: 1, borderColor: "rgba(216,180,90,0.28)" }}
+                  >
+                    <Feather name="award" size={20} color={colors.goldbright} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-semibold text-[14.5px] text-ink">{e.school}</Text>
+                    {e.degree ? <Text className="text-dim text-[12.5px] mt-[2px]">{e.degree}</Text> : null}
+                    <View className="flex-row flex-wrap items-center gap-x-[12px] gap-y-[2px] mt-[5px]">
+                      {e.grade ? <Text className="text-gold text-[12px] font-medium">{e.grade}</Text> : null}
+                      {e.dates ? <Text className="font-mono text-[10.5px] text-mut">{e.dates}</Text> : null}
+                    </View>
                   </View>
                 </View>
               ))

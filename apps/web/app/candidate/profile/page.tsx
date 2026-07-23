@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Edit2, LogOut, MapPin, Briefcase, TrendingUp, Eye, Trophy, X, Check, Plus, Trash2, Tag, ChevronRight } from "lucide-react";
-import { getMyProfile, updateMyProfile, type CandidateProfile, type Experience } from "@/lib/candidate";
+import { Edit2, LogOut, MapPin, Briefcase, TrendingUp, Eye, Trophy, X, Check, Plus, Trash2, Tag, ChevronRight, GraduationCap } from "lucide-react";
+import { getMyProfile, updateMyProfile, type CandidateProfile, type Experience, type Education } from "@/lib/candidate";
 import { ANIMALS, type AnimalTrait, type PersonaScores } from "@/lib/persona";
 import { useAuth } from "@/lib/auth";
 import Avatar from "@/components/candidate/Avatar";
@@ -34,6 +34,7 @@ export default function ProfilePage() {
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
   const [experience, setExperience] = useState<Experience[]>([]);
+  const [education, setEducation] = useState<Education[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +56,7 @@ export default function ProfilePage() {
     setSkills(me!.skills ?? []);
     setSkillInput("");
     setExperience((me!.experience ?? []).map((e) => ({ ...e })));
+    setEducation((me!.education ?? []).map((e) => ({ ...e })));
     setError(null);
     setEditing(true);
   }
@@ -67,6 +69,16 @@ export default function ProfilePage() {
   }
   function removeExperience(id: string) {
     setExperience(experience.filter((e) => e.id !== id));
+  }
+
+  function addEducation() {
+    setEducation([...education, { id: `edu-${Date.now()}`, school: "", degree: "", grade: "", dates: "" }]);
+  }
+  function updateEducation(id: string, patch: Partial<Education>) {
+    setEducation(education.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }
+  function removeEducation(id: string) {
+    setEducation(education.filter((e) => e.id !== id));
   }
   function addSkill() {
     const s = skillInput.trim();
@@ -86,7 +98,10 @@ export default function ProfilePage() {
     const finalExperience = experience
       .map((e) => ({ ...e, title: e.title.trim(), company: e.company.trim(), dates: e.dates.trim(), description: e.description.trim() }))
       .filter((e) => e.title || e.company || e.description);
-    const patch = { about: about.trim(), skills: finalSkills, experience: finalExperience };
+    const finalEducation = education
+      .map((e) => ({ ...e, school: e.school.trim(), degree: e.degree.trim(), grade: e.grade.trim(), dates: e.dates.trim() }))
+      .filter((e) => e.school || e.degree || e.grade);
+    const patch = { about: about.trim(), skills: finalSkills, experience: finalExperience, education: finalEducation };
     try {
       const updated = await updateMyProfile(patch);
       setMe(updated ?? { ...me!, ...patch });
@@ -241,6 +256,46 @@ export default function ProfilePage() {
                   <div className="text-dim text-[12.5px] mt-[2px]">{e.company}</div>
                   {e.dates && <div className="font-mono text-[10.5px] text-mut mt-[5px]">{e.dates}</div>}
                   {e.description && <p className="text-dim text-[13px] leading-5 mt-2">{e.description}</p>}
+                </div>
+              </div>
+            ))
+          )}
+
+          {/* education */}
+          <h2 className="font-serif text-[20px] font-bold text-ink mt-6 mb-3">Education</h2>
+          {editing ? (
+            <>
+              {education.map((e, idx) => (
+                <div key={e.id} className="bg-surface border border-line rounded-xl p-4 mb-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-mono text-[10px] tracking-wider text-mut uppercase">School {idx + 1}</span>
+                    <button onClick={() => removeEducation(e.id)} className="flex items-center gap-1 text-danger text-[12px]"><Trash2 size={14} /> Remove</button>
+                  </div>
+                  <input value={e.school} onChange={(ev) => updateEducation(e.id, { school: ev.target.value })} placeholder="University / institution" className={`${input} mb-[9px]`} />
+                  <input value={e.degree} onChange={(ev) => updateEducation(e.id, { degree: ev.target.value })} placeholder="Degree & field — e.g. BSc Computer Science" className={`${input} mb-[9px]`} />
+                  <input value={e.grade} onChange={(ev) => updateEducation(e.id, { grade: ev.target.value })} placeholder="Grade — e.g. First Class · CGPA 3.8" className={`${input} mb-[9px]`} />
+                  <input value={e.dates} onChange={(ev) => updateEducation(e.id, { dates: ev.target.value })} placeholder="Dates — e.g. 2016 — 2020" className={input} />
+                </div>
+              ))}
+              <button onClick={addEducation} className="w-full flex items-center justify-center gap-2 bg-surface2 border border-dashed border-line rounded-xl py-[14px] text-gold text-[13.5px] font-medium">
+                <Plus size={17} /> Add education
+              </button>
+            </>
+          ) : (me.education ?? []).length === 0 ? (
+            <p className="text-dim text-[14px]">No education yet. Tap Edit to add your universities and grades.</p>
+          ) : (
+            (me.education ?? []).map((e) => (
+              <div key={e.id} className="flex gap-3 bg-surface border border-line rounded-xl p-4 mb-3">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-gold/[0.12] border border-gold/30 text-goldbright shrink-0">
+                  <GraduationCap size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[14.5px] text-ink">{e.school}</div>
+                  {e.degree && <div className="text-dim text-[12.5px] mt-[2px]">{e.degree}</div>}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-[5px]">
+                    {e.grade && <span className="text-gold text-[12px] font-medium">{e.grade}</span>}
+                    {e.dates && <span className="font-mono text-[10.5px] text-mut">{e.dates}</span>}
+                  </div>
                 </div>
               </div>
             ))
