@@ -94,6 +94,8 @@ export interface SubmittedJob {
   stage: ApplicationStage;
   /** Date the application was submitted, pre-formatted for display. */
   date: string;
+  /** The company-match thread id, so the candidate can message the employer. */
+  matchId?: string | null;
 }
 
 export interface Connection {
@@ -125,6 +127,17 @@ export interface ChatMessage {
 export interface DirectMessage {
   id: string;
   connection_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  /** True when the signed-in user sent this message. */
+  mine: boolean;
+}
+
+/** A message on a candidate ↔ employer company-match thread. */
+export interface MatchMessage {
+  id: string;
+  match_id: string;
   sender_id: string;
   body: string;
   created_at: string;

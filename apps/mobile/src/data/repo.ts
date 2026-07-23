@@ -3,7 +3,7 @@ import { File } from "expo-file-system";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import * as mock from "./mock";
 import { AnimalTrait, PersonaScores } from "./persona";
-import { Connection, DirectMessage, Profile, Resume, Role, SubmittedJob, SwipeCompany, SwipeDirection } from "./types";
+import { Connection, DirectMessage, MatchMessage, Profile, Resume, Role, SubmittedJob, SwipeCompany, SwipeDirection } from "./types";
 
 // Each function tries Supabase when configured, otherwise returns local mock
 // data. This lets the app run immediately, and become live the moment you add
@@ -125,6 +125,7 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
       date: r.created_at
         ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
         : "",
+      matchId: r.match_id ? String(r.match_id) : null,
     };
   });
 }
@@ -303,6 +304,93 @@ export function subscribeMessages(
           mine: r.sender_id === uid,
         });
       },
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// EMPLOYER MESSAGING — the chat thread between a candidate and the employer
+// whose role they applied to. Keyed to a `matches` row (messages.match_id): the
+// candidate is matches.user_id, the employer owns matches.company_id. RLS lets
+// exactly those two participants read/post, and the employer replies from the
+// web Hiring board. Mirrors the peer-DM helpers above, but on match_id.
+// ---------------------------------------------------------------------------
+
+// Mock threads so the employer-chat UI is demoable without Supabase configured.
+const mockMatchThreads: Record<string, MatchMessage[]> = {};
+
+function rowToMatchMessage(r: Record<string, unknown>, uid: string | null): MatchMessage {
+  return {
+    id: String(r.id),
+    match_id: String(r.match_id),
+    sender_id: String(r.sender_id),
+    body: String(r.body),
+    created_at: String(r.created_at),
+    mine: r.sender_id === uid,
+  };
+}
+
+/** Full message history for a company-match thread, oldest first. */
+export async function getMatchMessages(matchId: string): Promise<MatchMessage[]> {
+  if (!isSupabaseConfigured) return mockMatchThreads[matchId] ?? [];
+  const uid = await currentUid();
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id, match_id, sender_id, body, created_at")
+    .eq("match_id", matchId)
+    .order("created_at", { ascending: true });
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map((r) => rowToMatchMessage(r, uid));
+}
+
+/** Send a message to the employer on a match thread. Returns the stored row. */
+export async function sendMatchMessage(matchId: string, body: string): Promise<MatchMessage | null> {
+  const text = body.trim();
+  if (!text) return null;
+  if (!isSupabaseConfigured) {
+    const msg: MatchMessage = {
+      id: `mock_msg_${Date.now()}`,
+      match_id: matchId,
+      sender_id: "me",
+      body: text,
+      created_at: new Date().toISOString(),
+      mine: true,
+    };
+    (mockMatchThreads[matchId] ??= []).push(msg);
+    return msg;
+  }
+  const uid = await currentUid();
+  if (!uid) return null;
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({ match_id: matchId, sender_id: uid, body: text })
+    .select("id, match_id, sender_id, body, created_at")
+    .single();
+  if (error) throw error;
+  return rowToMatchMessage(data as Record<string, unknown>, uid);
+}
+
+/**
+ * Live-subscribe to new messages on a match thread. `onInsert` receives each new
+ * message (already tagged `mine`). Returns an unsubscribe function; no-op in
+ * mock mode.
+ */
+export function subscribeMatchMessages(
+  matchId: string,
+  onInsert: (msg: MatchMessage) => void,
+): () => void {
+  if (!isSupabaseConfigured) return () => {};
+  let uid: string | null = null;
+  currentUid().then((id) => (uid = id));
+  const channel = supabase
+    .channel(`match-messages-${matchId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "messages", filter: `match_id=eq.${matchId}` },
+      (payload) => onInsert(rowToMatchMessage(payload.new as Record<string, unknown>, uid)),
     )
     .subscribe();
   return () => {
