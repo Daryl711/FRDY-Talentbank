@@ -27,6 +27,98 @@ export async function getMyCompany(): Promise<Company | null> {
   return data as Company;
 }
 
+// ---------------------------------------------------------------------------
+// EMPLOYER SIGN-UP — self-serve account creation, separate from candidates.
+// A startup / small company signs up, and we provision their account + company
+// and grant access immediately (instant self-serve). Company size is captured so
+// the dashboard and matching can reflect a company's stage.
+// ---------------------------------------------------------------------------
+
+/** Company-size bands offered on the employer sign-up form. */
+export const EMPLOYER_SIZES: { value: string; label: string }[] = [
+  { value: "1-10", label: "Startup · 1–10" },
+  { value: "11-50", label: "Small · 11–50" },
+  { value: "51-200", label: "Scale-up · 51–200" },
+  { value: "200+", label: "Established · 200+" },
+];
+
+function sizeToStage(size: string): string {
+  switch (size) {
+    case "1-10": return "Startup";
+    case "11-50": return "Small";
+    case "51-200": return "Scale-up";
+    default: return "Established";
+  }
+}
+
+export interface EmployerSignUpInput {
+  name: string;
+  email: string;
+  password: string;
+  companyName: string;
+  companySize: string;
+}
+
+export interface EmployerSignUpResult {
+  /** A session exists immediately (email confirmation is OFF in the project). */
+  session: boolean;
+  /** True when Supabase created the user but is waiting on email confirmation. */
+  needsConfirmation: boolean;
+}
+
+/**
+ * Create an employer account and their company, then grant access immediately.
+ * The handle_new_user trigger provisions the company from the sign-up metadata;
+ * we also ensure it client-side so this works even before the updated trigger is
+ * deployed (older schema). No-ops safely into an error if Supabase is off.
+ */
+export async function signUpEmployer(input: EmployerSignUpInput): Promise<EmployerSignUpResult> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase isn't configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.");
+  }
+  const { data, error } = await supabase.auth.signUp({
+    email: input.email.trim(),
+    password: input.password,
+    options: {
+      data: {
+        name: input.name.trim(),
+        user_type: "company",
+        company_name: input.companyName.trim(),
+        company_size: input.companySize,
+      },
+    },
+  });
+  if (error) throw error;
+  // With email confirmation off a session exists right away, so finish setup.
+  if (data.session) {
+    await ensureEmployerCompany(input.companyName.trim(), input.companySize);
+  }
+  return { session: !!data.session, needsConfirmation: !data.session && !!data.user };
+}
+
+/**
+ * Make sure the signed-in employer is marked as a company and owns their
+ * company. Idempotent: if the trigger already created the company, this finds it
+ * and does nothing. Used as a fallback path for signUpEmployer.
+ */
+export async function ensureEmployerCompany(companyName: string, companySize: string): Promise<Company | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return null;
+  // Best-effort: flag the profile as an employer account.
+  await supabase.from("profiles").update({ user_type: "company" }).eq("id", uid);
+  const existing = await getMyCompany();
+  if (existing) return existing;
+  const { data, error } = await supabase
+    .from("companies")
+    .insert({ owner_id: uid, name: companyName, size: companySize, stage: sizeToStage(companySize) })
+    .select("id,name,initials")
+    .single();
+  if (error || !data) return null;
+  return data as Company;
+}
+
 export interface Role {
   id: string;
   title: string;

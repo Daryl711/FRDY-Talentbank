@@ -78,6 +78,11 @@ create table if not exists companies (
   created_at  timestamptz default now()
 );
 
+-- Access status for self-serve employer sign-ups. Instant self-serve grants
+-- 'approved' on creation; kept as a column so an approval gate can be layered on
+-- later without a migration. Existing/seeded companies default to 'approved'.
+alter table companies add column if not exists status text default 'approved';
+
 -- ----------------------------------------------------------------------------
 -- ROLES (job postings)
 -- ----------------------------------------------------------------------------
@@ -499,19 +504,43 @@ create policy "resume files employer read" on storage.objects for select to auth
 -- ============================================================================
 -- AUTO-CREATE A PROFILE ROW ON SIGN-UP
 -- ============================================================================
+-- Seeds the profile row on sign-up. Employer sign-ups pass user_type='company'
+-- plus company_name / company_size in raw_user_meta_data (see signUpEmployer):
+-- for those we also mark the profile as a company AND provision the company they
+-- own, so they land straight on a live Hiring board. Instant self-serve, so the
+-- company is created 'approved'. Candidates omit user_type and default to
+-- 'individual' with no company.
 create or replace function handle_new_user()
 returns trigger
 language plpgsql
 security definer
-set search_path = public          -- so the unqualified table below resolves
+set search_path = public          -- so the unqualified tables below resolve
 as $$
+declare
+  v_name    text := coalesce(nullif(new.raw_user_meta_data->>'name',''), 'New User');
+  v_type    text := coalesce(nullif(new.raw_user_meta_data->>'user_type',''), 'individual');
+  v_company text := nullif(new.raw_user_meta_data->>'company_name','');
+  v_size    text := nullif(new.raw_user_meta_data->>'company_size','');
+  v_stage   text := case v_size
+                      when '1-10'   then 'Startup'
+                      when '11-50'  then 'Small'
+                      when '51-200' then 'Scale-up'
+                      when '200+'   then 'Established'
+                      else null end;
 begin
-  insert into public.profiles (id, name)
-  values (new.id, coalesce(nullif(new.raw_user_meta_data->>'name',''), 'New User'))
+  insert into public.profiles (id, name, user_type)
+  values (new.id, v_name, v_type::user_type)
   on conflict (id) do nothing;
+
+  -- Provision the employer's company from the sign-up metadata.
+  if v_type = 'company' and v_company is not null then
+    insert into public.companies (owner_id, name, size, stage, status)
+    values (new.id, v_company, v_size, v_stage, 'approved');
+  end if;
+
   return new;
 exception when others then
-  -- Never let a profile hiccup abort the auth sign-up itself.
+  -- Never let a profile/company hiccup abort the auth sign-up itself.
   raise warning 'handle_new_user failed: %', sqlerrm;
   return new;
 end; $$;

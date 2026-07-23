@@ -6,6 +6,7 @@ import { Building2, GraduationCap, User, ArrowRight, Eye, EyeOff, Loader2 } from
 import { OrgType } from "@/lib/types";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { signInWithEmail, signUpWithEmail } from "@/lib/candidate";
+import { signUpEmployer, EMPLOYER_SIZES } from "@/lib/employer";
 
 const PORTALS: Record<OrgType, string> = {
   candidate: "/candidate",
@@ -40,8 +41,10 @@ export default function SignInPage() {
 
         {org === "candidate" ? (
           <CandidateAuth />
+        ) : org === "employer" ? (
+          <EmployerAuth />
         ) : (
-          <DemoAuth portal={PORTALS[org]} defaults={DEMO_CREDS[org]} />
+          <DemoAuth portal={PORTALS[org]} defaults={DEMO_CREDS.university} />
         )}
 
         <p className="text-center eyebrow mt-12">Elevate Enterprise v2.4 · Terms · Privacy</p>
@@ -162,6 +165,147 @@ function CandidateAuth() {
           className="text-gold hover:text-goldbright font-semibold"
         >
           {isSignup ? "Sign in" : "Create one"}
+        </button>
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ employer auth */
+// Employers are their own account type (separate from candidates): they can sign
+// in, or request access — a self-serve sign-up that creates their account and
+// company and grants access immediately (see signUpEmployer). Sign-in prefills
+// the seeded CelcomDigi demo login so the existing demo still works one-click.
+function EmployerAuth() {
+  const router = useRouter();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [companySize, setCompanySize] = useState(EMPLOYER_SIZES[0].value);
+  const [email, setEmail] = useState(DEMO_CREDS.employer.email);
+  const [password, setPassword] = useState(DEMO_CREDS.employer.password);
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const isSignup = mode === "signup";
+  const canSubmit =
+    email.includes("@") &&
+    password.length >= 6 &&
+    (!isSignup || (name.trim().length >= 2 && companyName.trim().length >= 2));
+
+  function switchMode(next: "signin" | "signup") {
+    setMode(next);
+    setError(null);
+    setNotice(null);
+    if (next === "signup") {
+      // Clear the prefilled demo login when creating a real account.
+      setEmail("");
+      setPassword("");
+    } else {
+      setEmail(DEMO_CREDS.employer.email);
+      setPassword(DEMO_CREDS.employer.password);
+    }
+  }
+
+  async function submit() {
+    if (!canSubmit || busy) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      if (!isSupabaseConfigured) {
+        router.push("/employer");
+        return;
+      }
+      if (isSignup) {
+        const res = await signUpEmployer({ name, email, password, companyName, companySize });
+        if (res.needsConfirmation) {
+          setNotice("Account created. Check your email to confirm, then sign in.");
+          switchMode("signin");
+          return;
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (error) throw error;
+      }
+      router.push("/employer");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const field =
+    "mt-2 w-full bg-surface2 border border-line rounded-xl px-4 py-[14px] text-ink text-[15px] outline-none focus:border-gold/50 transition-colors placeholder:text-mut";
+
+  return (
+    <div className="mt-8">
+      {isSignup && (
+        <>
+          <div className="mb-5">
+            <label className="eyebrow">Your Name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Founder" className={field} />
+          </div>
+          <div className="mb-5">
+            <label className="eyebrow">Company Name</label>
+            <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Acme Labs" className={field} />
+          </div>
+          <div className="mb-5">
+            <label className="eyebrow">Company Size</label>
+            <select value={companySize} onChange={(e) => setCompanySize(e.target.value)} className={field}>
+              {EMPLOYER_SIZES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+        </>
+      )}
+
+      <div>
+        <label className="eyebrow">Work Email</label>
+        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@company.com" className={field} />
+      </div>
+
+      <div className="mt-5">
+        <label className="eyebrow">Password</label>
+        <div className="mt-2 relative">
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            type={show ? "text" : "password"}
+            placeholder={isSignup ? "At least 6 characters" : "••••••••"}
+            className="w-full bg-surface2 border border-line rounded-xl px-4 py-[14px] pr-12 text-ink text-[15px] outline-none focus:border-gold/50 transition-colors placeholder:text-mut"
+          />
+          <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-mut hover:text-dim" aria-label={show ? "Hide password" : "Show password"}>
+            {show ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="mt-5 text-[13px] text-danger bg-danger/10 border border-danger/30 rounded-xl px-4 py-3">{error}</p>}
+      {notice && <p className="mt-5 text-[13px] text-ok bg-ok/10 border border-ok/30 rounded-xl px-4 py-3">{notice}</p>}
+
+      <button
+        onClick={submit}
+        disabled={busy || !canSubmit}
+        className="mt-6 w-full bg-gradient-to-r from-goldbright to-golddeep rounded-xl py-[15px] flex items-center justify-center gap-2 font-semibold text-[15px] transition-opacity hover:opacity-90 disabled:opacity-60"
+        style={{ color: "#2b2106" }}
+      >
+        {busy ? (
+          <><Loader2 size={18} className="animate-spin" /> {isSignup ? "Creating account…" : "Signing in…"}</>
+        ) : (
+          <>{isSignup ? "Request Access" : "Sign In"} <ArrowRight size={18} /></>
+        )}
+      </button>
+
+      <p className="text-center text-dim text-[13px] mt-6">
+        {isSignup ? "Already have an employer account?" : "New here? Startups & small companies welcome."}{" "}
+        <button onClick={() => switchMode(isSignup ? "signin" : "signup")} className="text-gold hover:text-goldbright font-semibold">
+          {isSignup ? "Sign in" : "Request access"}
         </button>
       </p>
     </div>
