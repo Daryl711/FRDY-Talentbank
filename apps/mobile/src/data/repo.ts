@@ -36,6 +36,26 @@ export async function updateMyProfile(patch: Partial<Profile>): Promise<Profile 
   return data as unknown as Profile;
 }
 
+// ---------------------------------------------------------------------------
+// PROFILE SETUP — the About/Skills/Experience step is optional. Candidates can
+// skip it during onboarding and complete it later from their profile. The skip
+// is remembered per-device (AsyncStorage) so the setup screen doesn't reappear
+// on every sign-in while the profile is still empty.
+// ---------------------------------------------------------------------------
+
+const PROFILE_SETUP_SKIPPED_KEY = "mango.profile_setup_skipped";
+
+/** True once the candidate has chosen to skip the profile setup step. */
+export async function getProfileSetupSkipped(): Promise<boolean> {
+  return (await AsyncStorage.getItem(PROFILE_SETUP_SKIPPED_KEY)) === "1";
+}
+
+/** Remember (or clear) that the candidate skipped profile setup. */
+export async function setProfileSetupSkipped(skipped: boolean): Promise<void> {
+  if (skipped) await AsyncStorage.setItem(PROFILE_SETUP_SKIPPED_KEY, "1");
+  else await AsyncStorage.removeItem(PROFILE_SETUP_SKIPPED_KEY);
+}
+
 export async function getFeaturedRoles(): Promise<Role[]> {
   if (!isSupabaseConfigured) return mock.featuredRoles;
   const { data, error } = await supabase

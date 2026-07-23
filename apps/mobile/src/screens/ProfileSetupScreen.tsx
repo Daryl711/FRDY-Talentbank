@@ -7,13 +7,16 @@ import { colors } from "@/theme/colors";
 
 /**
  * Second onboarding step (after the Animal Persona quiz): the candidate fills in
- * their About, Skills and Experience before entering the app. All three are
- * required. onComplete persists the profile patch (see ProfileGate).
+ * their About, Skills and Experience. This step is optional — they can skip it
+ * and complete it later from their profile. onComplete persists the profile
+ * patch and onSkip dismisses the step without saving (see ProfileGate).
  */
 export default function ProfileSetupScreen({
   onComplete,
+  onSkip,
 }: {
   onComplete: (patch: Partial<Profile>) => Promise<void> | void;
+  onSkip: () => Promise<void> | void;
 }) {
   const [about, setAbout] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
@@ -80,10 +83,10 @@ export default function ProfileSetupScreen({
     <ScreenBg>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
         <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <Eyebrow className="!text-gold">Candidate Onboarding · Step 2 of 2</Eyebrow>
+          <Eyebrow className="!text-gold">Candidate Onboarding · Step 2 of 2 · Optional</Eyebrow>
           <Text className="font-serif text-[30px] text-ink mt-3 leading-[36px]">Complete your{"\n"}profile</Text>
           <Text className="text-dim text-[14px] mt-3 leading-[22px]">
-            Tell employers about yourself. Add an intro, your top skills and your work history — all three are required to finish setting up.
+            Tell employers about yourself. Add an intro, your top skills and your work history — or skip for now and finish this anytime from your profile.
           </Text>
 
           {/* About */}
@@ -158,9 +161,12 @@ export default function ProfileSetupScreen({
           <View className="mt-7">
             <GoldButton label="Finish & enter Mango" icon="arrow-right" onPress={submit} loading={saving} disabled={!canSubmit} />
           </View>
-          {!canSubmit && (
-            <Text className="text-mut text-[12px] text-center mt-3">Add an about, at least one skill and one role to continue.</Text>
-          )}
+          <Pressable onPress={() => onSkip()} disabled={saving} hitSlop={8} className="mt-4 py-2 items-center">
+            <Text className="text-dim text-[14px] font-medium">Skip for now</Text>
+          </Pressable>
+          <Text className="text-mut text-[12px] text-center mt-2">
+            {canSubmit ? "You can update your profile anytime from the Profile tab." : "Add all three to finish now, or skip and complete it later from your profile."}
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenBg>

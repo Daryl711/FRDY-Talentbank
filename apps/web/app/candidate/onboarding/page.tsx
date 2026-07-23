@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tag, Plus, Trash2, X, ArrowRight, Loader2 } from "lucide-react";
-import { updateMyProfile, type Experience } from "@/lib/candidate";
+import { setProfileSetupSkipped, updateMyProfile, type Experience } from "@/lib/candidate";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -58,6 +58,8 @@ export default function OnboardingPage() {
           description: e.description.trim(),
         })),
       });
+      // Filling the profile supersedes any earlier skip, so clear the flag.
+      setProfileSetupSkipped(false);
       router.push("/candidate");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save your profile. Please try again.");
@@ -65,14 +67,22 @@ export default function OnboardingPage() {
     }
   }
 
+  function skip() {
+    if (saving) return;
+    // Remember the skip so the onboarding step doesn't reappear on every
+    // navigation while the profile is still empty; they can complete it later.
+    setProfileSetupSkipped(true);
+    router.push("/candidate");
+  }
+
   const input = "w-full bg-surface2 border border-line rounded-xl px-[13px] py-[11px] text-ink text-[14px] outline-none focus:border-gold/50 placeholder:text-mut";
 
   return (
     <div className="max-w-[620px] mx-auto">
-      <div className="eyebrow !text-gold">Candidate Onboarding · Step 2 of 2</div>
+      <div className="eyebrow !text-gold">Candidate Onboarding · Step 2 of 2 · Optional</div>
       <h1 className="font-serif text-[32px] font-bold text-ink mt-3">Complete your profile</h1>
       <p className="text-dim text-[14px] mt-3 leading-[22px]">
-        Tell employers about yourself. Add an intro, your top skills and your work history — all three are required to finish setting up.
+        Tell employers about yourself. Add an intro, your top skills and your work history — or skip for now and finish this anytime from your profile.
       </p>
 
       {/* About */}
@@ -139,7 +149,12 @@ export default function OnboardingPage() {
       >
         {saving ? <><Loader2 size={18} className="animate-spin" /> Saving…</> : <>Finish &amp; enter Mango <ArrowRight size={18} /></>}
       </button>
-      {!canSubmit && <p className="text-mut text-[12px] text-center mt-3">Add an about, at least one skill and one role to continue.</p>}
+      <button onClick={skip} disabled={saving} className="mt-4 w-full py-2 text-dim text-[14px] font-medium disabled:opacity-50">
+        Skip for now
+      </button>
+      <p className="text-mut text-[12px] text-center mt-2">
+        {canSubmit ? "You can update your profile anytime from your profile page." : "Add all three to finish now, or skip and complete it later from your profile."}
+      </p>
     </div>
   );
 }

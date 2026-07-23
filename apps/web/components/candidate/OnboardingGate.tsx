@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { getMyAnimalTrait, getMyProfile, type CandidateProfile } from "@/lib/candidate";
+import { getMyAnimalTrait, getMyProfile, getProfileSetupSkipped, type CandidateProfile } from "@/lib/candidate";
 import CandidateSidebar from "@/components/candidate/CandidateSidebar";
 
 const QUIZ = "/candidate/quiz";
@@ -16,9 +16,11 @@ export function isProfileComplete(p: CandidateProfile): boolean {
 
 /**
  * Enforces candidate onboarding: after signing in, a candidate must complete the
- * Animal Persona quiz, then fill in their About/Skills/Experience, before the
- * main app (sidebar + pages) is shown. The quiz and onboarding routes render
- * full-screen (no sidebar) so the flow mirrors the mobile gates.
+ * Animal Persona quiz before the main app (sidebar + pages) is shown. They're
+ * then prompted to fill in their About/Skills/Experience, but that step is
+ * optional — they can skip it and complete it later from their profile (the skip
+ * is remembered). The quiz and onboarding routes render full-screen (no sidebar)
+ * so the flow mirrors the mobile gates.
  */
 export default function OnboardingGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -42,7 +44,7 @@ export default function OnboardingGate({ children }: { children: React.ReactNode
       }
       const profile = await getMyProfile();
       if (!alive) return;
-      if (!isProfileComplete(profile)) {
+      if (!isProfileComplete(profile) && !getProfileSetupSkipped()) {
         router.replace(ONBOARDING);
         return;
       }
