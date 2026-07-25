@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Users, Zap, X, Check, Heart, Sparkles, Upload, Lock, Loader2, FilePlus, LayoutList, FileText, Eye, ChevronDown, ChevronUp, Briefcase } from "lucide-react";
 import { getResumes, getSwipeDeck, recordSwipe, uploadCoverLetter, uploadResume, type SwipeCompany, type SwipeDirection } from "@/lib/candidate";
+
+// How far (px) the card must be dragged before release counts as a swipe.
+const SWIPE_THRESHOLD = 120;
 
 type FocusJob = Partial<SwipeCompany> & { name: string };
 
@@ -45,6 +48,14 @@ export default function MatchPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
   const focusApplied = useRef(false);
+
+  // Drag-to-swipe on the card itself, like the mobile app. `dragX` is the
+  // live pointer offset while dragging; releasing past the threshold triggers
+  // the same gated swipe() path the Pass/Match buttons use.
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const activePointer = useRef<number | null>(null);
+  const dragStartX = useRef(0);
 
   useEffect(() => {
     getResumes().then((rs) => setHasResume(rs.some((r) => r.kind === "uploaded")));
@@ -133,6 +144,40 @@ export default function MatchPage() {
     setTimeout(() => setToast(null), 2200);
   }
 
+  function onCardPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (leaving || !card) return;
+    // Let clicks on inputs/buttons inside the card (upload, salary fields,
+    // "view role details", etc.) behave normally instead of starting a drag.
+    if ((e.target as HTMLElement).closest("input, button, textarea, select, a")) return;
+    activePointer.current = e.pointerId;
+    dragStartX.current = e.clientX;
+    setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onCardPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!dragging || activePointer.current !== e.pointerId) return;
+    setDragX(e.clientX - dragStartX.current);
+  }
+
+  function endDrag(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!dragging || activePointer.current !== e.pointerId) return;
+    activePointer.current = null;
+    setDragging(false);
+    if (dragX > SWIPE_THRESHOLD) {
+      // Only reset the drag offset when the swipe didn't actually go through
+      // (locked / needs a cover letter+salary first) — a completed swipe keeps
+      // the offset so the fly-out animation continues outward, not from zero.
+      const willComplete = !!hasResume && detailsComplete;
+      swipe("right");
+      if (!willComplete) setDragX(0);
+    } else if (dragX < -SWIPE_THRESHOLD) {
+      swipe("left");
+    } else {
+      setDragX(0);
+    }
+  }
+
   // Browse-all-jobs: bring the picked job to the top of the deck (as the current
   // card) without disturbing already-swiped cards.
   function selectJob(id: string) {
@@ -201,12 +246,53 @@ export default function MatchPage() {
       <div className="relative min-h-[520px]">
         {card && !done ? (
           <div
+            onPointerDown={onCardPointerDown}
+            onPointerMove={onCardPointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
             style={{
-              transition: "transform 0.26s ease, opacity 0.26s ease",
-              transform: leaving === "left" ? "translateX(-120%) rotate(-12deg)" : leaving === "right" ? "translateX(120%) rotate(12deg)" : "none",
+              position: "relative",
+              touchAction: "pan-y",
+              cursor: dragging ? "grabbing" : "grab",
+              userSelect: dragging ? "none" : undefined,
+              transition: dragging ? "none" : "transform 0.26s ease, opacity 0.26s ease",
+              transform:
+                leaving === "left"
+                  ? "translateX(-120%) rotate(-12deg)"
+                  : leaving === "right"
+                  ? "translateX(120%) rotate(12deg)"
+                  : `translateX(${dragX}px) rotate(${dragX / 18}deg)`,
               opacity: leaving ? 0 : 1,
             }}
           >
+            {/* Drag feedback labels, mirroring the mobile swipe deck. */}
+            <div
+              className="absolute top-[26px] left-[22px] z-10 rounded-xl border-[3px] px-[14px] py-[6px] pointer-events-none"
+              style={{
+                borderColor: "#e25555",
+                backgroundColor: "rgba(10,14,27,0.35)",
+                transform: "rotate(12deg)",
+                transition: dragging ? "none" : "opacity 0.26s ease",
+                opacity: Math.max(0, Math.min(1, -dragX / SWIPE_THRESHOLD)),
+              }}
+            >
+              <span className="font-mono text-[22px] font-extrabold tracking-[2px]" style={{ color: "#e25555" }}>PASS</span>
+            </div>
+            <div
+              className="absolute top-[26px] right-[22px] z-10 rounded-xl border-[3px] px-[14px] py-[6px] pointer-events-none"
+              style={{
+                borderColor: canMatch ? "#3fbf6a" : "#8a8f9c",
+                backgroundColor: "rgba(10,14,27,0.35)",
+                transform: "rotate(-12deg)",
+                transition: dragging ? "none" : "opacity 0.26s ease",
+                opacity: Math.max(0, Math.min(1, dragX / SWIPE_THRESHOLD)),
+              }}
+            >
+              <span className="font-mono text-[22px] font-extrabold tracking-[2px]" style={{ color: canMatch ? "#3fbf6a" : "#8a8f9c" }}>
+                {canMatch ? "MATCH" : "LOCKED"}
+              </span>
+            </div>
+
             <CompanyCard
               c={card}
               hasResume={canMatch}
