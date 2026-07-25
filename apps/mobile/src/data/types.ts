@@ -96,6 +96,10 @@ export interface SubmittedJob {
   date: string;
   /** The company-match thread id, so the candidate can message the employer. */
   matchId?: string | null;
+  /** Expected salary the candidate submitted with this application, if given. */
+  expectedSalary?: number | null;
+  /** Last drawn salary the candidate submitted with this application, if given. */
+  lastDrawnSalary?: number | null;
 }
 
 export interface Connection {
@@ -157,4 +161,6 @@ export interface Resume {
   sizeKb: number;
   /** Applicant Tracking System match score, 0–100. */
   atsScore: number;
+  /** Storage path for uploaded files; null for AI-generated resumes (no file). */
+  storagePath?: string | null;
 }

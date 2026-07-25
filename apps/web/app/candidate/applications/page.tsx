@@ -1,9 +1,10 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { MapPin, Users, Clock, Heart, Send, Loader2, Check, MessageSquare } from "lucide-react";
+import { MapPin, Users, Clock, Heart, Send, Loader2, Check, MessageSquare, FileText } from "lucide-react";
 import { getSubmittedJobs, APPLICATION_STAGES, type ApplicationStage, type SubmittedJob } from "@/lib/candidate";
 import MatchChat from "@/components/MatchChat";
+import ApplicationDetailsModal from "@/components/candidate/ApplicationDetailsModal";
 
 /** Horizontal pipeline showing how far an application has progressed. */
 function StageTracker({ stage }: { stage: ApplicationStage }) {
@@ -42,6 +43,8 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   // The application whose employer chat is open, or null.
   const [chatJob, setChatJob] = useState<SubmittedJob | null>(null);
+  // The application whose submitted details (resume, salary) are open, or null.
+  const [detailsJob, setDetailsJob] = useState<SubmittedJob | null>(null);
 
   useEffect(() => {
     getSubmittedJobs()
@@ -102,17 +105,23 @@ export default function ApplicationsPage() {
               {/* Application progress pipeline */}
               <StageTracker stage={j.stage} />
 
-              {/* Message the employer — available once a match thread exists. */}
-              {j.matchId && (
-                <div className="flex justify-end mt-4 pt-4 border-t border-line">
+              <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-line">
+                <button
+                  onClick={() => setDetailsJob(j)}
+                  className="flex items-center gap-2 rounded-xl px-4 py-[9px] bg-surface2 border border-line text-dim text-[13px] font-semibold hover:text-ink"
+                >
+                  <FileText size={15} /> View Details
+                </button>
+                {/* Message the employer — available once a match thread exists. */}
+                {j.matchId && (
                   <button
                     onClick={() => setChatJob(j)}
                     className="flex items-center gap-2 rounded-xl px-4 py-[9px] bg-gold/[0.12] border border-gold/30 text-goldbright text-[13px] font-semibold hover:bg-gold/20"
                   >
                     <MessageSquare size={15} /> Message {j.name}
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -125,6 +134,8 @@ export default function ApplicationsPage() {
         initials={chatJob?.initials ?? "•"}
         onClose={() => setChatJob(null)}
       />
+
+      {detailsJob && <ApplicationDetailsModal key={detailsJob.id} job={detailsJob} onClose={() => setDetailsJob(null)} />}
     </div>
   );
 }

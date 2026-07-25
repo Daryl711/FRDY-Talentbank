@@ -126,6 +126,8 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
         ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
         : "",
       matchId: r.match_id ? String(r.match_id) : null,
+      expectedSalary: (r.expected_salary as number | null) ?? null,
+      lastDrawnSalary: (r.last_drawn_salary as number | null) ?? null,
     };
   });
 }
@@ -575,7 +577,20 @@ function rowToResume(row: Record<string, unknown>): Resume {
       : "",
     sizeKb: (row.size_kb as number) ?? 0,
     atsScore: (row.ats_score as number) ?? 0,
+    storagePath: (row.storage_path as string | null) ?? null,
   };
+}
+
+/**
+ * A short-lived signed URL to view/download the signed-in candidate's own
+ * resume file from the private `resumes` Storage bucket. Access is enforced by
+ * the "resumes own" Storage RLS policy (supabase/schema.sql).
+ */
+export async function getResumeFileUrl(storagePath: string): Promise<string | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase.storage.from("resumes").createSignedUrl(storagePath, 3600);
+  if (error || !data) return null;
+  return data.signedUrl;
 }
 
 export async function getResumes(): Promise<Resume[]> {

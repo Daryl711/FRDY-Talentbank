@@ -1,6 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { Fragment, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import ApplicationDetailsModal from "@/components/ApplicationDetailsModal";
 import MatchChatModal from "@/components/MatchChatModal";
 import { APPLICATION_STAGES, ApplicationStage, SubmittedJob } from "@/data/types";
 import { colors } from "@/theme/colors";
@@ -67,6 +68,8 @@ export default function SubmittedJobsModal({
 }) {
   // The application whose employer chat is open, or null.
   const [chatJob, setChatJob] = useState<SubmittedJob | null>(null);
+  // The application whose submitted details (resume, salary) are open, or null.
+  const [detailsJob, setDetailsJob] = useState<SubmittedJob | null>(null);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -125,17 +128,26 @@ export default function SubmittedJobsModal({
                   {/* Application progress pipeline */}
                   <StageTracker stage={j.stage} />
 
-                  {/* Message the employer — available once a match thread exists. */}
-                  {j.matchId && (
+                  <View className="flex-row gap-2 mt-[14px]">
                     <Pressable
-                      onPress={() => setChatJob(j)}
-                      className="flex-row items-center justify-center gap-2 mt-[14px] rounded-[12px] py-[11px]"
-                      style={{ backgroundColor: "rgba(216,180,90,0.12)", borderWidth: 1, borderColor: "rgba(216,180,90,0.3)" }}
+                      onPress={() => setDetailsJob(j)}
+                      className="flex-1 flex-row items-center justify-center gap-2 rounded-[12px] py-[11px] bg-surface2 border border-line"
                     >
-                      <Feather name="message-square" size={15} color={colors.goldbright} />
-                      <Text className="font-semibold text-[13px] text-goldbright">Message {j.name}</Text>
+                      <Feather name="file-text" size={15} color={colors.dim} />
+                      <Text className="font-semibold text-[13px] text-dim">View Details</Text>
                     </Pressable>
-                  )}
+                    {/* Message the employer — available once a match thread exists. */}
+                    {j.matchId && (
+                      <Pressable
+                        onPress={() => setChatJob(j)}
+                        className="flex-1 flex-row items-center justify-center gap-2 rounded-[12px] py-[11px]"
+                        style={{ backgroundColor: "rgba(216,180,90,0.12)", borderWidth: 1, borderColor: "rgba(216,180,90,0.3)" }}
+                      >
+                        <Feather name="message-square" size={15} color={colors.goldbright} />
+                        <Text className="font-semibold text-[13px] text-goldbright">Message</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
               ))}
             </ScrollView>
@@ -148,6 +160,7 @@ export default function SubmittedJobsModal({
       </Pressable>
 
       <MatchChatModal visible={!!chatJob} job={chatJob} onClose={() => setChatJob(null)} />
+      <ApplicationDetailsModal visible={!!detailsJob} job={detailsJob} onClose={() => setDetailsJob(null)} />
     </Modal>
   );
 }

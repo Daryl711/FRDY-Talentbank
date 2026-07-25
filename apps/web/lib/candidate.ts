@@ -137,6 +137,10 @@ export interface SubmittedJob {
   date: string;
   /** The company-match thread id, so the candidate can message the employer. */
   matchId?: string | null;
+  /** Expected salary the candidate submitted with this application, if given. */
+  expectedSalary?: number | null;
+  /** Last drawn salary the candidate submitted with this application, if given. */
+  lastDrawnSalary?: number | null;
 }
 
 export interface ChatMessage {
@@ -156,6 +160,8 @@ export interface Resume {
   date: string;
   sizeKb: number;
   atsScore: number;
+  /** Storage path for uploaded files; null for AI-generated resumes (no file). */
+  storagePath?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -265,10 +271,10 @@ export const mockConnections: Connection[] = [
 
 // Applications shown when Supabase isn't configured (demo fallback).
 export const mockSubmittedJobs: SubmittedJob[] = [
-  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, stage: "interview", date: "Jul 14, 2026", matchId: "mock_match_c6" },
-  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: true, stage: "offer", date: "Jul 12, 2026", matchId: "mock_match_c6b" },
-  { id: "c6c", initials: "CD", name: "CelcomDigi", role: "Backend Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 88, matched: true, stage: "review", date: "Jul 10, 2026", matchId: "mock_match_c6c" },
-  { id: "c6d", initials: "CD", name: "CelcomDigi", role: "Corporate Strategy Manager", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 84, matched: false, stage: "applied", date: "Jul 08, 2026", matchId: null },
+  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, stage: "interview", date: "Jul 14, 2026", matchId: "mock_match_c6", expectedSalary: 9500, lastDrawnSalary: 8200 },
+  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: true, stage: "offer", date: "Jul 12, 2026", matchId: "mock_match_c6b", expectedSalary: 8000, lastDrawnSalary: 6800 },
+  { id: "c6c", initials: "CD", name: "CelcomDigi", role: "Backend Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 88, matched: true, stage: "review", date: "Jul 10, 2026", matchId: "mock_match_c6c", expectedSalary: 7200, lastDrawnSalary: null },
+  { id: "c6d", initials: "CD", name: "CelcomDigi", role: "Corporate Strategy Manager", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 84, matched: false, stage: "applied", date: "Jul 08, 2026", matchId: null, expectedSalary: null, lastDrawnSalary: null },
 ];
 
 export const trendingSectors = [
@@ -285,10 +291,10 @@ export const careerInsights = [
 ];
 
 export const mockResumes: Resume[] = [
-  { id: "res1", title: "Fintech Focused", kind: "ai", forCompany: "Meridian Capital", date: "May 28, 2026", sizeKb: 138, atsScore: 94 },
-  { id: "res2", title: "VP Engineering — Stratos", kind: "ai", forCompany: "Stratos Ventures", date: "Jun 12, 2026", sizeKb: 149, atsScore: 91 },
-  { id: "res3", title: "Senior PM — General", kind: "uploaded", forCompany: null, date: "Jun 10, 2026", sizeKb: 142, atsScore: 78 },
-  { id: "res4", title: "Growth PM — General", kind: "uploaded", forCompany: null, date: "Jun 05, 2026", sizeKb: 131, atsScore: 81 },
+  { id: "res1", title: "Fintech Focused", kind: "ai", forCompany: "Meridian Capital", date: "May 28, 2026", sizeKb: 138, atsScore: 94, storagePath: null },
+  { id: "res2", title: "VP Engineering — Stratos", kind: "ai", forCompany: "Stratos Ventures", date: "Jun 12, 2026", sizeKb: 149, atsScore: 91, storagePath: null },
+  { id: "res3", title: "Senior PM — General", kind: "uploaded", forCompany: null, date: "Jun 10, 2026", sizeKb: 142, atsScore: 78, storagePath: null },
+  { id: "res4", title: "Growth PM — General", kind: "uploaded", forCompany: null, date: "Jun 05, 2026", sizeKb: 131, atsScore: 81, storagePath: null },
 ];
 
 // ---------------------------------------------------------------------------
@@ -458,6 +464,8 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
         ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
         : "",
       matchId: r.match_id ? String(r.match_id) : null,
+      expectedSalary: (r.expected_salary as number | null) ?? null,
+      lastDrawnSalary: (r.last_drawn_salary as number | null) ?? null,
     };
   });
 }
@@ -740,7 +748,20 @@ function rowToResume(row: Record<string, unknown>): Resume {
       : "",
     sizeKb: (row.size_kb as number) ?? 0,
     atsScore: (row.ats_score as number) ?? 0,
+    storagePath: (row.storage_path as string | null) ?? null,
   };
+}
+
+/**
+ * A short-lived signed URL to view/download the signed-in candidate's own
+ * resume file from the private `resumes` Storage bucket. Access is enforced by
+ * the "resumes own" Storage RLS policy (supabase/schema.sql).
+ */
+export async function getResumeFileUrl(storagePath: string): Promise<string | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase.storage.from("resumes").createSignedUrl(storagePath, 3600);
+  if (error || !data) return null;
+  return data.signedUrl;
 }
 
 export async function getResumes(): Promise<Resume[]> {
