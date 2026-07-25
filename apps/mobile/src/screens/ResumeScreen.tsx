@@ -1,11 +1,11 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import AtsRing from "@/components/AtsRing";
 import CreateResumeModal from "@/components/CreateResumeModal";
 import { Eyebrow, ScreenBg } from "@/components/ui";
-import { createResume, getResumes, uploadResume } from "@/data/repo";
+import { createResume, getResumeFileUrl, getResumes, uploadResume } from "@/data/repo";
 import { Resume } from "@/data/types";
 import { colors } from "@/theme/colors";
 
@@ -17,6 +17,9 @@ export default function ResumeScreen() {
   const [toast, setToast] = useState<string | null>(null);
   const toastY = useRef(new Animated.Value(20)).current;
   const toastO = useRef(new Animated.Value(0)).current;
+  const [previewResume, setPreviewResume] = useState<Resume | null>(null);
+  const [previewText, setPreviewText] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     getResumes().then(setResumes);
@@ -46,11 +49,36 @@ export default function ResumeScreen() {
 
   async function handleGenerate(input: { targetRole: string; targetCompany: string }) {
     setGenerating(true);
-    const resume = await createResume(input);
-    setResumes((prev) => [resume, ...prev]);
-    setGenerating(false);
-    setModalOpen(false);
-    showToast(`Generated "${resume.title}" · ATS ${resume.atsScore}`);
+    try {
+      const resume = await createResume(input);
+      setResumes((prev) => [resume, ...prev]);
+      setModalOpen(false);
+      showToast(`Generated "${resume.title}" · ATS ${resume.atsScore}`);
+    } catch (e) {
+      showToast(e instanceof Error ? `Couldn't generate resume: ${e.message}` : "Couldn't generate resume");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function handlePreview(resume: Resume) {
+    setPreviewResume(resume);
+    setPreviewText(null);
+    if (!resume.storagePath) {
+      setPreviewText("No file is available for this resume yet.");
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const url = await getResumeFileUrl(resume.storagePath);
+      if (!url) throw new Error("no signed url");
+      const res = await fetch(url);
+      setPreviewText(await res.text());
+    } catch {
+      setPreviewText("Couldn't load this resume.");
+    } finally {
+      setPreviewLoading(false);
+    }
   }
 
   async function handleUpload() {
@@ -116,7 +144,7 @@ export default function ResumeScreen() {
           <>
             <Eyebrow className="mt-7 mb-3">AI-Generated</Eyebrow>
             {aiResumes.map((r) => (
-              <ResumeCard key={r.id} resume={r} onAction={showToast} />
+              <ResumeCard key={r.id} resume={r} onAction={showToast} onPreview={handlePreview} />
             ))}
           </>
         )}
@@ -126,7 +154,7 @@ export default function ResumeScreen() {
           <>
             <Eyebrow className="mt-6 mb-3">Uploaded</Eyebrow>
             {uploaded.map((r) => (
-              <ResumeCard key={r.id} resume={r} onAction={showToast} />
+              <ResumeCard key={r.id} resume={r} onAction={showToast} onPreview={handlePreview} />
             ))}
           </>
         )}
@@ -149,11 +177,67 @@ export default function ResumeScreen() {
           </View>
         </Animated.View>
       )}
+
+      <ResumePreviewModal
+        resume={previewResume}
+        text={previewText}
+        loading={previewLoading}
+        onClose={() => setPreviewResume(null)}
+      />
     </ScreenBg>
   );
 }
 
-function ResumeCard({ resume, onAction }: { resume: Resume; onAction: (msg: string) => void }) {
+function ResumePreviewModal({
+  resume,
+  text,
+  loading,
+  onClose,
+}: {
+  resume: Resume | null;
+  text: string | null;
+  loading: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={!!resume} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onPress={onClose}>
+        <Pressable
+          onPress={() => {}}
+          className="border-t border-line rounded-t-[24px] px-6 pt-4 pb-9"
+          style={{ backgroundColor: colors.bg, maxHeight: "85%" }}
+        >
+          <View className="self-center w-[42px] h-[5px] rounded-full mb-5" style={{ backgroundColor: colors.line2 }} />
+          <Text className="font-serif text-[20px] text-ink mb-4">{resume?.title}</Text>
+          {loading ? (
+            <View className="items-center py-10">
+              <ActivityIndicator color={colors.gold} />
+            </View>
+          ) : (
+            <ScrollView style={{ maxHeight: 420 }}>
+              <Text className="text-dim text-[13px] leading-[20px]" style={{ fontFamily: "monospace" }}>
+                {text}
+              </Text>
+            </ScrollView>
+          )}
+          <Pressable onPress={onClose} className="mt-6 items-center bg-surface2 border border-line rounded-[14px] py-[14px]">
+            <Text className="text-ink text-[14px] font-medium">Close</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function ResumeCard({
+  resume,
+  onAction,
+  onPreview,
+}: {
+  resume: Resume;
+  onAction: (msg: string) => void;
+  onPreview: (resume: Resume) => void;
+}) {
   const isAi = resume.kind === "ai";
   return (
     <View className="bg-surface border border-line rounded-2xl p-[18px] mb-3">
@@ -195,7 +279,7 @@ function ResumeCard({ resume, onAction }: { resume: Resume; onAction: (msg: stri
 
       {/* actions */}
       <View className="flex-row gap-3 mt-4">
-        <Pressable onPress={() => onAction(`Preview "${resume.title}"`)} className="flex-1 flex-row items-center justify-center gap-2 bg-surface2 border border-line rounded-[12px] py-[11px]">
+        <Pressable onPress={() => onPreview(resume)} className="flex-1 flex-row items-center justify-center gap-2 bg-surface2 border border-line rounded-[12px] py-[11px]">
           <Feather name="eye" size={15} color={colors.dim} />
           <Text className="text-dim text-[13.5px] font-medium">Preview</Text>
         </Pressable>

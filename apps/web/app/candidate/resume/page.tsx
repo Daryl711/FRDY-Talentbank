@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles, Upload, FileText, Eye, Edit2, MoreHorizontal, Clock, X, Target, Briefcase, CheckCircle, Zap, Loader2 } from "lucide-react";
-import { createResume, getResumes, uploadResume, type Resume } from "@/lib/candidate";
+import { createResume, getResumeFileUrl, getResumes, uploadResume, type Resume } from "@/lib/candidate";
 
 export default function ResumePage() {
   const [resumes, setResumes] = useState<Resume[]>([]);
@@ -10,6 +10,9 @@ export default function ResumePage() {
   const [generating, setGenerating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [previewResume, setPreviewResume] = useState<Resume | null>(null);
+  const [previewText, setPreviewText] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -31,11 +34,36 @@ export default function ResumePage() {
 
   async function handleGenerate(input: { targetRole: string; targetCompany: string }) {
     setGenerating(true);
-    const resume = await createResume(input);
-    setResumes((prev) => [resume, ...prev]);
-    setGenerating(false);
-    setModalOpen(false);
-    showToast(`Generated "${resume.title}" · ATS ${resume.atsScore}`);
+    try {
+      const resume = await createResume(input);
+      setResumes((prev) => [resume, ...prev]);
+      setModalOpen(false);
+      showToast(`Generated "${resume.title}" · ATS ${resume.atsScore}`);
+    } catch (err) {
+      showToast(err instanceof Error ? `Couldn't generate resume: ${err.message}` : "Couldn't generate resume");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function handlePreview(resume: Resume) {
+    setPreviewResume(resume);
+    setPreviewText(null);
+    if (!resume.storagePath) {
+      setPreviewText("No file is available for this resume yet.");
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const url = await getResumeFileUrl(resume.storagePath);
+      if (!url) throw new Error("no signed url");
+      const res = await fetch(url);
+      setPreviewText(await res.text());
+    } catch {
+      setPreviewText("Couldn't load this resume.");
+    } finally {
+      setPreviewLoading(false);
+    }
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -91,7 +119,7 @@ export default function ResumePage() {
         <>
           <h2 className="eyebrow mt-9 mb-3">AI-Generated</h2>
           <div className="flex flex-col gap-3">
-            {aiResumes.map((r) => <ResumeCard key={r.id} resume={r} onAction={showToast} />)}
+            {aiResumes.map((r) => <ResumeCard key={r.id} resume={r} onAction={showToast} onPreview={handlePreview} />)}
           </div>
         </>
       )}
@@ -100,18 +128,58 @@ export default function ResumePage() {
         <>
           <h2 className="eyebrow mt-7 mb-3">Uploaded</h2>
           <div className="flex flex-col gap-3">
-            {uploaded.map((r) => <ResumeCard key={r.id} resume={r} onAction={showToast} />)}
+            {uploaded.map((r) => <ResumeCard key={r.id} resume={r} onAction={showToast} onPreview={handlePreview} />)}
           </div>
         </>
       )}
 
       {modalOpen && <CreateResumeModal onClose={() => setModalOpen(false)} onGenerate={handleGenerate} generating={generating} />}
 
+      {previewResume && (
+        <ResumePreviewModal
+          resume={previewResume}
+          text={previewText}
+          loading={previewLoading}
+          onClose={() => setPreviewResume(null)}
+        />
+      )}
+
       {toast && (
         <div className="fixed left-1/2 -translate-x-1/2 bottom-8 bg-surface3 border border-line2 rounded-xl px-5 py-3 text-ink text-[13px] shadow-lg">
           {toast}
         </div>
       )}
+    </div>
+  );
+}
+
+function ResumePreviewModal({
+  resume,
+  text,
+  loading,
+  onClose,
+}: {
+  resume: Resume;
+  text: string | null;
+  loading: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60" onClick={onClose}>
+      <div className="w-full max-w-[560px] max-h-[80vh] flex flex-col bg-bgtop border border-line rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-serif text-[20px] font-semibold text-ink truncate">{resume.title}</h3>
+          <button onClick={onClose} className="text-mut hover:text-ink shrink-0"><X size={22} /></button>
+        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 size={24} className="animate-spin text-gold" />
+          </div>
+        ) : (
+          <pre className="overflow-y-auto text-dim text-[13px] leading-[20px] whitespace-pre-wrap font-mono">{text}</pre>
+        )}
+        <button onClick={onClose} className="mt-6 w-full bg-surface2 border border-line rounded-xl py-[14px] text-ink text-[14px] font-medium">Close</button>
+      </div>
     </div>
   );
 }
@@ -131,7 +199,15 @@ function AtsRing({ score }: { score: number }) {
   );
 }
 
-function ResumeCard({ resume, onAction }: { resume: Resume; onAction: (msg: string) => void }) {
+function ResumeCard({
+  resume,
+  onAction,
+  onPreview,
+}: {
+  resume: Resume;
+  onAction: (msg: string) => void;
+  onPreview: (resume: Resume) => void;
+}) {
   const isAi = resume.kind === "ai";
   return (
     <div className="bg-surface border border-line rounded-2xl p-[18px]">
@@ -155,7 +231,7 @@ function ResumeCard({ resume, onAction }: { resume: Resume; onAction: (msg: stri
         </div>
       </div>
       <div className="flex gap-3 mt-4">
-        <button onClick={() => onAction(`Preview "${resume.title}"`)} className="flex-1 flex items-center justify-center gap-2 bg-surface2 border border-line rounded-xl py-[11px] text-dim text-[13.5px] font-medium hover:text-ink">
+        <button onClick={() => onPreview(resume)} className="flex-1 flex items-center justify-center gap-2 bg-surface2 border border-line rounded-xl py-[11px] text-dim text-[13.5px] font-medium hover:text-ink">
           <Eye size={15} /> Preview
         </button>
         <button onClick={() => onAction(`Edit "${resume.title}"`)} className="flex-1 flex items-center justify-center gap-2 bg-surface2 border border-line rounded-xl py-[11px] text-gold text-[13.5px] font-medium">

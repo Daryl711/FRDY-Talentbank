@@ -649,41 +649,30 @@ export async function getResumes(): Promise<Resume[]> {
 }
 
 /**
- * Create a role-targeted AI resume. In the prototype this synthesizes a record
- * locally (and a plausible ATS score). In production, route through a Supabase
- * Edge Function that calls Claude to tailor the resume, then insert the row.
+ * Create a role-targeted AI resume. Routes through the "generate-resume"
+ * Supabase Edge Function, which calls Claude to draft real, tailored content
+ * grounded in the candidate's own profile, computes a keyword-overlap ATS
+ * score, and stores the result as a text file (so it's viewable/downloadable
+ * the same way an uploaded resume is). Falls back to a synthesized demo
+ * record when Supabase isn't configured, matching every other repo function.
  */
 export async function createResume(input: { targetRole: string; targetCompany?: string }): Promise<Resume> {
-  const atsScore = 88 + Math.floor(Math.random() * 9); // 88–96
-  const resume: Resume = {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.functions.invoke("generate-resume", {
+      body: { targetRole: input.targetRole, targetCompany: input.targetCompany },
+    });
+    if (error) throw error;
+    return rowToResume(data.resume as Record<string, unknown>);
+  }
+  return {
     id: `res_${Date.now()}`,
     title: input.targetRole,
     kind: "ai",
     forCompany: input.targetCompany?.trim() || null,
     date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     sizeKb: 130 + Math.floor(Math.random() * 30),
-    atsScore,
+    atsScore: 88 + Math.floor(Math.random() * 9),
   };
-  if (isSupabaseConfigured) {
-    const { data: auth } = await supabase.auth.getUser();
-    const uid = auth.user?.id;
-    if (uid) {
-      const { data } = await supabase
-        .from("resumes")
-        .insert({
-          user_id: uid,
-          title: resume.title,
-          kind: "ai",
-          for_company: resume.forCompany,
-          size_kb: resume.sizeKb,
-          ats_score: resume.atsScore,
-        })
-        .select()
-        .single();
-      if (data) return rowToResume(data as Record<string, unknown>);
-    }
-  }
-  return resume;
 }
 
 /** A file the user picked to upload (from expo-document-picker). */
