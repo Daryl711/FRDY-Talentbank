@@ -23,6 +23,17 @@ const DEMO_CREDS: Record<"employer" | "university", { email: string; password: s
   university: { email: "hiring@gmail.com", password: "password" },
 };
 
+// Shared across all three sign-in forms — Supabase Auth is the same user table
+// regardless of portal. Sends a reset link to /reset-password, where the user
+// picks a new password (see that page for the recovery-session handling).
+async function sendPasswordReset(email: string): Promise<void> {
+  if (!isSupabaseConfigured) throw new Error("Supabase isn't configured.");
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+  if (error) throw error;
+}
+
 export default function SignInPage() {
   const [org, setOrg] = useState<OrgType>("candidate");
 
@@ -95,6 +106,24 @@ function CandidateAuth() {
     }
   }
 
+  async function forgotPassword() {
+    if (!email.includes("@") || busy) {
+      setError("Enter your email address above, then click “Forgot password?”");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await sendPasswordReset(email);
+      setNotice("Password reset link sent — check your email.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't send the reset email. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mt-8">
       {isSignup && (
@@ -140,6 +169,13 @@ function CandidateAuth() {
             {show ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
+        {!isSignup && (
+          <div className="flex justify-end mt-2">
+            <button type="button" onClick={forgotPassword} disabled={busy} className="text-gold text-[13px] hover:text-goldbright disabled:opacity-60">
+              Forgot password?
+            </button>
+          </div>
+        )}
       </div>
 
       {error && <p className="mt-5 text-[13px] text-danger bg-danger/10 border border-danger/30 rounded-xl px-4 py-3">{error}</p>}
@@ -238,6 +274,24 @@ function EmployerAuth() {
     }
   }
 
+  async function forgotPassword() {
+    if (!email.includes("@") || busy) {
+      setError("Enter your email address above, then click “Forgot password?”");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await sendPasswordReset(email);
+      setNotice("Password reset link sent — check your email.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't send the reset email. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const field =
     "mt-2 w-full bg-surface2 border border-line rounded-xl px-4 py-[14px] text-ink text-[15px] outline-none focus:border-gold/50 transition-colors placeholder:text-mut";
 
@@ -284,6 +338,13 @@ function EmployerAuth() {
             {show ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
+        {!isSignup && (
+          <div className="flex justify-end mt-2">
+            <button type="button" onClick={forgotPassword} disabled={busy} className="text-gold text-[13px] hover:text-goldbright disabled:opacity-60">
+              Forgot password?
+            </button>
+          </div>
+        )}
       </div>
 
       {error && <p className="mt-5 text-[13px] text-danger bg-danger/10 border border-danger/30 rounded-xl px-4 py-3">{error}</p>}
@@ -322,9 +383,11 @@ function DemoAuth({ portal, defaults }: { portal: string; defaults: { email: str
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function signIn() {
     setError(null);
+    setNotice(null);
     if (!isSupabaseConfigured) {
       router.push(portal);
       return;
@@ -337,6 +400,24 @@ function DemoAuth({ portal, defaults }: { portal: string; defaults: { email: str
       return;
     }
     router.push(portal);
+  }
+
+  async function forgotPassword() {
+    if (!email.includes("@") || loading) {
+      setError("Enter your email address above, then click “Forgot password?”");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await sendPasswordReset(email);
+      setNotice("Password reset link sent — check your email.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't send the reset email. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -373,10 +454,13 @@ function DemoAuth({ portal, defaults }: { portal: string; defaults: { email: str
       </div>
 
       <div className="flex justify-end mt-3">
-        <a className="text-gold text-[13px] hover:text-goldbright cursor-pointer">Forgot password?</a>
+        <button type="button" onClick={forgotPassword} disabled={loading} className="text-gold text-[13px] hover:text-goldbright disabled:opacity-60">
+          Forgot password?
+        </button>
       </div>
 
       {error && <p className="mt-5 text-[13px] text-danger bg-danger/10 border border-danger/30 rounded-xl px-4 py-3">{error}</p>}
+      {notice && <p className="mt-5 text-[13px] text-ok bg-ok/10 border border-ok/30 rounded-xl px-4 py-3">{notice}</p>}
 
       <button
         onClick={signIn}
