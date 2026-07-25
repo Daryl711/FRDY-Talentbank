@@ -100,6 +100,8 @@ export interface SubmittedJob {
   expectedSalary?: number | null;
   /** Last drawn salary the candidate submitted with this application, if given. */
   lastDrawnSalary?: number | null;
+  /** Date each pipeline stage was reached, pre-formatted; absent if not reached yet. */
+  stageDates: Partial<Record<ApplicationStage, string>>;
 }
 
 export interface Connection {

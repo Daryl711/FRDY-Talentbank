@@ -85,10 +85,10 @@ export const swipeDeck: SwipeCompany[] = [
 // Jobs the candidate has applied to (right-swiped). Shown on the "Submitted"
 // view. Used as the demo fallback when Supabase isn't configured.
 export const submittedJobs: SubmittedJob[] = [
-  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, stage: "interview", date: "Jul 14, 2026", matchId: "mock_match_c6", expectedSalary: 9500, lastDrawnSalary: 8200 },
-  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: true, stage: "offer", date: "Jul 12, 2026", matchId: "mock_match_c6b", expectedSalary: 8000, lastDrawnSalary: 6800 },
-  { id: "c6c", initials: "CD", name: "CelcomDigi", role: "Backend Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 88, matched: true, stage: "review", date: "Jul 10, 2026", matchId: "mock_match_c6c", expectedSalary: 7200, lastDrawnSalary: null },
-  { id: "c6d", initials: "CD", name: "CelcomDigi", role: "Corporate Strategy Manager", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 84, matched: false, stage: "applied", date: "Jul 08, 2026", matchId: null, expectedSalary: null, lastDrawnSalary: null },
+  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, stage: "interview", date: "Jul 14, 2026", matchId: "mock_match_c6", expectedSalary: 9500, lastDrawnSalary: 8200, stageDates: { applied: "Jul 14, 2026", review: "Jul 16, 2026", interview: "Jul 19, 2026" } },
+  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: true, stage: "offer", date: "Jul 12, 2026", matchId: "mock_match_c6b", expectedSalary: 8000, lastDrawnSalary: 6800, stageDates: { applied: "Jul 12, 2026", review: "Jul 14, 2026", interview: "Jul 17, 2026", offer: "Jul 20, 2026" } },
+  { id: "c6c", initials: "CD", name: "CelcomDigi", role: "Backend Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 88, matched: true, stage: "review", date: "Jul 10, 2026", matchId: "mock_match_c6c", expectedSalary: 7200, lastDrawnSalary: null, stageDates: { applied: "Jul 10, 2026", review: "Jul 12, 2026" } },
+  { id: "c6d", initials: "CD", name: "CelcomDigi", role: "Corporate Strategy Manager", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 84, matched: false, stage: "applied", date: "Jul 08, 2026", matchId: null, expectedSalary: null, lastDrawnSalary: null, stageDates: { applied: "Jul 08, 2026" } },
 ];
 
 export const connections: Connection[] = [

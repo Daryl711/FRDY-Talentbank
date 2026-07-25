@@ -141,6 +141,8 @@ export interface SubmittedJob {
   expectedSalary?: number | null;
   /** Last drawn salary the candidate submitted with this application, if given. */
   lastDrawnSalary?: number | null;
+  /** Date each pipeline stage was reached, pre-formatted; null/absent if not reached yet. */
+  stageDates: Partial<Record<ApplicationStage, string>>;
 }
 
 export interface ChatMessage {
@@ -271,10 +273,10 @@ export const mockConnections: Connection[] = [
 
 // Applications shown when Supabase isn't configured (demo fallback).
 export const mockSubmittedJobs: SubmittedJob[] = [
-  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, stage: "interview", date: "Jul 14, 2026", matchId: "mock_match_c6", expectedSalary: 9500, lastDrawnSalary: 8200 },
-  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: true, stage: "offer", date: "Jul 12, 2026", matchId: "mock_match_c6b", expectedSalary: 8000, lastDrawnSalary: 6800 },
-  { id: "c6c", initials: "CD", name: "CelcomDigi", role: "Backend Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 88, matched: true, stage: "review", date: "Jul 10, 2026", matchId: "mock_match_c6c", expectedSalary: 7200, lastDrawnSalary: null },
-  { id: "c6d", initials: "CD", name: "CelcomDigi", role: "Corporate Strategy Manager", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 84, matched: false, stage: "applied", date: "Jul 08, 2026", matchId: null, expectedSalary: null, lastDrawnSalary: null },
+  { id: "c6", initials: "CD", name: "CelcomDigi", role: "AI Engineer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 95, matched: true, stage: "interview", date: "Jul 14, 2026", matchId: "mock_match_c6", expectedSalary: 9500, lastDrawnSalary: 8200, stageDates: { applied: "Jul 14, 2026", review: "Jul 16, 2026", interview: "Jul 19, 2026" } },
+  { id: "c6b", initials: "CD", name: "CelcomDigi", role: "Software Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 92, matched: true, stage: "offer", date: "Jul 12, 2026", matchId: "mock_match_c6b", expectedSalary: 8000, lastDrawnSalary: 6800, stageDates: { applied: "Jul 12, 2026", review: "Jul 14, 2026", interview: "Jul 17, 2026", offer: "Jul 20, 2026" } },
+  { id: "c6c", initials: "CD", name: "CelcomDigi", role: "Backend Developer", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 88, matched: true, stage: "review", date: "Jul 10, 2026", matchId: "mock_match_c6c", expectedSalary: 7200, lastDrawnSalary: null, stageDates: { applied: "Jul 10, 2026", review: "Jul 12, 2026" } },
+  { id: "c6d", initials: "CD", name: "CelcomDigi", role: "Corporate Strategy Manager", location: "Kuala Lumpur, MY", employees: "12,000 emp.", match: 84, matched: false, stage: "applied", date: "Jul 08, 2026", matchId: null, expectedSalary: null, lastDrawnSalary: null, stageDates: { applied: "Jul 08, 2026" } },
 ];
 
 export const trendingSectors = [
@@ -441,6 +443,29 @@ export async function recordSwipe(
 // CONNECTIONS
 // ---------------------------------------------------------------------------
 
+// Maps the employer's live hiring-pipeline stage (matches.stage — Applied,
+// Screening, Interview, Final Round, Offer, Hired, Rejected) down to the
+// four-step tracker the candidate app shows.
+function mapHireStage(hireStage: string | null, matched: boolean): ApplicationStage {
+  if (!matched || !hireStage) return "applied";
+  switch (hireStage) {
+    case "Screening":
+      return "review";
+    case "Interview":
+    case "Final Round":
+      return "interview";
+    case "Offer":
+    case "Hired":
+      return "offer";
+    default:
+      return "applied";
+  }
+}
+
+function fmtDate(v: unknown): string | undefined {
+  return v ? new Date(v as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : undefined;
+}
+
 // Jobs the signed-in candidate has applied to (right-swiped), newest first.
 export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
   if (!isSupabaseConfigured) return mockSubmittedJobs;
@@ -448,6 +473,7 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
   if (error || !data) return mockSubmittedJobs;
   return (data as Record<string, unknown>[]).map((r) => {
     const matched = !!r.matched;
+    const appliedDate = fmtDate(r.created_at) ?? "";
     return {
       id: String(r.id),
       initials: (r.initials as string) ?? "•",
@@ -457,12 +483,14 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
       employees: (r.employees as string) ?? "",
       match: (r.match as number) ?? 0,
       matched,
-      // Until employers set an explicit status, a mutual match is the only live
-      // signal we have that an application has moved past the "Applied" stage.
-      stage: (matched ? "review" : "applied") as ApplicationStage,
-      date: r.created_at
-        ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-        : "",
+      stage: mapHireStage((r.hire_stage as string | null) ?? null, matched),
+      date: appliedDate,
+      stageDates: {
+        applied: appliedDate,
+        review: fmtDate(r.review_at),
+        interview: fmtDate(r.interview_at),
+        offer: fmtDate(r.offer_at),
+      },
       matchId: r.match_id ? String(r.match_id) : null,
       expectedSalary: (r.expected_salary as number | null) ?? null,
       lastDrawnSalary: (r.last_drawn_salary as number | null) ?? null,

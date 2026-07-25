@@ -101,6 +101,29 @@ export async function recordSwipe(
   // Right-swiping a role creates a match on its company via a DB trigger.
 }
 
+// Maps the employer's live hiring-pipeline stage (matches.stage — Applied,
+// Screening, Interview, Final Round, Offer, Hired, Rejected) down to the
+// four-step tracker the candidate app shows.
+function mapHireStage(hireStage: string | null, matched: boolean): SubmittedJob["stage"] {
+  if (!matched || !hireStage) return "applied";
+  switch (hireStage) {
+    case "Screening":
+      return "review";
+    case "Interview":
+    case "Final Round":
+      return "interview";
+    case "Offer":
+    case "Hired":
+      return "offer";
+    default:
+      return "applied";
+  }
+}
+
+function fmtDate(v: unknown): string | undefined {
+  return v ? new Date(v as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : undefined;
+}
+
 // Jobs the signed-in candidate has applied to (right-swiped), newest first.
 // Reads the get_my_submitted_jobs RPC; falls back to demo data when Supabase
 // isn't configured.
@@ -110,6 +133,7 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
   if (error || !data) return mock.submittedJobs;
   return (data as Record<string, unknown>[]).map((r) => {
     const matched = !!r.matched;
+    const appliedDate = fmtDate(r.created_at) ?? "";
     return {
       id: String(r.id),
       initials: (r.initials as string) ?? "•",
@@ -119,12 +143,14 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
       employees: (r.employees as string) ?? "",
       match: (r.match as number) ?? 0,
       matched,
-      // Until employers set an explicit status, a mutual match is the only live
-      // signal that an application has moved past the "Applied" stage.
-      stage: (matched ? "review" : "applied") as SubmittedJob["stage"],
-      date: r.created_at
-        ? new Date(r.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-        : "",
+      stage: mapHireStage((r.hire_stage as string | null) ?? null, matched),
+      date: appliedDate,
+      stageDates: {
+        applied: appliedDate,
+        review: fmtDate(r.review_at),
+        interview: fmtDate(r.interview_at),
+        offer: fmtDate(r.offer_at),
+      },
       matchId: r.match_id ? String(r.match_id) : null,
       expectedSalary: (r.expected_salary as number | null) ?? null,
       lastDrawnSalary: (r.last_drawn_salary as number | null) ?? null,

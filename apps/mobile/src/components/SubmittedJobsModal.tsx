@@ -6,8 +6,9 @@ import MatchChatModal from "@/components/MatchChatModal";
 import { APPLICATION_STAGES, ApplicationStage, SubmittedJob } from "@/data/types";
 import { colors } from "@/theme/colors";
 
-/** Compact horizontal pipeline showing how far an application has progressed. */
-function StageTracker({ stage }: { stage: ApplicationStage }) {
+/** Compact horizontal pipeline showing how far an application has progressed,
+ * with the date each reached stage was hit shown underneath. */
+function StageTracker({ stage, dates }: { stage: ApplicationStage; dates: Partial<Record<ApplicationStage, string>> }) {
   const currentIdx = APPLICATION_STAGES.findIndex((s) => s.key === stage);
   return (
     <View className="flex-row items-start mt-[14px]">
@@ -44,6 +45,11 @@ function StageTracker({ stage }: { stage: ApplicationStage }) {
               >
                 {s.label}
               </Text>
+              {reached && dates[s.key] && (
+                <Text numberOfLines={1} className="text-[9.5px] mt-[2px] text-center" style={{ color: colors.mut }}>
+                  {dates[s.key]}
+                </Text>
+              )}
             </View>
           </Fragment>
         );
@@ -126,7 +132,7 @@ export default function SubmittedJobsModal({
                   </View>
 
                   {/* Application progress pipeline */}
-                  <StageTracker stage={j.stage} />
+                  <StageTracker stage={j.stage} dates={j.stageDates} />
 
                   <View className="flex-row gap-2 mt-[14px]">
                     <Pressable

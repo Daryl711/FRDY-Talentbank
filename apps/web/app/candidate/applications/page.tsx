@@ -6,8 +6,9 @@ import { getSubmittedJobs, APPLICATION_STAGES, type ApplicationStage, type Submi
 import MatchChat from "@/components/MatchChat";
 import ApplicationDetailsModal from "@/components/candidate/ApplicationDetailsModal";
 
-/** Horizontal pipeline showing how far an application has progressed. */
-function StageTracker({ stage }: { stage: ApplicationStage }) {
+/** Horizontal pipeline showing how far an application has progressed, with the
+ * date each reached stage was hit shown underneath. */
+function StageTracker({ stage, dates }: { stage: ApplicationStage; dates: Partial<Record<ApplicationStage, string>> }) {
   const currentIdx = APPLICATION_STAGES.findIndex((s) => s.key === stage);
   return (
     <div className="flex items-start mt-4">
@@ -30,6 +31,9 @@ function StageTracker({ stage }: { stage: ApplicationStage }) {
               <span className={`text-[11px] text-center leading-tight ${isCurrent ? "text-ink font-semibold" : reached ? "text-dim" : "text-mut"}`}>
                 {s.label}
               </span>
+              {reached && dates[s.key] && (
+                <span className="text-mut text-[9.5px] text-center leading-tight">{dates[s.key]}</span>
+              )}
             </div>
           </Fragment>
         );
@@ -103,7 +107,7 @@ export default function ApplicationsPage() {
               </div>
 
               {/* Application progress pipeline */}
-              <StageTracker stage={j.stage} />
+              <StageTracker stage={j.stage} dates={j.stageDates} />
 
               <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-line">
                 <button
