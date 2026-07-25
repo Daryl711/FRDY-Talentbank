@@ -158,6 +158,60 @@ alter table matches add column if not exists stage text not null default 'Applie
 alter table matches add column if not exists role_id uuid references roles(id) on delete set null;
 
 -- ----------------------------------------------------------------------------
+-- MATCH STAGE HISTORY — timestamped log of every hiring-stage transition, so a
+-- candidate can see *when* their application reached Screening / Interview /
+-- Offer, not just the current stage. Seeded on match creation, appended
+-- whenever an employer moves matches.stage (see triggers below).
+-- ----------------------------------------------------------------------------
+create table if not exists match_stage_history (
+  id         uuid primary key default uuid_generate_v4(),
+  match_id   uuid not null references matches(id) on delete cascade,
+  stage      text not null,
+  created_at timestamptz default now()
+);
+create index if not exists match_stage_history_match_idx on match_stage_history(match_id, created_at);
+
+alter table match_stage_history enable row level security;
+
+drop policy if exists "stage history candidate read" on match_stage_history;
+create policy "stage history candidate read" on match_stage_history for select
+  using (match_id in (select id from matches where user_id = auth.uid()));
+
+drop policy if exists "stage history employer read" on match_stage_history;
+create policy "stage history employer read" on match_stage_history for select
+  using (match_id in (
+    select id from matches where company_id in (select id from companies where owner_id = auth.uid())
+  ));
+
+create or replace function log_match_stage_seed() returns trigger as $$
+begin
+  insert into match_stage_history(match_id, stage, created_at) values (new.id, new.stage, new.created_at);
+  return new;
+end; $$ language plpgsql security definer;
+
+drop trigger if exists trg_match_stage_seed on matches;
+create trigger trg_match_stage_seed after insert on matches
+  for each row execute function log_match_stage_seed();
+
+create or replace function log_match_stage_change() returns trigger as $$
+begin
+  if new.stage is distinct from old.stage then
+    insert into match_stage_history(match_id, stage, created_at) values (new.id, new.stage, now());
+  end if;
+  return new;
+end; $$ language plpgsql security definer;
+
+drop trigger if exists trg_match_stage_change on matches;
+create trigger trg_match_stage_change after update on matches
+  for each row execute function log_match_stage_change();
+
+-- Backfill history for matches rows that predate the triggers above.
+insert into match_stage_history(match_id, stage, created_at)
+select m.id, m.stage, m.created_at
+from matches m
+where not exists (select 1 from match_stage_history h where h.match_id = m.id);
+
+-- ----------------------------------------------------------------------------
 -- CONNECTIONS (professional network)
 -- ----------------------------------------------------------------------------
 create table if not exists connections (
@@ -329,14 +383,21 @@ $$;
 -- candidate+company) — the thread the candidate messages the employer on.
 -- `expected_salary`/`last_drawn_salary` are the figures the candidate submitted
 -- with this specific application (swipes.expected_salary/last_drawn_salary).
--- Return signature changed (added the salary columns), so drop the old
+-- `hire_stage` is the employer's live pipeline stage (matches.stage); the
+-- *_at columns are when the candidate's match_stage_history first reached the
+-- underlying stage(s) for that step, powering the per-status date the app
+-- shows under Applied/Under Review/Interview/Offer. A left join is safe here
+-- (matches has a unique(user_id, company_id)), so it can replace the old
+-- correlated-subquery matched/match_id lookups.
+-- Return signature changed (added stage + date columns), so drop the old
 -- function first: create-or-replace can't alter a function's OUT columns.
 drop function if exists get_my_submitted_jobs();
 create or replace function get_my_submitted_jobs()
 returns table (
   id uuid, initials text, name text, role text, location text,
   employees text, match int, matched boolean, match_id uuid, created_at timestamptz,
-  expected_salary int, last_drawn_salary int
+  expected_salary int, last_drawn_salary int, hire_stage text,
+  review_at timestamptz, interview_at timestamptz, offer_at timestamptz
 ) language sql security definer as $$
   select
     r.id, c.initials, c.name, r.title as role,
@@ -344,13 +405,18 @@ returns table (
     coalesce(round((1 - (c.embedding <=> (
       select embedding from profiles where id = auth.uid()
     ))) * 100)::int, 75) as match,
-    exists(select 1 from matches m where m.user_id = auth.uid() and m.company_id = c.id) as matched,
-    (select m.id from matches m where m.user_id = auth.uid() and m.company_id = c.id) as match_id,
+    (m.id is not null) as matched,
+    m.id as match_id,
     s.created_at,
-    s.expected_salary, s.last_drawn_salary
+    s.expected_salary, s.last_drawn_salary,
+    m.stage as hire_stage,
+    (select min(h.created_at) from match_stage_history h where h.match_id = m.id and h.stage = 'Screening') as review_at,
+    (select min(h.created_at) from match_stage_history h where h.match_id = m.id and h.stage in ('Interview', 'Final Round')) as interview_at,
+    (select min(h.created_at) from match_stage_history h where h.match_id = m.id and h.stage in ('Offer', 'Hired')) as offer_at
   from swipes s
   join roles r on r.id = s.target_id
   join companies c on c.id = r.company_id
+  left join matches m on m.user_id = auth.uid() and m.company_id = c.id
   where s.user_id = auth.uid()
     and s.target_type::text = 'role'
     and s.direction = 'right'
