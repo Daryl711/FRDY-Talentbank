@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Clock, DollarSign, FileText, Sparkles, Download, Loader2 } from "lucide-react";
+import { X, Clock, DollarSign, FileText, Sparkles, Download, Loader2, CalendarClock, MapPin, Video, Phone } from "lucide-react";
 import { getResumes, getResumeFileUrl, type Resume, type SubmittedJob } from "@/lib/candidate";
+import { getInterview, type Interview } from "@/lib/interviews";
 
 function fmtSalary(v: number | null | undefined) {
   return typeof v === "number" ? `$${v.toLocaleString()}` : "—";
@@ -24,15 +25,17 @@ export default function ApplicationDetailsModal({
   onClose: () => void;
 }) {
   const [resumes, setResumes] = useState<Resume[]>([]);
+  const [interview, setInterview] = useState<Interview | null>(null);
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState<string | null>(null);
 
   useEffect(() => {
     if (!job) return;
     let active = true;
-    getResumes().then((r) => {
+    Promise.all([getResumes(), job.matchId ? getInterview(job.matchId) : Promise.resolve(null)]).then(([r, i]) => {
       if (active) {
         setResumes(r);
+        setInterview(i);
         setLoading(false);
       }
     });
@@ -77,6 +80,24 @@ export default function ApplicationDetailsModal({
           <div className="flex items-center gap-2 text-mut text-[12.5px]">
             <Clock size={13} /> Applied {job.date}
           </div>
+
+          {/* interview details, once the employer has scheduled one */}
+          {!loading && interview && (
+            <section className="rounded-2xl p-4 bg-gold/[0.06] border border-gold/25">
+              <div className="flex items-center gap-2 text-goldbright text-[13.5px] font-semibold">
+                <CalendarClock size={15} /> Interview Scheduled
+              </div>
+              <div className="text-ink text-[14px] font-semibold mt-2">
+                {new Date(interview.scheduledAt).toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" })}
+              </div>
+              <div className="flex items-center gap-1.5 text-dim text-[12.5px] mt-1">
+                {interview.mode === "Video Call" ? <Video size={12} /> : interview.mode === "Phone Call" ? <Phone size={12} /> : <MapPin size={12} />}
+                {interview.mode}
+                {interview.location && <span>· {interview.location}</span>}
+              </div>
+              {interview.notes && <p className="text-dim text-[12.5px] mt-2 leading-[18px]">{interview.notes}</p>}
+            </section>
+          )}
 
           {/* salary details submitted with this application */}
           <section>

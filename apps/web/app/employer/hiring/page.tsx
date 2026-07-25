@@ -6,7 +6,9 @@ import { PageHeader, Panel } from "@/components/ui";
 import MatchChat from "@/components/MatchChat";
 import CandidateDossier from "@/components/employer/CandidateDossier";
 import RolePreviewModal from "@/components/employer/RolePreviewModal";
+import ScheduleInterviewModal from "@/components/employer/ScheduleInterviewModal";
 import { generateHiringReport } from "@/lib/employerReport";
+import { scheduleInterview, type ScheduleInterviewInput } from "@/lib/interviews";
 import { sendMatchMessage } from "@/lib/messages";
 import { jobRoles, traitEmoji } from "@/lib/mock";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -83,6 +85,8 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
   const [chatWith, setChatWith] = useState<MatchedCandidate | null>(null);
   // The matched candidate whose dossier (profile/resume/cover letter) is open.
   const [viewing, setViewing] = useState<MatchedCandidate | null>(null);
+  // The candidate being moved Shortlisted -> Interview, while the scheduler is open.
+  const [scheduling, setScheduling] = useState<MatchedCandidate | null>(null);
 
   // The company's open job postings, shown above the pipeline.
   useEffect(() => {
@@ -143,6 +147,49 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
       }
     } catch {
       setCands(prev); // revert on failure
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // The forward-advance button normally just calls move() straight away —
+  // except Shortlisted -> Interview, which needs the interview details first.
+  function advance(c: MatchedCandidate, nextStage: HireStage) {
+    if (c.stage === "Shortlisted" && nextStage === "Interview") {
+      setScheduling(c);
+      return;
+    }
+    move(c, nextStage);
+  }
+
+  // Saves the interview, moves the stage, and lets the candidate know — in
+  // that order, so a failed schedule never leaves the stage moved without an
+  // appointment behind it.
+  async function scheduleAndAdvance(input: ScheduleInterviewInput) {
+    const c = scheduling;
+    if (!c) return;
+    const prev = cands;
+    setBusy(c.matchId);
+    try {
+      const interview = await scheduleInterview(c.matchId, input);
+      setCands((cs) => cs.map((x) => (x.matchId === c.matchId ? { ...x, stage: "Interview" } : x))); // optimistic
+      await setMatchStage(c.matchId, "Interview");
+      const roleText = c.role ? ` for the ${c.role} role` : "";
+      const when = new Date(interview.scheduledAt).toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" });
+      const how =
+        interview.mode === "Video Call"
+          ? `a video call${interview.location ? ` (${interview.location})` : ""}`
+          : interview.mode === "Phone Call"
+          ? `a phone call${interview.location ? ` (${interview.location})` : ""}`
+          : `an in-person interview${interview.location ? ` at ${interview.location}` : ""}`;
+      sendMatchMessage(
+        c.matchId,
+        `You're invited to interview${roleText} at ${company.name}! It's scheduled for ${when} as ${how}.${interview.notes ? ` Note: ${interview.notes}` : ""}`,
+      ).catch(() => {});
+      setScheduling(null);
+    } catch (e) {
+      setCands(prev); // revert the optimistic stage move, if it happened
+      throw e; // let the modal show the error and stay open
     } finally {
       setBusy(null);
     }
@@ -274,9 +321,9 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
                             </button>
                           ) : (
                             <button
-                              onClick={() => move(c, STAGE_ORDER[stageIdx + 1])}
+                              onClick={() => advance(c, STAGE_ORDER[stageIdx + 1])}
                               disabled={busy === c.matchId}
-                              title="Advance to next stage"
+                              title={c.stage === "Shortlisted" ? "Schedule interview & advance" : "Advance to next stage"}
                               className="p-1 rounded-md text-gold hover:bg-gold/10 disabled:opacity-40"
                             >
                               <ChevronRight size={15} />
@@ -321,6 +368,8 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
       />
 
       {viewing && <CandidateDossier key={viewing.candidateId} candidate={viewing} onClose={() => setViewing(null)} />}
+
+      <ScheduleInterviewModal candidate={scheduling} onClose={() => setScheduling(null)} onSchedule={scheduleAndAdvance} />
     </>
   );
 }
