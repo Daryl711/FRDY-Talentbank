@@ -22,6 +22,8 @@ export interface MatchedCandidate {
   headline: string | null;
   /** The job title the candidate applied to (null for older company-level matches). */
   role: string | null;
+  /** When the match was created, ISO timestamp (for reporting). */
+  createdAt: string;
 }
 
 export type AnimalTrait = 

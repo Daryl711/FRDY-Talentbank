@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Check, Loader2, Radio, MessageSquare, Briefcase, FileSearch, Eye } from "lucide-react";
+import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Check, Loader2, Radio, MessageSquare, Briefcase, FileSearch, Eye, FileDown } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
 import MatchChat from "@/components/MatchChat";
 import CandidateDossier from "@/components/employer/CandidateDossier";
 import RolePreviewModal from "@/components/employer/RolePreviewModal";
+import { generateHiringReport } from "@/lib/employerReport";
 import { jobRoles, traitEmoji } from "@/lib/mock";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -146,9 +147,19 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
         title="Hiring"
         subtitle={`Matched candidates for ${company.name} — move them through your pipeline`}
         action={
-          <span className="flex items-center gap-2 bg-ok/10 border border-ok/30 rounded-full px-3 py-[7px] text-ok text-[12px] font-semibold">
-            <Radio size={13} className="animate-pulse" /> Live
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => generateHiringReport(company, roles, cands)}
+              disabled={cands.length === 0}
+              title={cands.length === 0 ? "No applicants yet to report on" : "Download a management report (.xlsx)"}
+              className="flex items-center gap-2 bg-surface2 border border-line rounded-xl px-4 py-[10px] text-dim text-[13px] font-semibold hover:text-ink disabled:opacity-40"
+            >
+              <FileDown size={15} /> Generate Report
+            </button>
+            <span className="flex items-center gap-2 bg-ok/10 border border-ok/30 rounded-full px-3 py-[7px] text-ok text-[12px] font-semibold">
+              <Radio size={13} className="animate-pulse" /> Live
+            </span>
+          </div>
         }
       />
 

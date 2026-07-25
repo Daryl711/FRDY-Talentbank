@@ -250,6 +250,7 @@ export async function getCompanyMatches(): Promise<MatchedCandidate[]> {
     stage: ((r.stage as HireStage) ?? "Applied") as HireStage,
     headline: (r.headline as string | null) ?? null,
     role: (r.role as string | null) ?? null,
+    createdAt: (r.created_at as string) ?? "",
   }));
 }
 
