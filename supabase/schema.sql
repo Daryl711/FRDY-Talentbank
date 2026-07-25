@@ -110,6 +110,11 @@ alter table roles add column if not exists requirements     text[] default '{}';
 alter table roles add column if not exists experience_level text;   -- 'Entry' | 'Mid' | 'Senior' | 'Lead'
 alter table roles add column if not exists education        text;   -- e.g. "Bachelor's degree"
 
+-- Lets an employer save a "Post New Role" draft without it going live to
+-- candidates. 'Active' | 'Draft' | 'Closed'; existing roles default to Active
+-- so nothing already-posted disappears from the swipe deck.
+alter table roles add column if not exists status text not null default 'Active';
+
 -- Convenience view joining roles + company info. Dropped first: the new role
 -- columns above change what `r.*` expands to, and create-or-replace can't insert
 -- columns mid-list. Nothing depends on this view, so a drop is safe.
@@ -338,7 +343,8 @@ returns table (
     coalesce(r.requirements, '{}') as requirements, r.experience_level, r.education
   from roles r
   join companies c on c.id = r.company_id
-  where r.id not in (
+  where r.status = 'Active'
+    and r.id not in (
     select target_id from swipes
     where user_id = auth.uid() and target_type::text = 'role'
   )
