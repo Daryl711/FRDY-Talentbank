@@ -217,6 +217,44 @@ from matches m
 where not exists (select 1 from match_stage_history h where h.match_id = m.id);
 
 -- ----------------------------------------------------------------------------
+-- INTERVIEWS — details an employer sets when moving a candidate from
+-- Shortlisted to Interview: when, how (mode), and where (venue/link/number).
+-- One row per match; scheduling again (a reschedule) just updates it in place,
+-- so there's no history of past times — only the current appointment.
+-- ----------------------------------------------------------------------------
+create table if not exists interviews (
+  id           uuid primary key default uuid_generate_v4(),
+  match_id     uuid not null references matches(id) on delete cascade unique,
+  scheduled_at timestamptz not null,
+  mode         text not null default 'In-Person', -- 'In-Person' | 'Video Call' | 'Phone Call'
+  location     text, -- venue address, meeting link, or phone number depending on mode
+  notes        text,
+  created_by   uuid references auth.users(id) on delete set null,
+  created_at   timestamptz default now(),
+  updated_at   timestamptz default now()
+);
+
+alter table interviews enable row level security;
+
+drop policy if exists "interviews read" on interviews;
+create policy "interviews read" on interviews for select to authenticated
+  using (
+    match_id in (select id from matches where user_id = auth.uid())
+    or match_id in (
+      select id from matches where company_id in (select id from companies where owner_id = auth.uid())
+    )
+  );
+
+drop policy if exists "interviews manage" on interviews;
+create policy "interviews manage" on interviews for all to authenticated
+  using (match_id in (
+    select id from matches where company_id in (select id from companies where owner_id = auth.uid())
+  ))
+  with check (match_id in (
+    select id from matches where company_id in (select id from companies where owner_id = auth.uid())
+  ));
+
+-- ----------------------------------------------------------------------------
 -- CONNECTIONS (professional network)
 -- ----------------------------------------------------------------------------
 create table if not exists connections (
