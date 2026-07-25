@@ -8,7 +8,7 @@ export type Stage = "Applied" | "Screening" | "Interview" | "Offer" | "Hired";
 // Full set of hiring stages an employer can move a matched candidate through
 // (matches the mobile/pipeline board columns plus the two terminal states).
 export type HireStage =
-  | "Applied" | "Screening" | "Interview" | "Final Round" | "Offer" | "Hired" | "Rejected";
+  | "Applied" | "Screening" | "Shortlisted" | "Interview" | "Final Round" | "Offer" | "Hired" | "Rejected";
 
 // A candidate the employer has matched with, as shown on the Hiring board.
 export interface MatchedCandidate {
@@ -58,7 +58,7 @@ export interface PipelineCandidate {
 }
 
 export interface JobPipelineStage {
-  stage: Stage | "Final Round";
+  stage: Stage | "Final Round" | "Shortlisted";
   candidates: PipelineCandidate[];
 }
 

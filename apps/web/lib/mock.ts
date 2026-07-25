@@ -182,6 +182,7 @@ export const jobRoles: JobRole[] = [
         { name: "Mei Ling Tan", trait: "Owl", match: 84 },
       ] },
       { stage: "Screening", candidates: [{ name: "Rajesh Kumar", trait: "Eagle", match: 91 }] },
+      { stage: "Shortlisted", candidates: [] },
       { stage: "Interview", candidates: [{ name: "Nurul Huda", trait: "Dolphin", match: 90 }] },
       { stage: "Final Round", candidates: [{ name: "Wei Jie Lim", trait: "Lion", match: 93 }] },
       { stage: "Offer", candidates: [] },
@@ -193,6 +194,7 @@ export const jobRoles: JobRole[] = [
     pipeline: [
       { stage: "Applied", candidates: [{ name: "Nathan Blake", trait: "Lion", match: 85 }] },
       { stage: "Screening", candidates: [{ name: "Eleanor Voss", trait: "Dolphin", match: 87 }] },
+      { stage: "Shortlisted", candidates: [] },
       { stage: "Interview", candidates: [{ name: "Victoria Harmon", trait: "Lion", match: 94 }] },
       { stage: "Final Round", candidates: [{ name: "Isabelle Fontaine", trait: "Eagle", match: 93 }] },
       { stage: "Offer", candidates: [{ name: "Robert Sterling", trait: "Owl", match: 89 }] },
@@ -204,6 +206,7 @@ export const jobRoles: JobRole[] = [
     pipeline: [
       { stage: "Applied", candidates: [{ name: "Derek Alvarez", trait: "Octopus", match: 81 }] },
       { stage: "Screening", candidates: [{ name: "James Whitfield", trait: "Owl", match: 88 }] },
+      { stage: "Shortlisted", candidates: [] },
       { stage: "Interview", candidates: [{ name: "Priya Nair", trait: "Fox", match: 90 }] },
       { stage: "Final Round", candidates: [] },
       { stage: "Offer", candidates: [] },
@@ -215,6 +218,7 @@ export const jobRoles: JobRole[] = [
     pipeline: [
       { stage: "Applied", candidates: [{ name: "Eleanor Voss", trait: "Dolphin", match: 87 }] },
       { stage: "Screening", candidates: [{ name: "Grace Bennett", trait: "Horse", match: 79 }] },
+      { stage: "Shortlisted", candidates: [] },
       { stage: "Interview", candidates: [] },
       { stage: "Final Round", candidates: [] },
       { stage: "Offer", candidates: [] },
@@ -226,6 +230,7 @@ export const jobRoles: JobRole[] = [
     pipeline: [
       { stage: "Applied", candidates: [{ name: "Marcus Chen", trait: "Bear", match: 82 }] },
       { stage: "Screening", candidates: [] },
+      { stage: "Shortlisted", candidates: [] },
       { stage: "Interview", candidates: [{ name: "Lena Ortiz", trait: "Ant", match: 84 }] },
       { stage: "Final Round", candidates: [] },
       { stage: "Offer", candidates: [] },
@@ -237,6 +242,7 @@ export const jobRoles: JobRole[] = [
     pipeline: [
       { stage: "Applied", candidates: [{ name: "Chloe Rivera", trait: "Peacock", match: 86 }] },
       { stage: "Screening", candidates: [] },
+      { stage: "Shortlisted", candidates: [] },
       { stage: "Interview", candidates: [] },
       { stage: "Final Round", candidates: [] },
       { stage: "Offer", candidates: [] },

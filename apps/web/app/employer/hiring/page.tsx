@@ -22,13 +22,14 @@ import type { JobRole, HireStage, MatchedCandidate } from "@/lib/types";
 const STAGE_COLOR: Record<string, string> = {
   Applied: "text-mut",
   Screening: "text-gold",
+  Shortlisted: "text-[#5ec9c9]",
   Interview: "text-info",
   "Final Round": "text-[#a78bfa]",
   Offer: "text-ok",
 };
 
 // Board columns, in pipeline order. Hired / Rejected are terminal (off-board).
-const STAGE_ORDER: HireStage[] = ["Applied", "Screening", "Interview", "Final Round", "Offer"];
+const STAGE_ORDER: HireStage[] = ["Applied", "Screening", "Shortlisted", "Interview", "Final Round", "Offer"];
 
 export default function HiringPage() {
   // Live matched candidates for the employer's company (Supabase). When the
@@ -182,7 +183,7 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
             No candidates in the active pipeline. Hired and rejected candidates are archived.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
             {STAGE_ORDER.map((stage, stageIdx) => {
               const col = active.filter((c) => c.stage === stage);
               const isFirst = stageIdx === 0;
@@ -516,6 +517,7 @@ function Stat({ label, value, tone = "text-ink" }: { label: string; value: numbe
 const NEW_ROLE_STAGES: JobRole["pipeline"] = [
   { stage: "Applied", candidates: [] },
   { stage: "Screening", candidates: [] },
+  { stage: "Shortlisted", candidates: [] },
   { stage: "Interview", candidates: [] },
   { stage: "Final Round", candidates: [] },
   { stage: "Offer", candidates: [] },
@@ -664,7 +666,7 @@ function MockHiringBoard() {
           </div>
 
           {/* kanban */}
-          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4 mt-7">
+          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 mt-7">
             {role.pipeline.map((col, stageIdx) => {
               const isFirst = stageIdx === 0;
               const isLast = stageIdx === role.pipeline.length - 1;

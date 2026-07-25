@@ -444,12 +444,13 @@ export async function recordSwipe(
 // ---------------------------------------------------------------------------
 
 // Maps the employer's live hiring-pipeline stage (matches.stage — Applied,
-// Screening, Interview, Final Round, Offer, Hired, Rejected) down to the
-// four-step tracker the candidate app shows.
+// Screening, Shortlisted, Interview, Final Round, Offer, Hired, Rejected)
+// down to the four-step tracker the candidate app shows.
 function mapHireStage(hireStage: string | null, matched: boolean): ApplicationStage {
   if (!matched || !hireStage) return "applied";
   switch (hireStage) {
     case "Screening":
+    case "Shortlisted":
       return "review";
     case "Interview":
     case "Final Round":
