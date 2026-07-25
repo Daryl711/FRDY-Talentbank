@@ -392,18 +392,18 @@ function CompanyCard({
         </span>
       </div>
 
-      <h2 className="font-serif text-[28px] text-ink mt-4">{c.name}</h2>
-      <p className="text-[#bfe3c4] text-[15px] mt-1">{c.role}</p>
+      <h2 className="font-serif text-[32px] text-ink mt-4">{c.name}</h2>
+      <p className="text-[#bfe3c4] text-[18px] mt-1">{c.role}</p>
 
-      <div className="flex gap-5 mt-4 text-[#9dc4a4] text-[12.5px]">
-        {c.location && <span className="flex items-center gap-1"><MapPin size={13} /> {c.location}</span>}
-        {c.employees && <span className="flex items-center gap-1"><Users size={13} /> {c.employees}</span>}
+      <div className="flex gap-5 mt-4 text-[#9dc4a4] text-[14px]">
+        {c.location && <span className="flex items-center gap-1"><MapPin size={14} /> {c.location}</span>}
+        {c.employees && <span className="flex items-center gap-1"><Users size={14} /> {c.employees}</span>}
       </div>
 
       {c.tags.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-4">
           {c.tags.map((t) => (
-            <span key={t} className="rounded-full px-3 py-[7px] text-[#cfe6d2] text-[12px]" style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+            <span key={t} className="rounded-full px-3 py-[7px] text-[#cfe6d2] text-[13.5px]" style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
               {t}
             </span>
           ))}
@@ -413,45 +413,50 @@ function CompanyCard({
       {(c.experienceLevel || hasDetails) && (
         <div className="mt-4">
           {c.experienceLevel && (
-            <span className="inline-flex items-center gap-1 rounded-full px-3 py-[6px] text-[#cfe6d2] text-[11.5px]" style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
-              <Briefcase size={12} /> {c.experienceLevel} level
+            <span className="inline-flex items-center gap-1 rounded-full px-3 py-[6px] text-[#cfe6d2] text-[13px]" style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+              <Briefcase size={13} /> {c.experienceLevel} level
             </span>
           )}
           {hasDetails && (
             <>
               <button
                 onClick={() => setShowDetails((v) => !v)}
-                className="flex items-center gap-1 mt-3 text-goldbright text-[12.5px] font-semibold"
+                className="flex items-center gap-1 mt-3 text-goldbright text-[14px] font-semibold"
               >
                 {showDetails ? <ChevronUp size={15} /> : <ChevronDown size={15} />} {showDetails ? "Hide role details" : "View role details"}
               </button>
               {showDetails && (
                 <div className="mt-3 rounded-2xl p-4 flex flex-col gap-3" style={{ backgroundColor: "rgba(0,0,0,0.22)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                  {c.description && <p className="text-[#cfe6d2] text-[12.5px] leading-[19px] whitespace-pre-line">{c.description}</p>}
+                  {c.description && (
+                    <div>
+                      <div className="font-mono text-[10px] tracking-widest text-[#9dc4a4] uppercase mb-1.5">Description</div>
+                      <p className="text-[#cfe6d2] text-[14px] leading-[21px] whitespace-pre-line">{c.description}</p>
+                    </div>
+                  )}
                   {(c.responsibilities?.length ?? 0) > 0 && (
                     <div>
-                      <div className="font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase mb-1.5">Responsibilities</div>
+                      <div className="font-mono text-[10px] tracking-widest text-[#9dc4a4] uppercase mb-1.5">Responsibilities</div>
                       <ul className="flex flex-col gap-1">
                         {c.responsibilities!.map((x, i) => (
-                          <li key={i} className="flex gap-2 text-[#cfe6d2] text-[12.5px]"><span className="text-goldbright">•</span> {x}</li>
+                          <li key={i} className="flex gap-2 text-[#cfe6d2] text-[14px] leading-[21px]"><span className="text-goldbright">•</span> {x}</li>
                         ))}
                       </ul>
                     </div>
                   )}
                   {(c.requirements?.length ?? 0) > 0 && (
                     <div>
-                      <div className="font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase mb-1.5">Requirements</div>
+                      <div className="font-mono text-[10px] tracking-widest text-[#9dc4a4] uppercase mb-1.5">Requirements</div>
                       <ul className="flex flex-col gap-1">
                         {c.requirements!.map((x, i) => (
-                          <li key={i} className="flex gap-2 text-[#cfe6d2] text-[12.5px]"><span className="text-goldbright">•</span> {x}</li>
+                          <li key={i} className="flex gap-2 text-[#cfe6d2] text-[14px] leading-[21px]"><span className="text-goldbright">•</span> {x}</li>
                         ))}
                       </ul>
                     </div>
                   )}
                   {c.education && (
                     <div>
-                      <div className="font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase mb-1">Education</div>
-                      <div className="text-[#cfe6d2] text-[12.5px]">{c.education}</div>
+                      <div className="font-mono text-[10px] tracking-widest text-[#9dc4a4] uppercase mb-1">Education</div>
+                      <div className="text-[#cfe6d2] text-[14px] leading-[21px]">{c.education}</div>
                     </div>
                   )}
                 </div>
@@ -463,12 +468,12 @@ function CompanyCard({
 
       <div className="flex justify-between items-end mt-5 rounded-2xl px-4 py-4" style={{ backgroundColor: "rgba(0,0,0,0.22)", border: "1px solid rgba(216,180,90,0.18)" }}>
         <div>
-          <div className="font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase">Package</div>
-          <div className="font-serif text-[24px] text-goldbright mt-1">{c.package || "—"}</div>
+          <div className="font-mono text-[10px] tracking-widest text-[#9dc4a4] uppercase">Package</div>
+          <div className="font-serif text-[26px] text-goldbright mt-1">{c.package || "—"}</div>
         </div>
         <div className="flex flex-col items-end gap-[6px]">
           {c.perks.map((p) => (
-            <span key={p} className="rounded-lg px-[10px] py-1 text-goldbright text-[10.5px]" style={{ backgroundColor: "rgba(216,180,90,0.12)" }}>{p}</span>
+            <span key={p} className="rounded-lg px-[10px] py-1 text-goldbright text-[12px]" style={{ backgroundColor: "rgba(216,180,90,0.12)" }}>{p}</span>
           ))}
         </div>
       </div>
@@ -476,28 +481,28 @@ function CompanyCard({
       {/* Salary details the candidate fills in for this job (optional). */}
       <div className="flex gap-3 mt-4">
         <label className="flex-1">
-          <span className="block font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase mb-[6px]">Expected Salary</span>
+          <span className="block font-mono text-[10px] tracking-widest text-[#9dc4a4] uppercase mb-[6px]">Expected Salary</span>
           <div className="flex items-center rounded-xl px-3" style={{ backgroundColor: "rgba(0,0,0,0.22)", border: "1px solid rgba(216,180,90,0.25)" }}>
-            <span className="text-[#9dc4a4] text-[13px] mr-1">$</span>
+            <span className="text-[#9dc4a4] text-[14px] mr-1">$</span>
             <input
               inputMode="numeric"
               value={fmt(expectedSalary)}
               onChange={(e) => onSalaryChange("expected", e.target.value)}
               placeholder="e.g. 120,000"
-              className="w-full bg-transparent py-[10px] text-ink text-[14px] outline-none placeholder:text-[#6f9277]"
+              className="w-full bg-transparent py-[10px] text-ink text-[15px] outline-none placeholder:text-[#6f9277]"
             />
           </div>
         </label>
         <label className="flex-1">
-          <span className="block font-mono text-[9px] tracking-widest text-[#9dc4a4] uppercase mb-[6px]">Last Drawn Salary</span>
+          <span className="block font-mono text-[10px] tracking-widest text-[#9dc4a4] uppercase mb-[6px]">Last Drawn Salary</span>
           <div className="flex items-center rounded-xl px-3" style={{ backgroundColor: "rgba(0,0,0,0.22)", border: "1px solid rgba(216,180,90,0.25)" }}>
-            <span className="text-[#9dc4a4] text-[13px] mr-1">$</span>
+            <span className="text-[#9dc4a4] text-[14px] mr-1">$</span>
             <input
               inputMode="numeric"
               value={fmt(lastDrawnSalary)}
               onChange={(e) => onSalaryChange("lastDrawn", e.target.value)}
               placeholder="e.g. 98,000"
-              className="w-full bg-transparent py-[10px] text-ink text-[14px] outline-none placeholder:text-[#6f9277]"
+              className="w-full bg-transparent py-[10px] text-ink text-[15px] outline-none placeholder:text-[#6f9277]"
             />
           </div>
         </label>
