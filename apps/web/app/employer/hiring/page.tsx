@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Check, Loader2, Radio, MessageSquare, Briefcase, FileSearch } from "lucide-react";
+import { Search, Plus, MapPin, Users, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Check, Loader2, Radio, MessageSquare, Briefcase, FileSearch, Eye } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
 import MatchChat from "@/components/MatchChat";
 import CandidateDossier from "@/components/employer/CandidateDossier";
+import RolePreviewModal from "@/components/employer/RolePreviewModal";
 import { jobRoles, traitEmoji } from "@/lib/mock";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -174,7 +175,7 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
           </button>
         </div>
 
-        {composing && <LiveRoleForm onCreate={postRole} onCancel={() => setComposing(false)} />}
+        {composing && <LiveRoleForm company={company} onCreate={postRole} onCancel={() => setComposing(false)} />}
 
         {roles.length === 0 ? (
           <div className="border border-dashed border-line rounded-xl py-10 text-center text-mut text-[13px]">
@@ -304,9 +305,11 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
 
 /* -------------------------------------- inline "post new role" form (live/DB) */
 function LiveRoleForm({
+  company,
   onCreate,
   onCancel,
 }: {
+  company: Company;
   onCreate: (input: Parameters<typeof createRole>[1]) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -316,6 +319,7 @@ function LiveRoleForm({
   const [experienceLevel, setExperienceLevel] = useState("Mid");
   const [education, setEducation] = useState("");
   const [pkg, setPkg] = useState("");
+  const [previewing, setPreviewing] = useState(false);
   const [tags, setTags] = useState("");
   const [perks, setPerks] = useState("");
   const [salaryMin, setSalaryMin] = useState("");
@@ -439,10 +443,37 @@ function LiveRoleForm({
         >
           {busy === "Draft" ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : "Save as Draft"}
         </button>
+        <button
+          onClick={() => setPreviewing(true)}
+          disabled={!title.trim()}
+          className="flex items-center gap-2 rounded-xl px-4 py-[10px] font-semibold text-[13px] text-gold hover:text-goldbright disabled:opacity-40"
+        >
+          <Eye size={15} /> Preview
+        </button>
         <button onClick={onCancel} disabled={!!busy} className="text-mut hover:text-ink text-[13px] px-2 disabled:opacity-40">
           Cancel
         </button>
       </div>
+
+      <RolePreviewModal
+        open={previewing}
+        onClose={() => setPreviewing(false)}
+        companyName={company.name}
+        companyInitials={company.initials}
+        role={{
+          title: title.trim(),
+          location: location.trim() || null,
+          type,
+          experienceLevel,
+          education: education.trim() || null,
+          package: pkg.trim() || null,
+          perks: perks.split(",").map((t) => t.trim()).filter(Boolean),
+          tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+          description: description.trim() || null,
+          responsibilities: toList(responsibilities),
+          requirements: toList(requirements),
+        }}
+      />
     </div>
   );
 }
