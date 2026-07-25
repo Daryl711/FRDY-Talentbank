@@ -7,6 +7,7 @@ import MatchChat from "@/components/MatchChat";
 import CandidateDossier from "@/components/employer/CandidateDossier";
 import RolePreviewModal from "@/components/employer/RolePreviewModal";
 import { generateHiringReport } from "@/lib/employerReport";
+import { sendMatchMessage } from "@/lib/messages";
 import { jobRoles, traitEmoji } from "@/lib/mock";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -130,6 +131,16 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
     setCands((cs) => cs.map((x) => (x.matchId === c.matchId ? { ...x, stage } : x))); // optimistic
     try {
       await setMatchStage(c.matchId, stage);
+      // Let the candidate know they've been shortlisted — otherwise they'd only
+      // find out by happening to re-check their Applications page. Best-effort:
+      // a failed notification shouldn't undo a stage move that already succeeded.
+      if (stage === "Shortlisted") {
+        const roleText = c.role ? ` for the ${c.role} role` : "";
+        sendMatchMessage(
+          c.matchId,
+          `Great news, ${c.name.split(" ")[0]}! You've been shortlisted${roleText} at ${company.name}. We'll be in touch soon with next steps.`,
+        ).catch(() => {});
+      }
     } catch {
       setCands(prev); // revert on failure
     } finally {
