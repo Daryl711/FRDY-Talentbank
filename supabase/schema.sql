@@ -327,13 +327,16 @@ $$;
 -- first. `id` is the role id; `matched` flags roles whose company became a
 -- mutual match. `match_id` is the matches row for that company (one per
 -- candidate+company) — the thread the candidate messages the employer on.
--- Return signature changed (added match_id), so drop the old function first:
--- create-or-replace can't alter a function's OUT columns.
+-- `expected_salary`/`last_drawn_salary` are the figures the candidate submitted
+-- with this specific application (swipes.expected_salary/last_drawn_salary).
+-- Return signature changed (added the salary columns), so drop the old
+-- function first: create-or-replace can't alter a function's OUT columns.
 drop function if exists get_my_submitted_jobs();
 create or replace function get_my_submitted_jobs()
 returns table (
   id uuid, initials text, name text, role text, location text,
-  employees text, match int, matched boolean, match_id uuid, created_at timestamptz
+  employees text, match int, matched boolean, match_id uuid, created_at timestamptz,
+  expected_salary int, last_drawn_salary int
 ) language sql security definer as $$
   select
     r.id, c.initials, c.name, r.title as role,
@@ -343,7 +346,8 @@ returns table (
     ))) * 100)::int, 75) as match,
     exists(select 1 from matches m where m.user_id = auth.uid() and m.company_id = c.id) as matched,
     (select m.id from matches m where m.user_id = auth.uid() and m.company_id = c.id) as match_id,
-    s.created_at
+    s.created_at,
+    s.expected_salary, s.last_drawn_salary
   from swipes s
   join roles r on r.id = s.target_id
   join companies c on c.id = r.company_id
