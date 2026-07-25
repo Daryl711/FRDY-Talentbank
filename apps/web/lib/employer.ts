@@ -298,11 +298,15 @@ export async function getCandidateProfile(candidateId: string): Promise<Candidat
   if (!isSupabaseConfigured) return null;
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,name,initials,headline,location,years_exp,about,skills,experience,education,animal_trait,profile_score")
+    .select("id,name,initials,headline,location,years_exp,about,skills,experience,education,animal_trait,profile_score,profile_visible")
     .eq("id", candidateId)
     .maybeSingle();
   if (error || !data) return null;
   const r = data as Record<string, unknown>;
+  // Settings > Privacy & Visibility: a candidate can hide the About/Skills/
+  // Experience/Education detail from the dossier while keeping the basics
+  // (name/headline/location) that identify who applied.
+  const visible = (r.profile_visible as boolean | null) ?? true;
   return {
     id: String(r.id),
     name: (r.name as string) ?? "Candidate",
@@ -310,10 +314,10 @@ export async function getCandidateProfile(candidateId: string): Promise<Candidat
     headline: (r.headline as string | null) ?? null,
     location: (r.location as string | null) ?? null,
     yearsExp: (r.years_exp as number) ?? 0,
-    about: (r.about as string | null) ?? null,
-    skills: (r.skills as string[] | null) ?? [],
-    experience: (r.experience as CandidateExperience[] | null) ?? [],
-    education: (r.education as CandidateEducation[] | null) ?? [],
+    about: visible ? (r.about as string | null) ?? null : null,
+    skills: visible ? (r.skills as string[] | null) ?? [] : [],
+    experience: visible ? (r.experience as CandidateExperience[] | null) ?? [] : [],
+    education: visible ? (r.education as CandidateEducation[] | null) ?? [] : [],
     animalTrait: (r.animal_trait as string | null) ?? null,
     profileScore: (r.profile_score as number) ?? 0,
   };

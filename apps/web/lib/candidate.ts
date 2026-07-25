@@ -46,6 +46,14 @@ export interface CandidateProfile {
   matches: number;
   animal_trait?: AnimalTrait | null;
   animal_scores?: PersonaScores | null;
+  // Notification preferences (Settings > Notifications). Absent means "on" —
+  // these columns default true, so older rows without them still read as opted in.
+  notif_matches?: boolean;
+  notif_messages?: boolean;
+  notif_updates?: boolean;
+  // Whether companies see full profile details (About/Skills/Experience/Education)
+  // once matched (Settings > Privacy & Visibility). Absent means visible.
+  profile_visible?: boolean;
 }
 
 export interface Role {
@@ -218,6 +226,10 @@ export const mockProfile: CandidateProfile = {
   profile_score: 94,
   views: 347,
   matches: 28,
+  notif_matches: true,
+  notif_messages: true,
+  notif_updates: true,
+  profile_visible: true,
   animal_trait: "Fox",
   animal_scores: {
     Fox: 11, Owl: 9, Eagle: 8, Cheetah: 6, Lion: 6, Octopus: 5,
@@ -355,6 +367,20 @@ export async function updateMyProfile(patch: Partial<CandidateProfile>): Promise
   const { data, error } = await supabase.from("profiles").update(patch).eq("id", uid).select("*").single();
   if (error) throw error;
   return data as unknown as CandidateProfile;
+}
+
+/** Change the signed-in user's email (Settings > Account & Security). Supabase sends a confirmation link to the new address before it takes effect. */
+export async function updateMyEmail(email: string): Promise<void> {
+  if (!isSupabaseConfigured) throw new Error(NOT_CONFIGURED);
+  const { error } = await supabase.auth.updateUser({ email });
+  if (error) throw error;
+}
+
+/** Change the signed-in user's password (Settings > Account & Security). */
+export async function updateMyPassword(password: string): Promise<void> {
+  if (!isSupabaseConfigured) throw new Error(NOT_CONFIGURED);
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
 }
 
 // ---------------------------------------------------------------------------

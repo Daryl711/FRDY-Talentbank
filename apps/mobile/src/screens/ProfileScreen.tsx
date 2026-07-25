@@ -1,10 +1,20 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { Avatar, ScreenBg } from "@/components/ui";
-import { getMyProfile, signOut, updateMyProfile } from "@/data/repo";
-import { ANIMALS, AnimalTrait, PersonaScores } from "@/data/persona";
+import { Avatar, Field, GoldButton, ScreenBg } from "@/components/ui";
+import { useAuth } from "@/auth/AuthContext";
+import {
+  getMyProfile,
+  saveMyAnimalTrait,
+  signOut,
+  updateMyEmail,
+  updateMyPassword,
+  updateMyProfile,
+} from "@/data/repo";
+import { ANIMALS, AnimalTrait, PersonaResult, PersonaScores } from "@/data/persona";
+import PersonaQuizScreen from "@/screens/PersonaQuizScreen";
 import { Education, Experience, Profile } from "@/data/types";
 import { colors, gradients } from "@/theme/colors";
 
@@ -36,9 +46,15 @@ function PStat({ icon, value, label }: { icon: React.ReactNode; value: string; l
 }
 
 export default function ProfileScreen() {
+  const nav = useNavigation<any>();
+  const { session } = useAuth();
   const [tab, setTab] = useState<"profile" | "settings">("profile");
   const [me, setMe] = useState<Profile | null>(null);
   const [personaOpen, setPersonaOpen] = useState(false);
+  const [retaking, setRetaking] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [about, setAbout] = useState("");
@@ -61,6 +77,35 @@ export default function ProfileScreen() {
         </View>
       </ScreenBg>
     );
+  }
+
+  // Retaking the persona quiz reuses the same full-screen component the
+  // onboarding gate shows, but bypasses the gate entirely — we save the result
+  // and refresh the profile ourselves instead of waiting for PersonaGate to notice.
+  if (retaking) {
+    return <PersonaQuizScreen onComplete={handleRetakeComplete} />;
+  }
+
+  async function handleRetakeComplete(result: PersonaResult) {
+    try {
+      await saveMyAnimalTrait(result.trait, result.scores);
+    } catch (e) {
+      console.warn("Failed to save animal persona:", e);
+    }
+    const updated = await getMyProfile();
+    setMe(updated);
+    setRetaking(false);
+  }
+
+  // Optimistic pref update: reflect the toggle immediately, persist in the
+  // background. A failed write just means the value reverts on next load.
+  async function updatePref(patch: Partial<Profile>) {
+    setMe((prev) => (prev ? { ...prev, ...patch } : prev));
+    try {
+      await updateMyProfile(patch);
+    } catch (e) {
+      console.warn("Failed to save preference:", e);
+    }
   }
 
   function startEdit() {
@@ -482,19 +527,28 @@ export default function ProfileScreen() {
           </>
         ) : (
           <View className="mt-6 gap-3">
-            {["Account & Security", "Notifications", "Privacy & Visibility", "Resume Manager", "Persona Assessment", "Sign Out"].map((row) => {
-              const isSignOut = row === "Sign Out";
-              return (
-                <Pressable
-                  key={row}
-                  onPress={isSignOut ? () => signOut() : undefined}
-                  className="flex-row items-center justify-between bg-surface border border-line rounded-[14px] px-4 py-[16px]"
-                >
-                  <Text className={`text-[14.5px] ${isSignOut ? "text-danger" : "text-ink"}`}>{row}</Text>
-                  <Feather name={isSignOut ? "log-out" : "chevron-right"} size={18} color={isSignOut ? colors.danger : colors.mut} />
-                </Pressable>
-              );
-            })}
+            {(() => {
+              const rowActions: Record<string, () => void> = {
+                "Account & Security": () => setAccountOpen(true),
+                Notifications: () => setNotifOpen(true),
+                "Privacy & Visibility": () => setPrivacyOpen(true),
+                "Resume Manager": () => nav.navigate("Resume"),
+                "Persona Assessment": () => setPersonaOpen(true),
+              };
+              return ["Account & Security", "Notifications", "Privacy & Visibility", "Resume Manager", "Persona Assessment", "Sign Out"].map((row) => {
+                const isSignOut = row === "Sign Out";
+                return (
+                  <Pressable
+                    key={row}
+                    onPress={isSignOut ? () => signOut() : rowActions[row]}
+                    className="flex-row items-center justify-between bg-surface border border-line rounded-[14px] px-4 py-[16px]"
+                  >
+                    <Text className={`text-[14.5px] ${isSignOut ? "text-danger" : "text-ink"}`}>{row}</Text>
+                    <Feather name={isSignOut ? "log-out" : "chevron-right"} size={18} color={isSignOut ? colors.danger : colors.mut} />
+                  </Pressable>
+                );
+              });
+            })()}
           </View>
         )}
       </ScrollView>
@@ -505,8 +559,32 @@ export default function ProfileScreen() {
           scores={me.animal_scores}
           visible={personaOpen}
           onClose={() => setPersonaOpen(false)}
+          onRetake={() => {
+            setPersonaOpen(false);
+            setRetaking(true);
+          }}
         />
       )}
+
+      <AccountSecurityModal visible={accountOpen} onClose={() => setAccountOpen(false)} email={session?.user?.email ?? null} />
+
+      <NotificationsModal
+        visible={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        prefs={{
+          notif_matches: me.notif_matches ?? true,
+          notif_messages: me.notif_messages ?? true,
+          notif_updates: me.notif_updates ?? true,
+        }}
+        onChange={updatePref}
+      />
+
+      <PrivacyModal
+        visible={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
+        visible_to_companies={me.profile_visible ?? true}
+        onChange={updatePref}
+      />
     </ScreenBg>
   );
 }
@@ -517,11 +595,13 @@ function PersonaStatsModal({
   scores,
   visible,
   onClose,
+  onRetake,
 }: {
   trait: AnimalTrait;
   scores?: PersonaScores | null;
   visible: boolean;
   onClose: () => void;
+  onRetake: () => void;
 }) {
   const meta = ANIMALS[trait];
   const ranked = scores
@@ -581,8 +661,229 @@ function PersonaStatsModal({
             </View>
           )}
 
+          <Pressable onPress={onRetake} className="mt-7 items-center border border-line rounded-[14px] py-[14px]">
+            <Text className="text-gold text-[14px] font-medium">Retake Assessment</Text>
+          </Pressable>
+
+          <Pressable onPress={onClose} className="mt-3 items-center bg-surface2 border border-line rounded-[14px] py-[14px]">
+            <Text className="text-ink text-[14px] font-medium">Close</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+/* -------------------------------------------------- settings toggle row */
+function ToggleRow({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <View className="flex-row items-center justify-between bg-surface border border-line rounded-[14px] px-4 py-[14px]">
+      <View className="flex-1 pr-3">
+        <Text className="text-ink text-[14.5px]">{label}</Text>
+        {description && <Text className="text-mut text-[12px] mt-[3px] leading-[17px]">{description}</Text>}
+      </View>
+      <Pressable
+        onPress={() => onChange(!value)}
+        hitSlop={8}
+        className="w-[46px] h-[27px] rounded-full justify-center px-[3px]"
+        style={{ backgroundColor: value ? colors.gold : colors.surface3, borderWidth: 1, borderColor: value ? colors.gold : colors.line2 }}
+      >
+        <View className="w-[19px] h-[19px] rounded-full bg-white" style={{ alignSelf: value ? "flex-end" : "flex-start" }} />
+      </Pressable>
+    </View>
+  );
+}
+
+/* -------------------------------------------------- account & security */
+function AccountSecurityModal({
+  visible,
+  onClose,
+  email,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  email: string | null;
+}) {
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    setNewEmail("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setMessage(null);
+    setErr(null);
+  }, [visible]);
+
+  async function saveEmail() {
+    if (!newEmail.trim()) return;
+    setSavingEmail(true);
+    setErr(null);
+    setMessage(null);
+    try {
+      await updateMyEmail(newEmail.trim());
+      setMessage("Check your inbox to confirm the new email address.");
+      setNewEmail("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't update email.");
+    } finally {
+      setSavingEmail(false);
+    }
+  }
+
+  async function savePassword() {
+    if (newPassword.length < 6) {
+      setErr("Password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setErr("Passwords don't match.");
+      return;
+    }
+    setSavingPassword(true);
+    setErr(null);
+    setMessage(null);
+    try {
+      await updateMyPassword(newPassword);
+      setMessage("Password updated.");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't update password.");
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onPress={onClose}>
+        <Pressable onPress={() => {}} className="border-t border-line rounded-t-[24px] px-6 pt-4 pb-9" style={{ backgroundColor: colors.bg }}>
+          <View className="self-center w-[42px] h-[5px] rounded-full mb-5" style={{ backgroundColor: colors.line2 }} />
+
+          <Text className="font-serif text-[22px] text-ink mb-1">Account & Security</Text>
+          <Text className="text-mut text-[12.5px] mb-5">{email ? `Signed in as ${email}` : "Manage your sign-in details."}</Text>
+
+          {err && <Text className="text-danger text-[13px] mb-3">{err}</Text>}
+          {message && <Text className="text-ok text-[13px] mb-3">{message}</Text>}
+
+          <Text className="font-mono text-[10px] tracking-[1.5px] text-mut uppercase mb-[9px]">Change email</Text>
+          <Field icon="mail" value={newEmail} onChangeText={setNewEmail} placeholder="New email address" autoCapitalize="none" keyboardType="email-address" />
+          <GoldButton label="Update email" onPress={saveEmail} loading={savingEmail} disabled={!newEmail.trim()} className="mt-3" />
+
+          <Text className="font-mono text-[10px] tracking-[1.5px] text-mut uppercase mb-[9px] mt-6">Change password</Text>
+          <View className="gap-[10px]">
+            <Field icon="lock" value={newPassword} onChangeText={setNewPassword} placeholder="New password" secureToggle autoCapitalize="none" />
+            <Field icon="lock" value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Confirm new password" secureToggle autoCapitalize="none" />
+          </View>
+          <GoldButton label="Update password" onPress={savePassword} loading={savingPassword} disabled={!newPassword || !confirmPassword} className="mt-3" />
+
           <Pressable onPress={onClose} className="mt-7 items-center bg-surface2 border border-line rounded-[14px] py-[14px]">
             <Text className="text-ink text-[14px] font-medium">Close</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+/* -------------------------------------------------- notifications */
+function NotificationsModal({
+  visible,
+  onClose,
+  prefs,
+  onChange,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  prefs: { notif_matches: boolean; notif_messages: boolean; notif_updates: boolean };
+  onChange: (patch: Partial<Profile>) => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onPress={onClose}>
+        <Pressable onPress={() => {}} className="border-t border-line rounded-t-[24px] px-6 pt-4 pb-9" style={{ backgroundColor: colors.bg }}>
+          <View className="self-center w-[42px] h-[5px] rounded-full mb-5" style={{ backgroundColor: colors.line2 }} />
+
+          <Text className="font-serif text-[22px] text-ink mb-1">Notifications</Text>
+          <Text className="text-mut text-[12.5px] mb-5">Choose what you hear from us.</Text>
+
+          <View className="gap-[10px]">
+            <ToggleRow
+              label="New matches"
+              description="A company matches with you or your application advances a stage."
+              value={prefs.notif_matches}
+              onChange={(v) => onChange({ notif_matches: v })}
+            />
+            <ToggleRow
+              label="Messages"
+              description="A company or connection sends you a message."
+              value={prefs.notif_messages}
+              onChange={(v) => onChange({ notif_messages: v })}
+            />
+            <ToggleRow
+              label="Product updates"
+              description="New features and occasional tips."
+              value={prefs.notif_updates}
+              onChange={(v) => onChange({ notif_updates: v })}
+            />
+          </View>
+
+          <Pressable onPress={onClose} className="mt-7 items-center bg-surface2 border border-line rounded-[14px] py-[14px]">
+            <Text className="text-ink text-[14px] font-medium">Done</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+/* -------------------------------------------------- privacy & visibility */
+function PrivacyModal({
+  visible,
+  onClose,
+  visible_to_companies,
+  onChange,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  visible_to_companies: boolean;
+  onChange: (patch: Partial<Profile>) => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onPress={onClose}>
+        <Pressable onPress={() => {}} className="border-t border-line rounded-t-[24px] px-6 pt-4 pb-9" style={{ backgroundColor: colors.bg }}>
+          <View className="self-center w-[42px] h-[5px] rounded-full mb-5" style={{ backgroundColor: colors.line2 }} />
+
+          <Text className="font-serif text-[22px] text-ink mb-1">Privacy & Visibility</Text>
+          <Text className="text-mut text-[12.5px] mb-5">Control what companies can see about you.</Text>
+
+          <ToggleRow
+            label="Show full profile to companies"
+            description="When off, companies you match with still see your name, headline, and location — but not your About, Skills, Experience, or Education."
+            value={visible_to_companies}
+            onChange={(v) => onChange({ profile_visible: v })}
+          />
+
+          <Pressable onPress={onClose} className="mt-7 items-center bg-surface2 border border-line rounded-[14px] py-[14px]">
+            <Text className="text-ink text-[14px] font-medium">Done</Text>
           </Pressable>
         </Pressable>
       </Pressable>

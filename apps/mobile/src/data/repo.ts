@@ -476,6 +476,20 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+/** Change the signed-in user's email (Settings > Account & Security). Supabase sends a confirmation link to the new address before it takes effect. */
+export async function updateMyEmail(email: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.auth.updateUser({ email });
+  if (error) throw error;
+}
+
+/** Change the signed-in user's password (Settings > Account & Security). */
+export async function updateMyPassword(password: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+}
+
 // ---------------------------------------------------------------------------
 // ANIMAL PERSONA — the onboarding quiz result gates entry into the app.
 // Live: stored on profiles.animal_trait / animal_scores. Demo (no Supabase):

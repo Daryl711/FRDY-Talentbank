@@ -40,6 +40,14 @@ export interface Profile {
   // Animal Persona quiz result (onboarding). Present once the quiz is completed.
   animal_trait?: AnimalTrait | null;
   animal_scores?: PersonaScores | null;
+  // Notification preferences (Settings > Notifications). Absent means "on" —
+  // these columns default true, so older rows without them still read as opted in.
+  notif_matches?: boolean;
+  notif_messages?: boolean;
+  notif_updates?: boolean;
+  // Whether companies see full profile details (About/Skills/Experience/Education)
+  // once matched (Settings > Privacy & Visibility). Absent means visible.
+  profile_visible?: boolean;
 }
 
 export interface Role {

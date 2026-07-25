@@ -48,6 +48,10 @@ export const me: Profile = {
   profile_score: 94,
   views: 347,
   matches: 28,
+  notif_matches: true,
+  notif_messages: true,
+  notif_updates: true,
+  profile_visible: true,
   animal_trait: "Fox",
   animal_scores: {
     Fox: 11, Owl: 9, Eagle: 8, Cheetah: 6, Lion: 6, Octopus: 5,

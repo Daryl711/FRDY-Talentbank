@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Edit2, LogOut, MapPin, Briefcase, TrendingUp, Eye, Trophy, X, Check, Plus, Trash2, Tag, ChevronRight, GraduationCap } from "lucide-react";
-import { getMyProfile, updateMyProfile, type CandidateProfile, type Experience, type Education } from "@/lib/candidate";
+import {
+  getMyProfile,
+  updateMyEmail,
+  updateMyPassword,
+  updateMyProfile,
+  type CandidateProfile,
+  type Experience,
+  type Education,
+} from "@/lib/candidate";
 import { ANIMALS, type AnimalTrait, type PersonaScores } from "@/lib/persona";
 import { useAuth } from "@/lib/auth";
 import Avatar from "@/components/candidate/Avatar";
@@ -24,10 +32,13 @@ function expInitials(company: string) {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [tab, setTab] = useState<"profile" | "settings">("profile");
   const [me, setMe] = useState<CandidateProfile | null>(null);
   const [personaOpen, setPersonaOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [about, setAbout] = useState("");
@@ -45,6 +56,17 @@ export default function ProfilePage() {
   async function handleSignOut() {
     await signOut();
     router.push("/");
+  }
+
+  // Optimistic pref update: reflect the toggle immediately, persist in the
+  // background. A failed write just means the value reverts on next load.
+  async function updatePref(patch: Partial<CandidateProfile>) {
+    setMe((prev) => (prev ? { ...prev, ...patch } : prev));
+    try {
+      await updateMyProfile(patch);
+    } catch (e) {
+      console.warn("Failed to save preference:", e);
+    }
   }
 
   if (!me) {
@@ -306,11 +328,18 @@ export default function ProfilePage() {
           <Link href="/candidate/quiz" className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-4 text-ink text-[14.5px] hover:border-line2">
             Persona Assessment <ChevronRight size={18} className="text-mut" />
           </Link>
-          {["Account & Security", "Notifications", "Privacy & Visibility", "Resume Manager"].map((row) => (
-            <div key={row} className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-4 text-ink text-[14.5px]">
-              {row} <ChevronRight size={18} className="text-mut" />
-            </div>
-          ))}
+          <button onClick={() => setAccountOpen(true)} className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-4 text-ink text-[14.5px] text-left hover:border-line2">
+            Account & Security <ChevronRight size={18} className="text-mut" />
+          </button>
+          <button onClick={() => setNotifOpen(true)} className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-4 text-ink text-[14.5px] text-left hover:border-line2">
+            Notifications <ChevronRight size={18} className="text-mut" />
+          </button>
+          <button onClick={() => setPrivacyOpen(true)} className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-4 text-ink text-[14.5px] text-left hover:border-line2">
+            Privacy & Visibility <ChevronRight size={18} className="text-mut" />
+          </button>
+          <Link href="/candidate/resume" className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-4 text-ink text-[14.5px] hover:border-line2">
+            Resume Manager <ChevronRight size={18} className="text-mut" />
+          </Link>
           <button onClick={handleSignOut} className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-4 text-danger text-[14.5px]">
             Sign Out <LogOut size={18} />
           </button>
@@ -319,6 +348,28 @@ export default function ProfilePage() {
 
       {me.animal_trait && ANIMALS[me.animal_trait as AnimalTrait] && personaOpen && (
         <PersonaStatsModal trait={me.animal_trait as AnimalTrait} scores={me.animal_scores} onClose={() => setPersonaOpen(false)} />
+      )}
+
+      {accountOpen && <AccountSecurityModal email={user?.email ?? null} onClose={() => setAccountOpen(false)} />}
+
+      {notifOpen && (
+        <NotificationsModal
+          prefs={{
+            notif_matches: me.notif_matches ?? true,
+            notif_messages: me.notif_messages ?? true,
+            notif_updates: me.notif_updates ?? true,
+          }}
+          onChange={updatePref}
+          onClose={() => setNotifOpen(false)}
+        />
+      )}
+
+      {privacyOpen && (
+        <PrivacyModal
+          profileVisible={me.profile_visible ?? true}
+          onChange={updatePref}
+          onClose={() => setPrivacyOpen(false)}
+        />
       )}
     </div>
   );
@@ -378,5 +429,189 @@ function PersonaStatsModal({ trait, scores, onClose }: { trait: AnimalTrait; sco
         <button onClick={onClose} className="mt-7 w-full bg-surface2 border border-line rounded-xl py-[14px] text-ink text-[14px] font-medium">Close</button>
       </div>
     </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-[14px]">
+      <div className="flex-1 pr-3">
+        <div className="text-ink text-[14.5px]">{label}</div>
+        {description && <p className="text-mut text-[12px] mt-1 leading-[17px]">{description}</p>}
+      </div>
+      <button
+        onClick={() => onChange(!value)}
+        className="w-[46px] h-[27px] rounded-full flex items-center px-[3px] shrink-0"
+        style={{ backgroundColor: value ? "#d8b45a" : "#1b2742", border: `1px solid ${value ? "#d8b45a" : "#2d3a57"}`, justifyContent: value ? "flex-end" : "flex-start" }}
+      >
+        <span className="w-[19px] h-[19px] rounded-full bg-white block" />
+      </button>
+    </div>
+  );
+}
+
+function ModalShell({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60" onClick={onClose}>
+      <div className="w-full max-w-[480px] max-h-[85vh] overflow-y-auto bg-bgtop border border-line rounded-2xl px-6 py-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-serif text-[22px] font-bold text-ink">{title}</h3>
+        <p className="text-mut text-[12.5px] mt-1 mb-5">{subtitle}</p>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function AccountSecurityModal({ email, onClose }: { email: string | null; onClose: () => void }) {
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const input = "w-full bg-surface2 border border-line rounded-xl px-[13px] py-[11px] text-ink text-[14px] outline-none focus:border-gold/50 placeholder:text-mut";
+
+  async function saveEmail() {
+    if (!newEmail.trim()) return;
+    setSavingEmail(true);
+    setErr(null);
+    setMessage(null);
+    try {
+      await updateMyEmail(newEmail.trim());
+      setMessage("Check your inbox to confirm the new email address.");
+      setNewEmail("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't update email.");
+    } finally {
+      setSavingEmail(false);
+    }
+  }
+
+  async function savePassword() {
+    if (newPassword.length < 6) {
+      setErr("Password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setErr("Passwords don't match.");
+      return;
+    }
+    setSavingPassword(true);
+    setErr(null);
+    setMessage(null);
+    try {
+      await updateMyPassword(newPassword);
+      setMessage("Password updated.");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't update password.");
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Account & Security" subtitle={email ? `Signed in as ${email}` : "Manage your sign-in details."} onClose={onClose}>
+      {err && <p className="text-danger text-[13px] mb-3">{err}</p>}
+      {message && <p className="text-ok text-[13px] mb-3">{message}</p>}
+
+      <div className="font-mono text-[10px] tracking-wider text-mut uppercase mb-[9px]">Change email</div>
+      <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="New email address" type="email" className={input} />
+      <button
+        onClick={saveEmail}
+        disabled={savingEmail || !newEmail.trim()}
+        className="w-full mt-3 rounded-xl py-[14px] text-[14px] font-medium disabled:opacity-50"
+        style={{ backgroundColor: "#d8b45a", color: "#3a2d08" }}
+      >
+        {savingEmail ? "Updating…" : "Update email"}
+      </button>
+
+      <div className="font-mono text-[10px] tracking-wider text-mut uppercase mb-[9px] mt-6">Change password</div>
+      <div className="flex flex-col gap-[10px]">
+        <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password" type="password" className={input} />
+        <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm new password" type="password" className={input} />
+      </div>
+      <button
+        onClick={savePassword}
+        disabled={savingPassword || !newPassword || !confirmPassword}
+        className="w-full mt-3 rounded-xl py-[14px] text-[14px] font-medium disabled:opacity-50"
+        style={{ backgroundColor: "#d8b45a", color: "#3a2d08" }}
+      >
+        {savingPassword ? "Updating…" : "Update password"}
+      </button>
+
+      <button onClick={onClose} className="mt-7 w-full bg-surface2 border border-line rounded-xl py-[14px] text-ink text-[14px] font-medium">Close</button>
+    </ModalShell>
+  );
+}
+
+function NotificationsModal({
+  prefs,
+  onChange,
+  onClose,
+}: {
+  prefs: { notif_matches: boolean; notif_messages: boolean; notif_updates: boolean };
+  onChange: (patch: Partial<CandidateProfile>) => void;
+  onClose: () => void;
+}) {
+  return (
+    <ModalShell title="Notifications" subtitle="Choose what you hear from us." onClose={onClose}>
+      <div className="flex flex-col gap-[10px]">
+        <ToggleRow
+          label="New matches"
+          description="A company matches with you or your application advances a stage."
+          value={prefs.notif_matches}
+          onChange={(v) => onChange({ notif_matches: v })}
+        />
+        <ToggleRow
+          label="Messages"
+          description="A company or connection sends you a message."
+          value={prefs.notif_messages}
+          onChange={(v) => onChange({ notif_messages: v })}
+        />
+        <ToggleRow
+          label="Product updates"
+          description="New features and occasional tips."
+          value={prefs.notif_updates}
+          onChange={(v) => onChange({ notif_updates: v })}
+        />
+      </div>
+      <button onClick={onClose} className="mt-7 w-full bg-surface2 border border-line rounded-xl py-[14px] text-ink text-[14px] font-medium">Done</button>
+    </ModalShell>
+  );
+}
+
+function PrivacyModal({
+  profileVisible,
+  onChange,
+  onClose,
+}: {
+  profileVisible: boolean;
+  onChange: (patch: Partial<CandidateProfile>) => void;
+  onClose: () => void;
+}) {
+  return (
+    <ModalShell title="Privacy & Visibility" subtitle="Control what companies can see about you." onClose={onClose}>
+      <ToggleRow
+        label="Show full profile to companies"
+        description="When off, companies you match with still see your name, headline, and location — but not your About, Skills, Experience, or Education."
+        value={profileVisible}
+        onChange={(v) => onChange({ profile_visible: v })}
+      />
+      <button onClick={onClose} className="mt-7 w-full bg-surface2 border border-line rounded-xl py-[14px] text-ink text-[14px] font-medium">Done</button>
+    </ModalShell>
   );
 }
