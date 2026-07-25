@@ -12,10 +12,12 @@ import {
   getCompanyMatches,
   getCompanyRoles,
   createRole,
+  updateRoleStatus,
   setMatchStage,
   subscribeCompanyMatches,
   type Company,
   type Role,
+  type RoleStatus,
 } from "@/lib/employer";
 import type { JobRole, HireStage, MatchedCandidate } from "@/lib/types";
 
@@ -88,6 +90,16 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
     const created = await createRole(company.id, input);
     setRoles((rs) => [...rs, created]); // append: getCompanyRoles orders oldest-first
     setComposing(false);
+  }
+
+  // Publish a saved draft so it starts appearing in the candidate swipe deck.
+  async function publishRole(roleId: string) {
+    setRoles((rs) => rs.map((r) => (r.id === roleId ? { ...r, status: "Active" } : r))); // optimistic
+    try {
+      await updateRoleStatus(roleId, "Active");
+    } catch {
+      setRoles((rs) => rs.map((r) => (r.id === roleId ? { ...r, status: "Draft" } : r))); // revert
+    }
   }
 
   // Keep the latest `busy` readable inside the subscription callback without
@@ -171,7 +183,7 @@ function LiveMatchBoard({ company, initial }: { company: Company; initial: Match
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {roles.map((r) => (
-              <RoleCard key={r.id} r={r} />
+              <RoleCard key={r.id} r={r} onPublish={() => publishRole(r.id)} />
             ))}
           </div>
         )}
@@ -311,7 +323,8 @@ function LiveRoleForm({
   const [description, setDescription] = useState("");
   const [responsibilities, setResponsibilities] = useState("");
   const [requirements, setRequirements] = useState("");
-  const [busy, setBusy] = useState(false);
+  // Tracks which action is in flight so each button shows its own spinner.
+  const [busy, setBusy] = useState<"Active" | "Draft" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const field =
@@ -319,9 +332,9 @@ function LiveRoleForm({
   // Split a textarea into a clean bullet list (one item per line).
   const toList = (v: string) => v.split("\n").map((l) => l.replace(/^[-•\s]+/, "").trim()).filter(Boolean);
 
-  async function submit() {
+  async function submit(status: "Active" | "Draft") {
     if (!title.trim() || busy) return;
-    setBusy(true);
+    setBusy(status);
     setError(null);
     try {
       await onCreate({
@@ -338,10 +351,11 @@ function LiveRoleForm({
         description: description.trim() || null,
         responsibilities: toList(responsibilities),
         requirements: toList(requirements),
+        status,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't post the role. Please try again.");
-      setBusy(false);
+      setError(e instanceof Error ? e.message : `Couldn't ${status === "Draft" ? "save the draft" : "post the role"}. Please try again.`);
+      setBusy(null);
     }
   }
 
@@ -411,14 +425,21 @@ function LiveRoleForm({
 
       <div className="flex items-center gap-3 mt-4">
         <button
-          onClick={submit}
-          disabled={!title.trim() || busy}
+          onClick={() => submit("Active")}
+          disabled={!title.trim() || !!busy}
           className="flex items-center gap-2 bg-gradient-to-r from-goldbright to-golddeep rounded-xl px-4 py-[10px] font-semibold text-[13px] disabled:opacity-40"
           style={{ color: "#2b2106" }}
         >
-          {busy ? <><Loader2 size={15} className="animate-spin" /> Posting…</> : "Create role"}
+          {busy === "Active" ? <><Loader2 size={15} className="animate-spin" /> Posting…</> : "Post Role"}
         </button>
-        <button onClick={onCancel} disabled={busy} className="text-mut hover:text-ink text-[13px] px-2 disabled:opacity-40">
+        <button
+          onClick={() => submit("Draft")}
+          disabled={!title.trim() || !!busy}
+          className="flex items-center gap-2 bg-surface2 border border-line rounded-xl px-4 py-[10px] font-semibold text-[13px] text-dim hover:text-ink disabled:opacity-40"
+        >
+          {busy === "Draft" ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : "Save as Draft"}
+        </button>
+        <button onClick={onCancel} disabled={!!busy} className="text-mut hover:text-ink text-[13px] px-2 disabled:opacity-40">
           Cancel
         </button>
       </div>
@@ -427,16 +448,37 @@ function LiveRoleForm({
 }
 
 /* -------------------------------------- open-role card with expandable detail */
-function RoleCard({ r }: { r: Role }) {
+const ROLE_STATUS_BADGE: Record<RoleStatus, string> = {
+  Active: "text-ok bg-ok/10 border border-ok/30",
+  Draft: "text-gold bg-gold/10 border border-gold/30",
+  Closed: "text-mut bg-surface3 border border-line2",
+};
+
+function RoleCard({ r, onPublish }: { r: Role; onPublish: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const hasDetail =
     !!r.description || r.responsibilities.length > 0 || r.requirements.length > 0 || r.perks.length > 0 || !!r.education;
+
+  async function publish() {
+    setPublishing(true);
+    try {
+      await onPublish();
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   return (
     <div className="bg-surface2 border border-line rounded-xl p-4">
       <div className="flex items-start justify-between gap-3">
         <span className="text-ink font-semibold text-[15px]">{r.title}</span>
-        {r.package && <span className="text-gold text-[13px] font-semibold shrink-0">{r.package}</span>}
+        <div className="flex items-center gap-2 shrink-0">
+          {r.package && <span className="text-gold text-[13px] font-semibold">{r.package}</span>}
+          <span className={`font-mono text-[8.5px] tracking-wide px-2 py-[3px] rounded ${ROLE_STATUS_BADGE[r.status]}`}>
+            {r.status.toUpperCase()}
+          </span>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-mut text-[12px]">
         {r.location && <span className="flex items-center gap-1"><MapPin size={12} /> {r.location}</span>}
@@ -452,14 +494,27 @@ function RoleCard({ r }: { r: Role }) {
         </div>
       )}
 
-      {hasDetail && (
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-1 mt-3 text-gold text-[12px] font-semibold hover:text-goldbright"
-        >
-          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />} {open ? "Hide details" : "View details"}
-        </button>
-      )}
+      <div className="flex items-center justify-between mt-3">
+        {hasDetail ? (
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-1 text-gold text-[12px] font-semibold hover:text-goldbright"
+          >
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />} {open ? "Hide details" : "View details"}
+          </button>
+        ) : (
+          <span />
+        )}
+        {r.status === "Draft" && (
+          <button
+            onClick={publish}
+            disabled={publishing}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 bg-ok/10 border border-ok/30 text-ok text-[12px] font-semibold hover:bg-ok/20 disabled:opacity-50"
+          >
+            {publishing ? <Loader2 size={13} className="animate-spin" /> : <Radio size={13} />} Publish
+          </button>
+        )}
+      </div>
 
       {open && (
         <div className="mt-3 pt-3 border-t border-line flex flex-col gap-3">
@@ -566,12 +621,12 @@ function MockHiringBoard() {
     });
   }
 
-  function createRole(form: { title: string; dept: string; location: string; type: string }) {
+  function createRole(form: { title: string; dept: string; location: string; type: string; status: "Active" | "Draft" }) {
     const newRole: JobRole = {
       id: `j-${Date.now()}`,
       title: form.title.trim() || "Untitled Role",
       dept: form.dept.trim() || "General",
-      status: "Active",
+      status: form.status,
       applicants: 0,
       daysOpen: 0,
       location: form.location.trim() || "Remote",
@@ -581,6 +636,13 @@ function MockHiringBoard() {
     setRoles((rs) => [newRole, ...rs]);
     setSelectedId(newRole.id);
     setComposing(false);
+  }
+
+  // Publish a saved draft from the role list sidebar.
+  function publishRole(roleId: string) {
+    mutateRole(roleId, (r) => {
+      r.status = "Active";
+    });
   }
 
   return (
@@ -646,7 +708,20 @@ function MockHiringBoard() {
         <Panel className="p-6">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="font-serif text-[24px] font-bold text-ink">{role.title}</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="font-serif text-[24px] font-bold text-ink">{role.title}</h2>
+                <span className={`font-mono text-[8.5px] tracking-wide px-2 py-[3px] rounded ${role.status === "Active" ? "text-ok bg-ok/10 border border-ok/30" : "text-mut bg-surface3 border border-line2"}`}>
+                  {role.status.toUpperCase()}
+                </span>
+                {role.status === "Draft" && (
+                  <button
+                    onClick={() => publishRole(role.id)}
+                    className="flex items-center gap-1.5 rounded-md px-2 py-1 bg-ok/10 border border-ok/30 text-ok text-[12px] font-semibold hover:bg-ok/20"
+                  >
+                    <Radio size={13} /> Publish
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-4 mt-2 text-dim text-[13px]">
                 <span className="flex items-center gap-1"><MapPin size={13} /> {role.location}</span>
                 <span>{role.type}</span>
@@ -742,7 +817,7 @@ function NewRoleForm({
   onCreate,
   onCancel,
 }: {
-  onCreate: (form: { title: string; dept: string; location: string; type: string }) => void;
+  onCreate: (form: { title: string; dept: string; location: string; type: string; status: "Active" | "Draft" }) => void;
   onCancel: () => void;
 }) {
   const [title, setTitle] = useState("");
@@ -767,12 +842,19 @@ function NewRoleForm({
       </div>
       <div className="flex items-center gap-3 mt-4">
         <button
-          onClick={() => onCreate({ title, dept, location, type })}
+          onClick={() => onCreate({ title, dept, location, type, status: "Active" })}
           disabled={!title.trim()}
           className="bg-gradient-to-r from-goldbright to-golddeep rounded-xl px-4 py-[10px] font-semibold text-[13px] disabled:opacity-40"
           style={{ color: "#2b2106" }}
         >
-          Create role
+          Post Role
+        </button>
+        <button
+          onClick={() => onCreate({ title, dept, location, type, status: "Draft" })}
+          disabled={!title.trim()}
+          className="bg-surface2 border border-line rounded-xl px-4 py-[10px] font-semibold text-[13px] text-dim hover:text-ink disabled:opacity-40"
+        >
+          Save as Draft
         </button>
         <button onClick={onCancel} className="text-mut hover:text-ink text-[13px] px-2">
           Cancel

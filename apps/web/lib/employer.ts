@@ -119,6 +119,8 @@ export async function ensureEmployerCompany(companyName: string, companySize: st
   return data as Company;
 }
 
+export type RoleStatus = "Active" | "Draft" | "Closed";
+
 export interface Role {
   id: string;
   title: string;
@@ -134,10 +136,12 @@ export interface Role {
   requirements: string[];
   experienceLevel: string | null;
   education: string | null;
+  status: RoleStatus;
 }
 
 // Fields written when an employer posts a new role. `type` is a work_type enum
-// in the DB ('Full-time' | 'Hybrid' | 'Remote').
+// in the DB ('Full-time' | 'Hybrid' | 'Remote'). `status` defaults to "Active"
+// (published immediately); pass "Draft" to save without going live to candidates.
 export interface NewRoleInput {
   title: string;
   location?: string | null;
@@ -152,10 +156,11 @@ export interface NewRoleInput {
   requirements?: string[];
   experienceLevel?: string | null;
   education?: string | null;
+  status?: "Active" | "Draft";
 }
 
 const ROLE_COLS =
-  "id,title,location,type,tags,perks,package,salary_min,salary_max,description,responsibilities,requirements,experience_level,education";
+  "id,title,location,type,tags,perks,package,salary_min,salary_max,description,responsibilities,requirements,experience_level,education,status";
 
 function mapRole(r: Record<string, unknown>): Role {
   return {
@@ -173,6 +178,7 @@ function mapRole(r: Record<string, unknown>): Role {
     requirements: (r.requirements as string[] | null) ?? [],
     experienceLevel: (r.experience_level as string | null) ?? null,
     education: (r.education as string | null) ?? null,
+    status: ((r.status as RoleStatus | null) ?? "Active") as RoleStatus,
   };
 }
 
@@ -211,11 +217,22 @@ export async function createRole(companyId: string, input: NewRoleInput): Promis
       requirements: input.requirements ?? [],
       experience_level: input.experienceLevel ?? null,
       education: input.education ?? null,
+      status: input.status ?? "Active",
     })
     .select(ROLE_COLS)
     .single();
   if (error || !data) throw error ?? new Error("Failed to create role");
   return mapRole(data as Record<string, unknown>);
+}
+
+/**
+ * Publish a saved draft (or close/reopen a role) after the fact. Requires the
+ * "roles manage" RLS policy (company owner).
+ */
+export async function updateRoleStatus(roleId: string, status: RoleStatus): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from("roles").update({ status }).eq("id", roleId);
+  if (error) throw error;
 }
 
 /** Candidates matched to the caller's company (for the Hiring board). */
