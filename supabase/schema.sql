@@ -59,6 +59,13 @@ alter table profiles add column if not exists education jsonb default '[]';
 -- dashboard's "Animal Trait" column; animal_scores keeps the full breakdown.
 alter table profiles add column if not exists animal_trait text;
 alter table profiles add column if not exists animal_scores jsonb default '{}';
+-- Notification preferences (Settings > Notifications).
+alter table profiles add column if not exists notif_matches boolean default true;
+alter table profiles add column if not exists notif_messages boolean default true;
+alter table profiles add column if not exists notif_updates boolean default true;
+-- Whether companies see full profile details (About/Skills/Experience/Education)
+-- once matched (Settings > Privacy & Visibility); name/headline/location still show.
+alter table profiles add column if not exists profile_visible boolean default true;
 
 -- ----------------------------------------------------------------------------
 -- COMPANIES
