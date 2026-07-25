@@ -145,7 +145,7 @@ create table if not exists matches (
   company_id  uuid not null references companies(id) on delete cascade,
   score       int,
   -- Hiring pipeline stage the employer moves the matched candidate through:
-  -- Applied -> Screening -> Interview -> Final Round -> Offer -> Hired (or Rejected)
+  -- Applied -> Screening -> Shortlisted -> Interview -> Final Round -> Offer -> Hired (or Rejected)
   stage       text not null default 'Applied',
   created_at  timestamptz default now(),
   unique (user_id, company_id)
@@ -410,7 +410,7 @@ returns table (
     s.created_at,
     s.expected_salary, s.last_drawn_salary,
     m.stage as hire_stage,
-    (select min(h.created_at) from match_stage_history h where h.match_id = m.id and h.stage = 'Screening') as review_at,
+    (select min(h.created_at) from match_stage_history h where h.match_id = m.id and h.stage in ('Screening', 'Shortlisted')) as review_at,
     (select min(h.created_at) from match_stage_history h where h.match_id = m.id and h.stage in ('Interview', 'Final Round')) as interview_at,
     (select min(h.created_at) from match_stage_history h where h.match_id = m.id and h.stage in ('Offer', 'Hired')) as offer_at
   from swipes s
