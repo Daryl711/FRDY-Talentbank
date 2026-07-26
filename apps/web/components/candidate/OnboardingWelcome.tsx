@@ -4,8 +4,18 @@ import { useState } from "react";
 import { Award, Check, ArrowRight } from "lucide-react";
 
 const STEPS = [
-  { n: "1", t: "Animal Persona quiz", s: "40 quick questions (~5 min) that reveal your work style." },
-  { n: "2", t: "Your profile", s: "Add your About, Skills and Experience." },
+  {
+    n: "1",
+    t: "Animal Persona quiz",
+    s: "40 quick questions (~5 min) that reveal your work style. Required — it's what feeds your ML-driven career trajectory prediction, so it can't be skipped.",
+    required: true,
+  },
+  {
+    n: "2",
+    t: "Your profile",
+    s: "Add your About, Skills and Experience. Optional — you can finish this anytime later.",
+    required: false,
+  },
 ];
 
 /**
@@ -26,6 +36,8 @@ export default function OnboardingWelcome({ onAcknowledge }: { onAcknowledge: ()
           <h2 className="font-serif text-[24px] font-bold text-ink mt-4">Let&apos;s set you up for better matches</h2>
           <p className="text-dim text-[14px] mt-3 leading-[22px]">
             To help employers find you and match you with the right roles, we&apos;ll guide you through two quick steps first.
+            The Animal Persona quiz is <span className="text-gold font-semibold">required</span> — it&apos;s what powers your
+            ML-driven career trajectory prediction.
           </p>
         </div>
 
@@ -35,8 +47,19 @@ export default function OnboardingWelcome({ onAcknowledge }: { onAcknowledge: ()
               <div className="w-[26px] h-[26px] rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#d8b45a" }}>
                 <span className="font-mono text-[12px] font-bold" style={{ color: "#3a2d08" }}>{step.n}</span>
               </div>
-              <div>
-                <div className="text-ink text-[14.5px] font-semibold">{step.t}</div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="text-ink text-[14.5px] font-semibold">{step.t}</div>
+                  {step.required ? (
+                    <span className="font-mono text-[9px] tracking-wide uppercase px-[7px] py-[2px] rounded bg-gold/[0.16] border border-gold/40 text-gold">
+                      Required
+                    </span>
+                  ) : (
+                    <span className="font-mono text-[9px] tracking-wide uppercase px-[7px] py-[2px] rounded bg-surface3 border border-line2 text-mut">
+                      Optional
+                    </span>
+                  )}
+                </div>
                 <div className="text-dim text-[12.5px] mt-[3px] leading-[18px]">{step.s}</div>
               </div>
             </div>
@@ -52,7 +75,7 @@ export default function OnboardingWelcome({ onAcknowledge }: { onAcknowledge: ()
             {checked && <Check size={14} style={{ color: "#2b2106" }} />}
           </span>
           <span className="flex-1 text-dim text-[13px] leading-[18px]">
-            I understand I&apos;ll complete a short quiz and my profile to get better job matches.
+            I understand the Animal Persona quiz is required to unlock my ML career trajectory prediction, and my profile is optional and can be completed later.
           </span>
         </button>
 
