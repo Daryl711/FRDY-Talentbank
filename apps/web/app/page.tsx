@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Building2, GraduationCap, User, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { OrgType } from "@/lib/types";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { signInWithEmail, signUpWithEmail } from "@/lib/candidate";
+import { bypassCandidateSignIn, signInWithEmail, signUpWithEmail } from "@/lib/candidate";
 import { signUpEmployer, EMPLOYER_SIZES } from "@/lib/employer";
 import { firstError, isValidEmail, validateEmail, validatePassword, validateRequired } from "@/lib/validation";
 
@@ -135,6 +135,23 @@ function CandidateAuth() {
     }
   }
 
+  // Provisions (or signs back into) a per-browser candidate account so anyone
+  // can walk the create-account flow without typing an email/password — see
+  // bypassCandidateSignIn for why this can't just be one shared demo login.
+  async function tryBypass() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await bypassCandidateSignIn();
+      router.push("/candidate");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mt-8">
       {isSignup && (
@@ -214,6 +231,20 @@ function CandidateAuth() {
           {isSignup ? "Sign in" : "Create one"}
         </button>
       </p>
+
+      <div className="flex items-center gap-3 mt-6">
+        <div className="flex-1 h-px bg-line" />
+        <span className="font-mono text-[10px] tracking-wide uppercase text-mut">or</span>
+        <div className="flex-1 h-px bg-line" />
+      </div>
+      <button
+        type="button"
+        onClick={tryBypass}
+        disabled={busy}
+        className="mt-4 w-full rounded-xl py-[13px] text-[14px] font-semibold text-dim bg-surface2 border border-line hover:text-ink hover:border-line2 transition-colors disabled:opacity-60"
+      >
+        Try it now — no sign-up needed
+      </button>
     </div>
   );
 }

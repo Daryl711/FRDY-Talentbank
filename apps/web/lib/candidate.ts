@@ -345,6 +345,80 @@ export async function signUpWithEmail(email: string, password: string, name: str
 }
 
 // ---------------------------------------------------------------------------
+// LOGIN BYPASS — "try it now" for candidates. Unlike the employer/university
+// demo logins (one fixed, shared account each — fine there since they front a
+// curated, mostly-read-only dashboard), the interesting part of the candidate
+// portal *is* the create-account workflow (Animal Persona quiz, profile
+// setup), and a single shared candidate account would mean two people trying
+// the bypass at once overwrite each other's profile/swipes/matches. So this
+// mints a real, unique Supabase account per browser instead: first call signs
+// up (landing on the normal onboarding flow exactly like a real candidate),
+// and the generated credentials are cached in localStorage so the *same*
+// browser signs back into the *same* account next time instead of minting a
+// fresh one on every visit.
+// ---------------------------------------------------------------------------
+
+const BYPASS_CREDS_KEY = "mango.candidate_bypass_creds";
+
+interface BypassCreds {
+  email: string;
+  password: string;
+}
+
+function loadBypassCreds(): BypassCreds | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(BYPASS_CREDS_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as BypassCreds;
+  } catch {
+    return null;
+  }
+}
+
+function saveBypassCreds(creds: BypassCreds): void {
+  if (typeof window !== "undefined") window.localStorage.setItem(BYPASS_CREDS_KEY, JSON.stringify(creds));
+}
+
+function randomId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  return Math.random().toString(36).slice(2, 14);
+}
+
+/**
+ * Signs into a per-browser candidate account, creating one the first time
+ * it's called on a given browser. Each generated account is a real Supabase
+ * user with its own unique email, so it goes through the exact same sign-up
+ * + onboarding path a real candidate would — it's just provisioned
+ * automatically instead of asking for an email and password.
+ */
+export async function bypassCandidateSignIn(): Promise<void> {
+  if (!isSupabaseConfigured) throw new Error(NOT_CONFIGURED);
+
+  const existing = loadBypassCreds();
+  if (existing) {
+    try {
+      await signInWithEmail(existing.email, existing.password);
+      return;
+    } catch {
+      // The cached account no longer works (e.g. deleted server-side) —
+      // fall through and mint a fresh one below.
+    }
+  }
+
+  const id = randomId();
+  const creds: BypassCreds = {
+    email: `candidate_bypass_${id}@example.com`,
+    password: `Bypass-${id}-!1`,
+  };
+  const res = await signUpWithEmail(creds.email, creds.password, "Guest Candidate");
+  if (!res.session) {
+    throw new Error("This project requires email confirmation, so the instant bypass can't sign itself in — disable email confirmations in Supabase Auth settings, or create a real account.");
+  }
+  saveBypassCreds(creds);
+}
+
+// ---------------------------------------------------------------------------
 // PROFILE
 // ---------------------------------------------------------------------------
 
