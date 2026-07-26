@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Search, MessageSquare, Check, X, UserPlus, Clock, Loader2 } from "lucide-react";
 import Avatar from "@/components/candidate/Avatar";
 import ChatDialog from "@/components/candidate/ChatDialog";
@@ -33,9 +33,10 @@ export default function ConnectPage() {
   const [chatPeer, setChatPeer] = useState<Connection | null>(null);
 
   // No synchronous setState here — the spinner is turned on by the segment
-  // button handler; this only swaps in the result and clears the spinner.
-  const loadSegment = useCallback((s: Seg) => {
-    getConnections(s)
+  // button handler (or the discover-search effect below); this only swaps in
+  // the result and clears the spinner.
+  const loadSegment = useCallback((s: Seg, search?: string) => {
+    getConnections(s, s === "discover" ? search : undefined)
       .then(setPeople)
       .finally(() => setLoading(false));
   }, []);
@@ -45,16 +46,36 @@ export default function ConnectPage() {
     getConnections("network").then((n) => setNetworkCount(n.length));
   }, []);
 
+  // Kept in a ref (not a dependency) so the realtime subscription below
+  // doesn't tear down and resubscribe on every keystroke.
+  const queryRef = useRef(query);
   useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+
+  // Network / Requests are small, already-mine lists — one fetch per segment
+  // switch, then the `filtered` search below just narrows what's in memory.
+  useEffect(() => {
+    if (seg === "discover") return;
     loadSegment(seg);
   }, [seg, loadSegment]);
+
+  // Discover covers every other candidate, so search has to reach the server
+  // instead of only filtering whatever page happened to load first. Debounced
+  // so typing doesn't fire a query per keystroke (the spinner is turned on by
+  // the input's onChange below, not here — see the segment button for why).
+  useEffect(() => {
+    if (seg !== "discover") return;
+    const t = setTimeout(() => loadSegment("discover", query), 300);
+    return () => clearTimeout(t);
+  }, [seg, query, loadSegment]);
 
   useEffect(() => {
     loadBadges();
     // Live: someone adds/accepts me → refresh the badge and the visible list.
     const unsubscribe = subscribeConnections(() => {
       loadBadges();
-      loadSegment(seg);
+      loadSegment(seg, seg === "discover" ? queryRef.current : undefined);
     });
     return unsubscribe;
   }, [seg, loadBadges, loadSegment]);
@@ -159,8 +180,13 @@ export default function ConnectPage() {
         <Search size={18} className="text-mut" />
         <input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search your network…"
+          onChange={(e) => {
+            setQuery(e.target.value);
+            if (seg === "discover") setLoading(true);
+          }}
+          placeholder={
+            seg === "discover" ? "Search all candidates…" : seg === "requests" ? "Search requests…" : "Search your network…"
+          }
           className="flex-1 bg-transparent outline-none text-ink text-[14.5px] placeholder:text-mut"
         />
       </div>
@@ -198,7 +224,9 @@ export default function ConnectPage() {
             {seg === "requests"
               ? "No pending requests."
               : seg === "discover"
-              ? "No one new to discover right now."
+              ? query.trim()
+                ? `No candidates match "${query.trim()}".`
+                : "No one new to discover right now."
               : "No connections yet. Add people from Discover."}
           </div>
         ) : (

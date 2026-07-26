@@ -610,9 +610,31 @@ export async function getSubmittedJobs(): Promise<SubmittedJob[]> {
   });
 }
 
-export async function getConnections(kind: Connection["kind"]): Promise<Connection[]> {
-  if (!isSupabaseConfigured) return mockConnections.filter((c) => c.kind === kind);
-  const { data, error } = await supabase.from("connections_view").select("*").eq("kind", kind);
+/**
+ * `search` only applies to `kind: "discover"` — it's the only segment large
+ * enough (every other candidate in the system) to need it. Network/Requests
+ * stay small, unfiltered fetches; the page does client-side search on those.
+ */
+export async function getConnections(kind: Connection["kind"], search?: string): Promise<Connection[]> {
+  const q = search?.trim().toLowerCase();
+  if (!isSupabaseConfigured) {
+    const list = mockConnections.filter((c) => c.kind === kind);
+    return q ? list.filter((c) => `${c.name} ${c.role}`.toLowerCase().includes(q)) : list;
+  }
+  let query = supabase.from("connections_view").select("*").eq("kind", kind);
+  if (kind === "discover") {
+    if (q) {
+      // Strip characters that are syntactically significant to PostgREST's
+      // filter grammar (,()) or to ilike itself (%_) so a search term can't
+      // smuggle in extra filter clauses or wildcard behavior.
+      const safe = q.replace(/[,()%_]/g, " ").trim();
+      if (safe) query = query.or(`name.ilike.%${safe}%,role.ilike.%${safe}%`);
+      query = query.limit(50);
+    } else {
+      query = query.limit(24);
+    }
+  }
+  const { data, error } = await query;
   if (error || !data) return mockConnections.filter((c) => c.kind === kind);
   return data as unknown as Connection[];
 }
