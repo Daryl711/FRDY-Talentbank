@@ -9,13 +9,14 @@ const tooltip = {
   itemStyle: { color: "#d8b45a" },
 };
 
-export function RateTrend() {
+/** Defaults to the demo mock trend; the live Hiring Rate page passes a real monthly series instead. */
+export function RateTrend({ data = hiringRateTrend }: { data?: { month: string; rate: number }[] }) {
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <LineChart data={hiringRateTrend} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
+      <LineChart data={data} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
         <CartesianGrid stroke="#1b2742" vertical={false} />
         <XAxis dataKey="month" stroke="#6a7388" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis stroke="#6a7388" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 10]} />
+        <YAxis stroke="#6a7388" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, "auto"]} />
         <Tooltip {...tooltip} />
         <Line type="monotone" dataKey="rate" stroke="#d8b45a" strokeWidth={2.5} dot={{ r: 4, fill: "#d8b45a" }} name="Hiring rate %" />
       </LineChart>
@@ -23,17 +24,20 @@ export function RateTrend() {
   );
 }
 
-export function RateByDept() {
+const mockByDept = hiringRateByDept.map((d) => ({ label: d.dept, rate: d.rate }));
+
+/** Defaults to the demo mock breakdown; the live Hiring Rate page passes real per-role rates instead. */
+export function RateByDept({ data = mockByDept }: { data?: { label: string; rate: number }[] }) {
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={hiringRateByDept} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
         <CartesianGrid stroke="#1b2742" vertical={false} />
-        <XAxis dataKey="dept" stroke="#6a7388" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis stroke="#6a7388" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 10]} />
+        <XAxis dataKey="label" stroke="#6a7388" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis stroke="#6a7388" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, "auto"]} />
         <Tooltip {...tooltip} cursor={{ fill: "#16203a" }} />
         <Bar dataKey="rate" radius={[6, 6, 0, 0]} name="Hiring rate %">
-          {hiringRateByDept.map((d) => (
-            <Cell key={d.dept} fill="#d8b45a" />
+          {data.map((d) => (
+            <Cell key={d.label} fill="#d8b45a" />
           ))}
         </Bar>
       </BarChart>

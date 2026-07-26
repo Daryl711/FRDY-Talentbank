@@ -24,6 +24,8 @@ export interface MatchedCandidate {
   role: string | null;
   /** When the match was created, ISO timestamp (for reporting). */
   createdAt: string;
+  /** Full Animal Persona quiz breakdown, for the Animal Traits page's radar chart. */
+  animalScores: Record<string, number> | null;
 }
 
 export type AnimalTrait = 

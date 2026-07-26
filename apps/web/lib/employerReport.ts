@@ -1,7 +1,23 @@
 import type { HireStage, MatchedCandidate } from "@/lib/types";
 import type { Company, Role } from "@/lib/employer";
-import type { Applicant, PipelineStage, StatCard } from "@/lib/types";
+import type { StatCard } from "@/lib/types";
 import { downloadReport, pct } from "@/lib/reportBuilder";
+
+// Loose row shapes rather than the strict Applicant/PipelineStage types —
+// this report is fed by both the static demo dashboard (lib/mock.ts) and the
+// live one (real MatchedCandidate rows, which allow a null trait and a wider
+// set of hiring stages than the mock's 5-value Stage type).
+interface DashboardApplicantRow {
+  name: string;
+  role: string;
+  trait: string | null;
+  match: number;
+  stage: string;
+}
+interface DashboardPipelineRow {
+  stage: string;
+  count: number;
+}
 
 // All pipeline stages a candidate can be in, in the order they should appear
 // on the report (mirrors the Hiring board's STAGE_ORDER plus the two terminal
@@ -88,8 +104,8 @@ export function generateHiringReport(company: Company, roles: Role[], candidates
 /** Builds and downloads a report for the employer Dashboard page. */
 export function generateEmployerDashboardReport(
   stats: StatCard[],
-  pipeline: PipelineStage[],
-  applicants: Applicant[],
+  pipeline: DashboardPipelineRow[],
+  applicants: DashboardApplicantRow[],
   periodLabel: string,
 ): void {
   const generatedAt = new Date();
@@ -107,7 +123,7 @@ export function generateEmployerDashboardReport(
   for (const p of pipeline) pipelineRows.push([p.stage, p.count]);
 
   const applicantRows: (string | number)[][] = [["Candidate", "Role", "Trait", "Match Score", "Stage"]];
-  for (const a of applicants) applicantRows.push([a.name, a.role, a.trait, a.match, a.stage]);
+  for (const a of applicants) applicantRows.push([a.name, a.role, a.trait ?? "—", a.match, a.stage]);
 
   downloadReport("employer-dashboard-report", [
     { name: "Summary", rows: summaryRows, colWidths: [20, 24, 16] },
@@ -119,10 +135,10 @@ export function generateEmployerDashboardReport(
 /** Builds and downloads a report for the employer Hiring Rate page. */
 export function generateHiringRateReport(
   overallRate: string,
-  bestDepartment: string,
+  topGroup: string,
   avgTimeToHire: string,
   trend: { month: string; rate: number }[],
-  byDepartment: { dept: string; rate: number }[],
+  byGroup: { label: string; rate: number }[],
 ): void {
   const generatedAt = new Date();
 
@@ -132,19 +148,19 @@ export function generateHiringRateReport(
     [],
     ["Metric", "Value"],
     ["Overall Hiring Rate", overallRate],
-    ["Best Department", bestDepartment],
+    ["Top Converting Group", topGroup],
     ["Avg. Time to Hire", avgTimeToHire],
   ];
 
   const trendRows: (string | number)[][] = [["Month", "Rate (%)"]];
   for (const t of trend) trendRows.push([t.month, t.rate]);
 
-  const deptRows: (string | number)[][] = [["Department", "Rate (%)"]];
-  for (const d of byDepartment) deptRows.push([d.dept, d.rate]);
+  const groupRows: (string | number)[][] = [["Group", "Rate (%)"]];
+  for (const g of byGroup) groupRows.push([g.label, g.rate]);
 
   downloadReport("hiring-rate-report", [
     { name: "Summary", rows: summaryRows, colWidths: [20, 22] },
     { name: "Trend", rows: trendRows, colWidths: [12, 12] },
-    { name: "By Department", rows: deptRows, colWidths: [16, 12] },
+    { name: "By Group", rows: groupRows, colWidths: [16, 12] },
   ]);
 }

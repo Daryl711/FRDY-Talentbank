@@ -588,17 +588,22 @@ $$;
 -- PostgREST can't auto-embed — hence an RPC). `role` is the job title the
 -- candidate applied to (matches.role_id -> roles.title), so the board can show
 -- which opening each candidate matched. Only returns rows for owned companies.
--- Return signature changed (added role), so drop the old function first.
+-- animal_scores rides along so the employer's Animal Traits page can render a
+-- real per-candidate radar breakdown instead of only the headline trait.
+-- Return signature changed (added role, then animal_scores), so drop the old
+-- function first.
 -- ============================================================================
 drop function if exists get_company_matches();
 create or replace function get_company_matches()
 returns table (
   match_id uuid, candidate_id uuid, name text, initials text,
-  trait text, score int, stage text, headline text, role text, created_at timestamptz
+  trait text, score int, stage text, headline text, role text, created_at timestamptz,
+  animal_scores jsonb
 ) language sql security definer as $$
   select
     m.id, p.id, p.name, p.initials,
-    p.animal_trait, m.score, m.stage, p.headline, r.title as role, m.created_at
+    p.animal_trait, m.score, m.stage, p.headline, r.title as role, m.created_at,
+    p.animal_scores
   from matches m
   join profiles p on p.id = m.user_id
   left join roles r on r.id = m.role_id

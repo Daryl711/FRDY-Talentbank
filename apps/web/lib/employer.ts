@@ -251,7 +251,39 @@ export async function getCompanyMatches(): Promise<MatchedCandidate[]> {
     headline: (r.headline as string | null) ?? null,
     role: (r.role as string | null) ?? null,
     createdAt: (r.created_at as string) ?? "",
+    animalScores: (r.animal_scores as Record<string, number> | null) ?? null,
   }));
+}
+
+/**
+ * Days between a match being created and reaching the "Hired" stage, one
+ * entry per hired match — for the Hiring Rate page's real "Avg. Time to
+ * Hire" stat. match_stage_history already logs the timestamp of every stage
+ * transition (see supabase/schema.sql); RLS ("stage history employer read")
+ * already scopes rows to matches the caller's company owns, so this is a
+ * plain read, no RPC needed.
+ */
+export async function getHireDurationsDays(matches: MatchedCandidate[]): Promise<number[]> {
+  if (!isSupabaseConfigured) return [];
+  const hired = matches.filter((m) => m.stage === "Hired");
+  if (!hired.length) return [];
+  const { data, error } = await supabase
+    .from("match_stage_history")
+    .select("match_id, created_at")
+    .eq("stage", "Hired")
+    .in("match_id", hired.map((m) => m.matchId));
+  if (error || !data) return [];
+  const hiredAtByMatch = new Map(
+    (data as Array<{ match_id: string; created_at: string }>).map((r) => [r.match_id, r.created_at]),
+  );
+  const days: number[] = [];
+  for (const m of hired) {
+    const hiredAt = hiredAtByMatch.get(m.matchId);
+    if (!hiredAt || !m.createdAt) continue;
+    const diff = (new Date(hiredAt).getTime() - new Date(m.createdAt).getTime()) / 86_400_000;
+    if (diff >= 0) days.push(diff);
+  }
+  return days;
 }
 
 // ---------------------------------------------------------------------------
