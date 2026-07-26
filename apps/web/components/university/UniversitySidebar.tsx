@@ -33,7 +33,7 @@ export default function UniversitySidebar() {
       {/* org switcher */}
       <div className="mx-3 mb-3 bg-surface2 border border-line rounded-xl px-3 py-3 flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-info/20 text-info flex items-center justify-center text-[12px] font-bold">
-          NE
+          UM
         </div>
         <div className="min-w-0">
           <div className="text-ink text-[13px] font-semibold truncate">{uniName}</div>
@@ -71,10 +71,10 @@ export default function UniversitySidebar() {
       <div className="mt-auto border-t border-line">
         <div className="px-4 py-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center text-[12px] font-bold" style={{ color: "#2b2106" }}>
-            DE
+            AR
           </div>
           <div>
-            <div className="text-ink text-[13px] font-semibold leading-none">Dr. Elena Park</div>
+            <div className="text-ink text-[13px] font-semibold leading-none">Dr. Aisha Rahman</div>
             <div className="eyebrow mt-[3px]">Admin</div>
           </div>
         </div>

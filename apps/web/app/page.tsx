@@ -18,10 +18,12 @@ const PORTALS: Record<OrgType, string> = {
 // Prefilled demo logins per portal. The employer portal uses the fixed
 // CelcomDigi credentials seeded in supabase/schema.sql — that account owns the
 // CelcomDigi company, so signing in lands on a live Hiring board wired to the
-// candidates who matched CelcomDigi's role.
+// candidates who matched CelcomDigi's role. The university portal demos as
+// Universiti Malaya (Kuala Lumpur, Malaysia) — see lib/university.ts for the
+// matching dashboard branding.
 const DEMO_CREDS: Record<"employer" | "university", { email: string; password: string }> = {
   employer: { email: "employer@celcomdigi.com", password: "CelcomDigi123!" },
-  university: { email: "hiring@gmail.com", password: "password" },
+  university: { email: "admin@um.edu.my", password: "UniversitiMalaya123!" },
 };
 
 // Shared across all three sign-in forms — Supabase Auth is the same user table

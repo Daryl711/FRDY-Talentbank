@@ -1,7 +1,7 @@
 // University portal mock data. Reuses the shared trait/trajectory data from
 // lib/mock.ts; adds university-specific series (employability, course prefs).
 
-export const uniName = "Nexus University";
+export const uniName = "Universiti Malaya";
 
 // ---- Dashboard ------------------------------------------------------------
 export const uniStats = [
