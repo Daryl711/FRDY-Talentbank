@@ -662,6 +662,51 @@ returns table (
 $$;
 
 -- ============================================================================
+-- UNIVERSITY: candidates who list this school in their education history —
+-- powers the university Dashboard/Animal Traits/Employability/Course
+-- Preferences pages with real data instead of the static demo arrays.
+-- education is a jsonb array ([{school,degree,grade,dates}, ...]), so this
+-- unnests it per profile to match on school name (substring, case-
+-- insensitive — "University of Malaya" and "Universiti Malaya" both refer to
+-- the same institution and both appear in seeded data). Unlike
+-- get_candidate_trajectories (which excludes the seeded demo pool so the
+-- Trajectory search only shows real self-created candidates), this
+-- deliberately includes is_demo candidates — for this prototype they *are*
+-- "our students," and excluding them would leave the university portal
+-- almost empty. Left-joins candidate_trajectories since a candidate may not
+-- have a prediction yet.
+-- ============================================================================
+create or replace function get_university_candidates(p_school text default 'Malaya')
+returns table (
+  id             uuid,
+  name           text,
+  initials       text,
+  headline       text,
+  years_exp      int,
+  animal_trait   text,
+  animal_scores  jsonb,
+  education      jsonb,
+  skills         text[],
+  confidence     int,
+  current_salary text,
+  target_salary  text,
+  horizon_months int
+) language sql security definer as $$
+  select
+    p.id, p.name, p.initials, p.headline, p.years_exp,
+    p.animal_trait, p.animal_scores, p.education, p.skills,
+    ct.confidence, ct.current_salary, ct.target_salary, ct.horizon_months
+  from profiles p
+  left join candidate_trajectories ct on ct.profile_id = p.id
+  where p.user_type = 'individual'
+    and coalesce(p.profile_visible, true)
+    and exists (
+      select 1 from jsonb_array_elements(coalesce(p.education, '[]'::jsonb)) e
+      where (e ->> 'school') ilike '%' || p_school || '%'
+    );
+$$;
+
+-- ============================================================================
 -- CANDIDATE: jobs the caller has applied to (right-swiped), newest first.
 -- swipes.target_id holds a company id but has no declared FK, so PostgREST can't
 -- auto-embed — hence an RPC. security definer + explicit auth.uid() filter keeps

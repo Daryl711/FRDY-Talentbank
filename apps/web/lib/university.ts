@@ -1,7 +1,161 @@
 // University portal mock data. Reuses the shared trait/trajectory data from
 // lib/mock.ts; adds university-specific series (employability, course prefs).
 
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import type { Education } from "@/lib/candidate";
+
 export const uniName = "Universiti Malaya";
+
+// ---------------------------------------------------------------------------
+// LIVE DATA — candidates who list this university in their education history.
+// Backs the Dashboard/Animal Traits/Employability/Course Preferences pages
+// with real data (via the get_university_candidates RPC) instead of the
+// static series below, the same way the Trajectory page is backed by real
+// candidate_trajectories rows. Unlike Trajectory search, this deliberately
+// includes the seeded demo candidates — for this prototype they *are* "our
+// students," and only ~40 of the 500 happen to list this school anyway.
+// ---------------------------------------------------------------------------
+
+export interface UniversityCandidate {
+  id: string;
+  name: string;
+  initials: string;
+  headline: string | null;
+  yearsExp: number;
+  animalTrait: string | null;
+  animalScores: Record<string, number> | null;
+  education: Education[];
+  skills: string[];
+  confidence: number | null;
+  currentSalary: string | null;
+  targetSalary: string | null;
+  horizonMonths: number | null;
+}
+
+/** Real candidates whose education lists Universiti Malaya / University of Malaya. */
+export async function getUniversityCandidates(): Promise<UniversityCandidate[]> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase.rpc("get_university_candidates", { p_school: "Malaya" });
+  if (error || !data) return [];
+  return (data as Array<Record<string, unknown>>).map((r) => ({
+    id: r.id as string,
+    name: (r.name as string) ?? "Candidate",
+    initials: (r.initials as string) ?? "•",
+    headline: (r.headline as string | null) ?? null,
+    yearsExp: (r.years_exp as number) ?? 0,
+    animalTrait: (r.animal_trait as string | null) ?? null,
+    animalScores: (r.animal_scores as Record<string, number> | null) ?? null,
+    education: (r.education as Education[] | null) ?? [],
+    skills: (r.skills as string[] | null) ?? [],
+    confidence: (r.confidence as number | null) ?? null,
+    currentSalary: (r.current_salary as string | null) ?? null,
+    targetSalary: (r.target_salary as string | null) ?? null,
+    horizonMonths: (r.horizon_months as number | null) ?? null,
+  }));
+}
+
+/** The candidate's education row at this school, if any (matches "Malaya" like the RPC does). */
+export function educationAtUM(c: UniversityCandidate): Education | null {
+  return c.education.find((e) => e.school?.toLowerCase().includes("malaya")) ?? null;
+}
+
+/** Parses a "$123K" style salary string into a raw number, or null if unparseable. */
+export function parseSalaryK(v: string | null): number | null {
+  if (!v) return null;
+  const n = Number(v.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+// Lightweight faculty inference from a real degree string (e.g. "BSc Computer
+// Science" -> Computing) — there's no faculty field in the data model, so
+// this is a best-effort keyword match, not authoritative. Falls back to a
+// generic bucket that still matches the "ALL" filter.
+const FACULTY_RULES: { code: string; name: string; pattern: RegExp }[] = [
+  { code: "COMP", name: "Computing", pattern: /comput|software|data science|information tech/i },
+  { code: "BUSI", name: "Business", pattern: /business|finance|marketing|econom|accounting/i },
+  { code: "ENGI", name: "Engineering", pattern: /engineer/i },
+  { code: "SOCI", name: "Social Sciences", pattern: /psycholog|sociolog|human resources|\bhr\b/i },
+  { code: "HUMA", name: "Humanities", pattern: /\bart\b|design|humanit|english|history/i },
+];
+function inferFaculty(degree: string): { code: string; name: string } {
+  for (const r of FACULTY_RULES) if (r.pattern.test(degree)) return { code: r.code, name: r.name };
+  return { code: "ALL", name: "General Studies" };
+}
+
+export interface CourseGroup {
+  course: string;
+  faculty: string;
+  facultyCode: string;
+  graduates: number;
+  avgConfidence: number;
+  avgSalaryK: number | null;
+  avgHorizonMonths: number | null;
+}
+
+/**
+ * Groups real candidates by the degree on their Universiti Malaya education
+ * entry — the closest real equivalent to the mock data's "course" — and
+ * averages their trajectory prediction (confidence/target salary/horizon)
+ * per group. Feeds both the Dashboard's course table and the Employability
+ * page. There's no real employment-outcome or historical data behind any of
+ * this — avgConfidence is the trajectory model's readiness signal, not an
+ * actual placement rate, and there's no year-over-year trend to report.
+ */
+export function groupByCourse(candidates: UniversityCandidate[]): CourseGroup[] {
+  const byDegree = new Map<string, UniversityCandidate[]>();
+  for (const c of candidates) {
+    const degree = educationAtUM(c)?.degree?.trim() || "Unspecified";
+    const group = byDegree.get(degree);
+    if (group) group.push(c);
+    else byDegree.set(degree, [c]);
+  }
+  return [...byDegree.entries()]
+    .map(([course, group]) => {
+      const confidences = group.map((c) => c.confidence).filter((v): v is number => v != null);
+      const salaries = group.map((c) => parseSalaryK(c.targetSalary)).filter((v): v is number => v != null);
+      const horizons = group.map((c) => c.horizonMonths).filter((v): v is number => v != null);
+      const { code, name } = inferFaculty(course);
+      return {
+        course,
+        faculty: name,
+        facultyCode: code,
+        graduates: group.length,
+        avgConfidence: confidences.length ? Math.round(confidences.reduce((s, v) => s + v, 0) / confidences.length) : 0,
+        avgSalaryK: salaries.length ? Math.round(salaries.reduce((s, v) => s + v, 0) / salaries.length) : null,
+        avgHorizonMonths: horizons.length ? Math.round((horizons.reduce((s, v) => s + v, 0) / horizons.length) * 10) / 10 : null,
+      };
+    })
+    .sort((a, b) => b.graduates - a.graduates);
+}
+
+export interface SkillStat {
+  skill: string;
+  count: number;
+  pctOfStudents: number;
+}
+
+/**
+ * Real skill frequency across candidates' profile skills[] — powers the
+ * Course Preferences page. There's no search-behavior tracking anywhere in
+ * the schema (no table logs what students search for), so unlike the other
+ * three university pages this isn't a "search terms" report at all — it's
+ * reframed around the one real, comparable signal that does exist: what
+ * skills students actually list on their profiles.
+ */
+export function computeSkillStats(candidates: UniversityCandidate[]): SkillStat[] {
+  const counts = new Map<string, number>();
+  for (const c of candidates) {
+    for (const raw of c.skills) {
+      const skill = raw.trim();
+      if (!skill) continue;
+      counts.set(skill, (counts.get(skill) ?? 0) + 1);
+    }
+  }
+  const total = candidates.length;
+  return [...counts.entries()]
+    .map(([skill, count]) => ({ skill, count, pctOfStudents: total > 0 ? Math.round((count / total) * 100) : 0 }))
+    .sort((a, b) => b.count - a.count);
+}
 
 // ---- Dashboard ------------------------------------------------------------
 export const uniStats = [
