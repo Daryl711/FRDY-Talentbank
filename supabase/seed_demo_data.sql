@@ -327,11 +327,11 @@ begin
     insert into profiles (
       id, user_type, name, headline, location, years_exp, about, skills,
       experience, education, profile_score, views, matches,
-      animal_trait, animal_scores, profile_visible
+      animal_trait, animal_scores, profile_visible, is_demo
     ) values (
       v_id, 'individual', v_name, v_headline, locations[1 + (i % 12)], v_years, v_about, v_skills,
       v_experience, v_education, v_score, floor(random() * 500)::int, floor(random() * 40)::int,
-      v_trait, jsonb_build_object(v_trait, 8 + floor(random() * 4)::int), true
+      v_trait, jsonb_build_object(v_trait, 8 + floor(random() * 4)::int), true, true
     )
     on conflict (id) do update set
       headline        = excluded.headline,
@@ -346,9 +346,10 @@ begin
       matches         = excluded.matches,
       animal_trait    = excluded.animal_trait,
       animal_scores   = excluded.animal_scores,
-      profile_visible = excluded.profile_visible;
+      profile_visible = excluded.profile_visible,
+      is_demo         = excluded.is_demo;
 
-    insert into candidate_trajectories (
+    insert into candidate_trajectories (1
       profile_id, current_salary, arrow_target, target_role, target_salary,
       confidence, horizon_months, trajectory, next_roles, skills
     ) values (

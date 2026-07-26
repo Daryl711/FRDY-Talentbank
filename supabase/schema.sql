@@ -66,6 +66,10 @@ alter table profiles add column if not exists notif_updates boolean default true
 -- Whether companies see full profile details (About/Skills/Experience/Education)
 -- once matched (Settings > Privacy & Visibility); name/headline/location still show.
 alter table profiles add column if not exists profile_visible boolean default true;
+-- True only for the 500 synthetic candidates from supabase/seed_demo_data.sql.
+-- Lets get_candidate_trajectories() (Trajectory page search) show real,
+-- self-created candidates instead of the seeded demo set.
+alter table profiles add column if not exists is_demo boolean not null default false;
 
 -- ----------------------------------------------------------------------------
 -- COMPANIES
@@ -322,9 +326,11 @@ alter table resumes alter column storage_path drop not null;
 -- (target role/salary, confidence, readiness-over-time, ranked next roles,
 -- skills gap). Powers the Trajectory page shown to both employer and
 -- university viewers (apps/web/app/employer/trajectory, .../university/trajectory).
--- There's no real ML model behind this yet — values are generated once
--- (see supabase/seed_demo_data.sql) from each candidate's own profile data
--- (family/level/skills), not randomly re-rolled per view.
+-- There's no real ML model behind this yet. The 500 seeded demo candidates
+-- (supabase/seed_demo_data.sql) get theirs from a rich family/ladder
+-- generator; real, self-created candidates get theirs from the simpler
+-- generate_candidate_trajectory() trigger below, keyed off their own
+-- headline/years_exp/skills and regenerated whenever those change.
 -- ----------------------------------------------------------------------------
 create table if not exists candidate_trajectories (
   id             uuid primary key default uuid_generate_v4(),
@@ -448,7 +454,9 @@ $$;
 -- ============================================================================
 -- EMPLOYER + UNIVERSITY: career-path predictions for the Trajectory page.
 -- Paginated + searchable so it stays usable against hundreds of candidates.
--- Excludes candidates who opted out of employer visibility (profile_visible).
+-- Excludes candidates who opted out of employer visibility (profile_visible)
+-- and the synthetic candidates from supabase/seed_demo_data.sql (is_demo) —
+-- so this only ever surfaces real, self-created candidates.
 -- `total_count` (a window function) rides along so the client can paginate
 -- without a second round trip.
 -- ============================================================================
@@ -483,6 +491,7 @@ returns table (
   from candidate_trajectories ct
   join profiles p on p.id = ct.profile_id
   where coalesce(p.profile_visible, true)
+    and not coalesce(p.is_demo, false)
     and (
       p_search is null or btrim(p_search) = '' or
       p.name ilike '%' || p_search || '%' or
@@ -766,6 +775,170 @@ end; $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function handle_new_user();
+
+-- ============================================================================
+-- AUTO-GENERATE A TRAJECTORY PREDICTION FOR REAL CANDIDATES
+-- ============================================================================
+-- The 500 seeded candidates (supabase/seed_demo_data.sql) get their
+-- candidate_trajectories row from a rich family/ladder generator keyed off an
+-- assigned career track. Real candidates have no such track, so this derives
+-- an equivalent prediction from a generic seniority ladder instead: years of
+-- experience (and any seniority prefix already in the headline) decide how
+-- many rungs up that ladder the *next* role prediction sits, and confidence
+-- blends experience with how complete the profile reads (skills, bio, logged
+-- work history) — so editing the profile visibly moves the prediction, the
+-- way a real predictive model would react to new signal, not a fixed
+-- per-tier constant. Regenerates on every relevant edit. Demo profiles are
+-- skipped (is_demo) so this never clobbers the seed script's richer data.
+create or replace function generate_candidate_trajectory()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  -- Index 1 is deliberately '' (no recognized prefix = base tier).
+  v_ladder         text[] := array['', 'Senior ', 'Lead ', 'Director of ', 'VP of ', 'Chief '];
+  v_headline       text := coalesce(nullif(trim(new.headline), ''), 'Professional');
+  v_base_role      text := coalesce(nullif(trim(new.headline), ''), 'Professional');
+  v_current_tier   int := 0;
+  v_years_tier     int;
+  v_eff_tier       int;
+  v_years          int  := coalesce(new.years_exp, 0);
+  v_skills         text[] := coalesce(new.skills, '{}');
+  v_skill_count    int := coalesce(array_length(v_skills, 1), 0);
+  v_exp_count      int := jsonb_array_length(coalesce(new.experience, '[]'::jsonb));
+  v_has_about      boolean := nullif(trim(coalesce(new.about, '')), '') is not null;
+  v_confidence     int;
+  v_horizon        int;
+  v_base           int;
+  v_step           int;
+  v_current_salary int;
+  v_target_salary  int;
+  v_target_role    text;
+  v_next_role      text;
+  v_trajectory     jsonb;
+  v_next_roles     jsonb;
+  v_skills_gap     jsonb;
+  i int;
+begin
+  if new.user_type <> 'individual' or coalesce(new.is_demo, false) then
+    return new;
+  end if;
+
+  -- Strip a recognized seniority prefix off the headline (longest/most-senior
+  -- first) so the ladder always climbs from the candidate's actual base role
+  -- — e.g. "Lead Designer" -> base "Designer", current tier 2.
+  for i in reverse array_upper(v_ladder, 1)..2 loop
+    if v_headline ilike v_ladder[i] || '%' then
+      v_base_role := regexp_replace(v_headline, '^' || v_ladder[i], '', 'i');
+      v_current_tier := i - 1;
+      exit;
+    end if;
+  end loop;
+
+  -- Years of experience predicts a tier too; take whichever signal points
+  -- further up the ladder so the prediction never reads as a step down.
+  v_years_tier := case
+    when v_years >= 15 then 4
+    when v_years >= 10 then 3
+    when v_years >= 6  then 2
+    when v_years >= 3  then 1
+    else 0
+  end;
+  v_eff_tier := greatest(v_current_tier, v_years_tier);
+  v_target_role := v_ladder[least(6, v_eff_tier + 2)] || v_base_role;
+  v_next_role   := v_ladder[least(6, v_eff_tier + 3)] || v_base_role;
+
+  -- Confidence blends experience with profile completeness — more skills, a
+  -- written bio, and logged work history all read as more signal to predict
+  -- from, not just a flat constant per tier.
+  v_confidence := least(97, 48
+    + least(24, v_years * 2)
+    + least(16, v_skill_count * 2)
+    + least(9, v_exp_count * 3)
+    + (case when v_has_about then 5 else 0 end));
+  v_horizon := greatest(6, 26 - v_years * 2);
+
+  v_current_salary := 42000 + v_years * 6000 + least(20000, v_skill_count * 1500);
+  v_target_salary := v_current_salary + 18000 + v_years * 3000;
+
+  v_base := greatest(40, v_confidence - 28);
+  v_step := greatest(1, (v_confidence - v_base) / 4);
+  v_trajectory := jsonb_build_array(
+    jsonb_build_object('label', 'Now', 'value', v_base),
+    jsonb_build_object('label', '6mo', 'value', least(99, v_base + v_step)),
+    jsonb_build_object('label', '12mo', 'value', least(99, v_base + v_step * 2)),
+    jsonb_build_object('label', '18mo', 'value', least(99, v_base + v_step * 3)),
+    jsonb_build_object('label', '24mo', 'value', least(99, v_confidence))
+  );
+
+  v_next_roles := jsonb_build_array(
+    jsonb_build_object('role', v_target_role, 'context', 'Based on your profile', 'pct', v_confidence),
+    jsonb_build_object('role', v_next_role, 'context', 'Longer horizon', 'pct', greatest(15, v_confidence - 30)),
+    jsonb_build_object('role', v_base_role, 'context', 'Lateral move', 'pct', greatest(10, v_confidence - 45))
+  );
+
+  v_skills_gap := '[]'::jsonb;
+  for i in 1..least(4, v_skill_count) loop
+    v_skills_gap := v_skills_gap || jsonb_build_array(jsonb_build_object(
+      'name', v_skills[i],
+      'current', greatest(35, 90 - i * 12),
+      'required', least(96, 60 + v_eff_tier * 9 + i * 3)
+    ));
+  end loop;
+  if jsonb_array_length(v_skills_gap) = 0 then
+    v_skills_gap := jsonb_build_array(jsonb_build_object('name', 'Core Skills', 'current', 45, 'required', 60 + v_eff_tier * 9));
+  end if;
+
+  insert into candidate_trajectories (
+    profile_id, current_salary, arrow_target, target_role, target_salary,
+    confidence, horizon_months, trajectory, next_roles, skills
+  ) values (
+    new.id,
+    '$' || round(v_current_salary / 1000.0)::text || 'K',
+    coalesce((regexp_match(v_target_role, '(\S+)$'))[1], v_target_role),
+    v_target_role,
+    '$' || round(v_target_salary / 1000.0)::text || 'K',
+    v_confidence, v_horizon, v_trajectory, v_next_roles, v_skills_gap
+  )
+  on conflict (profile_id) do update set
+    current_salary = excluded.current_salary,
+    arrow_target   = excluded.arrow_target,
+    target_role    = excluded.target_role,
+    target_salary  = excluded.target_salary,
+    confidence     = excluded.confidence,
+    horizon_months = excluded.horizon_months,
+    trajectory     = excluded.trajectory,
+    next_roles     = excluded.next_roles,
+    skills         = excluded.skills;
+
+  return new;
+exception when others then
+  -- Never let a trajectory hiccup abort the candidate's profile save.
+  raise warning 'generate_candidate_trajectory failed: %', sqlerrm;
+  return new;
+end; $$;
+
+drop trigger if exists on_profile_trajectory on profiles;
+create trigger on_profile_trajectory
+  after insert or update of headline, years_exp, skills, about, experience on profiles
+  for each row execute function generate_candidate_trajectory();
+
+-- Backfill: the trigger above only fires on future inserts/edits, so any real
+-- candidate who signed up before this trigger existed still has no
+-- candidate_trajectories row. `set headline = headline` is a no-op update that
+-- still fires "update of headline", reusing the trigger instead of duplicating
+-- its generation logic here.
+do $$
+begin
+  update profiles set headline = headline
+  where user_type = 'individual'
+    and not coalesce(is_demo, false)
+    and id not in (select profile_id from candidate_trajectories);
+exception when undefined_table then
+  raise notice 'profiles/candidate_trajectories not present; skipped trajectory backfill';
+end $$;
 
 -- ============================================================================
 -- SEED DATA (companies + roles) — optional, for a populated deck
