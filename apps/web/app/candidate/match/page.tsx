@@ -120,6 +120,11 @@ export default function MatchPage() {
     setTimeout(() => {
       setIndex((i) => i + 1);
       setLeaving(null);
+      // The card that flew out may have done so from a dragged offset (left
+      // swipe always leaves dragX negative here — endDrag only zeroes it for
+      // the right-swipe "blocked" case). Reset it now so the next card that
+      // renders in its place starts centered instead of inheriting that offset.
+      setDragX(0);
     }, 260);
   }
 
