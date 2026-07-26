@@ -205,8 +205,8 @@ export default function TrajectoryView({ subjectPlural = "candidates" }: { subje
                   <h2 className="font-serif text-[19px] font-bold text-ink">Next Role Probability</h2>
                   <p className="text-mut text-[12px] mt-1">ML-ranked outcomes</p>
                   <div className="mt-5 flex flex-col gap-5">
-                    {p.nextRoles.map((r) => (
-                      <div key={r.role}>
+                    {p.nextRoles.map((r, i) => (
+                      <div key={`${r.role}-${r.context}-${i}`}>
                         <div className="flex items-center justify-between text-[13px] mb-2">
                           <span>
                             <span className="text-ink font-semibold">{r.role}</span> <span className="text-mut">@ {r.context}</span>
@@ -227,10 +227,10 @@ export default function TrajectoryView({ subjectPlural = "candidates" }: { subje
                 <h2 className="font-serif text-[19px] font-bold text-ink">Skills Gap Analysis</h2>
                 <p className="text-mut text-[12px] mt-1">Current level vs. requirement for predicted role</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-5">
-                  {p.skills.map((s) => {
+                  {p.skills.map((s, i) => {
                     const gap = s.required - s.current;
                     return (
-                      <div key={s.name}>
+                      <div key={`${s.name}-${i}`}>
                         <div className="flex items-center justify-between text-[13px]">
                           <span className="text-ink font-medium">{s.name}</span>
                           <span className="font-mono text-[11px] text-danger">GAP +{gap}</span>
