@@ -7,6 +7,49 @@ import type { Education } from "@/lib/candidate";
 export const uniName = "Universiti Malaya";
 
 // ---------------------------------------------------------------------------
+// UNIVERSITY SIGN-UP — self-serve account creation, mirroring signUpEmployer
+// (lib/employer.ts). Unlike employers, there's no per-university backing
+// table yet (no `universities` row, no owner-scoped data) — every signed-in
+// university account sees the same shared Universiti Malaya demo dataset via
+// getUniversityCandidates() above. This only gets a real account past the
+// sign-in gate; `university_name` is stashed in the auth user's metadata so
+// it's there if/when per-university scoping gets built.
+// ---------------------------------------------------------------------------
+
+export interface UniversitySignUpInput {
+  name: string;
+  email: string;
+  password: string;
+  universityName: string;
+}
+
+export interface UniversitySignUpResult {
+  /** A session exists immediately (email confirmation is OFF in the project). */
+  session: boolean;
+  /** True when Supabase created the user but is waiting on email confirmation. */
+  needsConfirmation: boolean;
+}
+
+/** Create a university admin account and grant access immediately. */
+export async function signUpUniversity(input: UniversitySignUpInput): Promise<UniversitySignUpResult> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase isn't configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.");
+  }
+  const { data, error } = await supabase.auth.signUp({
+    email: input.email.trim(),
+    password: input.password,
+    options: {
+      data: {
+        name: input.name.trim(),
+        university_name: input.universityName.trim(),
+      },
+    },
+  });
+  if (error) throw error;
+  return { session: !!data.session, needsConfirmation: !data.session && !!data.user };
+}
+
+// ---------------------------------------------------------------------------
 // LIVE DATA — candidates who list this university in their education history.
 // Backs the Dashboard/Animal Traits/Employability/Course Preferences pages
 // with real data (via the get_university_candidates RPC) instead of the

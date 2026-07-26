@@ -7,13 +7,8 @@ import { OrgType } from "@/lib/types";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { bypassCandidateSignIn, signInWithEmail, signUpWithEmail } from "@/lib/candidate";
 import { signUpEmployer, EMPLOYER_SIZES } from "@/lib/employer";
+import { signUpUniversity } from "@/lib/university";
 import { firstError, isValidEmail, validateEmail, validatePassword, validateRequired } from "@/lib/validation";
-
-const PORTALS: Record<OrgType, string> = {
-  candidate: "/candidate",
-  employer: "/employer",
-  university: "/university",
-};
 
 // Prefilled demo logins per portal. The employer portal uses the fixed
 // CelcomDigi credentials seeded in supabase/schema.sql — that account owns the
@@ -58,7 +53,7 @@ export default function SignInPage() {
         ) : org === "employer" ? (
           <EmployerAuth />
         ) : (
-          <DemoAuth portal={PORTALS[org]} defaults={DEMO_CREDS.university} />
+          <UniversityAuth />
         )}
 
         <p className="text-center eyebrow mt-12">FRDY Talentbank Hackathon· Terms · Privacy</p>
@@ -422,46 +417,87 @@ function EmployerAuth() {
   );
 }
 
-/* ------------------------------------------------------- employer / university demo */
-// The employer and university dashboards run on curated demo data, so their
-// sign-in keeps the prototype passthrough (and prefilled demo credentials).
-function DemoAuth({ portal, defaults }: { portal: string; defaults: { email: string; password: string } }) {
+/* ---------------------------------------------------------------- university auth */
+// Universities can sign in, or request access — a self-serve sign-up that
+// creates their account and grants access immediately (see signUpUniversity).
+// Unlike employer sign-up, there's no per-university company/table yet, so
+// every university account lands on the same shared demo dashboard (see
+// lib/university.ts). Sign-in prefills the seeded Universiti Malaya demo
+// login so the existing demo still works one-click.
+function UniversityAuth() {
   const router = useRouter();
-  const [email, setEmail] = useState(defaults.email);
-  const [password, setPassword] = useState(defaults.password);
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
+  const [universityName, setUniversityName] = useState("");
+  const [email, setEmail] = useState(DEMO_CREDS.university.email);
+  const [password, setPassword] = useState(DEMO_CREDS.university.password);
   const [show, setShow] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  async function signIn() {
+  const isSignup = mode === "signup";
+
+  function switchMode(next: "signin" | "signup") {
+    setMode(next);
     setError(null);
     setNotice(null);
-    if (!isSupabaseConfigured) {
-      router.push(portal);
-      return;
+    if (next === "signup") {
+      // Clear the prefilled demo login when creating a real account.
+      setEmail("");
+      setPassword("");
+    } else {
+      setEmail(DEMO_CREDS.university.email);
+      setPassword(DEMO_CREDS.university.password);
     }
-    const validationError = firstError(validateEmail(email), validatePassword(password));
+  }
+
+  async function submit() {
+    if (busy) return;
+    const validationError = firstError(
+      validateEmail(email),
+      validatePassword(password),
+      isSignup ? validateRequired(name, "Your name") : null,
+      isSignup ? validateRequired(universityName, "University name") : null
+    );
     if (validationError) {
       setError(validationError);
+      setNotice(null);
       return;
     }
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      if (!isSupabaseConfigured) {
+        router.push("/university");
+        return;
+      }
+      if (isSignup) {
+        const res = await signUpUniversity({ name, email, password, universityName });
+        if (res.needsConfirmation) {
+          setNotice("Account created. Check your email to confirm, then sign in.");
+          switchMode("signin");
+          return;
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (error) throw error;
+      }
+      router.push("/university");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
     }
-    router.push(portal);
   }
 
   async function forgotPassword() {
-    if (!isValidEmail(email) || loading) {
+    if (!isValidEmail(email) || busy) {
       setError("Enter your email address above, then click “Forgot password?”");
       return;
     }
-    setLoading(true);
+    setBusy(true);
     setError(null);
     setNotice(null);
     try {
@@ -470,20 +506,31 @@ function DemoAuth({ portal, defaults }: { portal: string; defaults: { email: str
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send the reset email. Please try again.");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
+  const field =
+    "mt-2 w-full bg-surface2 border border-line rounded-xl px-4 py-[14px] text-ink text-[15px] outline-none focus:border-gold/50 transition-colors placeholder:text-mut";
+
   return (
     <div className="mt-8">
+      {isSignup && (
+        <>
+          <div className="mb-5">
+            <label className="eyebrow">Your Name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Dr. Jane Advisor" className={field} />
+          </div>
+          <div className="mb-5">
+            <label className="eyebrow">University Name</label>
+            <input value={universityName} onChange={(e) => setUniversityName(e.target.value)} placeholder="Acme University" className={field} />
+          </div>
+        </>
+      )}
+
       <div>
-        <label className="eyebrow">Email Address</label>
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          type="email"
-          className="mt-2 w-full bg-surface2 border border-line rounded-xl px-4 py-[14px] text-ink text-[15px] outline-none focus:border-gold/50 transition-colors"
-        />
+        <label className="eyebrow">Work Email</label>
+        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@university.edu" className={field} />
       </div>
 
       <div className="mt-5">
@@ -492,42 +539,46 @@ function DemoAuth({ portal, defaults }: { portal: string; defaults: { email: str
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && signIn()}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
             type={show ? "text" : "password"}
-            className="w-full bg-surface2 border border-line rounded-xl px-4 py-[14px] pr-12 text-ink text-[15px] outline-none focus:border-gold/50 transition-colors"
+            placeholder={isSignup ? "At least 6 characters" : "••••••••"}
+            className="w-full bg-surface2 border border-line rounded-xl px-4 py-[14px] pr-12 text-ink text-[15px] outline-none focus:border-gold/50 transition-colors placeholder:text-mut"
           />
-          <button
-            type="button"
-            onClick={() => setShow((s) => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-mut hover:text-dim"
-            aria-label={show ? "Hide password" : "Show password"}
-          >
+          <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-mut hover:text-dim" aria-label={show ? "Hide password" : "Show password"}>
             {show ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
-      </div>
-
-      <div className="flex justify-end mt-3">
-        <button type="button" onClick={forgotPassword} disabled={loading} className="text-gold text-[13px] hover:text-goldbright disabled:opacity-60">
-          Forgot password?
-        </button>
+        {!isSignup && (
+          <div className="flex justify-end mt-2">
+            <button type="button" onClick={forgotPassword} disabled={busy} className="text-gold text-[13px] hover:text-goldbright disabled:opacity-60">
+              Forgot password?
+            </button>
+          </div>
+        )}
       </div>
 
       {error && <p className="mt-5 text-[13px] text-danger bg-danger/10 border border-danger/30 rounded-xl px-4 py-3">{error}</p>}
       {notice && <p className="mt-5 text-[13px] text-ok bg-ok/10 border border-ok/30 rounded-xl px-4 py-3">{notice}</p>}
 
       <button
-        onClick={signIn}
-        disabled={loading}
+        onClick={submit}
+        disabled={busy}
         className="mt-6 w-full bg-gradient-to-r from-goldbright to-golddeep rounded-xl py-[15px] flex items-center justify-center gap-2 font-semibold text-[15px] transition-opacity hover:opacity-90 disabled:opacity-60"
         style={{ color: "#2b2106" }}
       >
-        {loading ? (
-          <><Loader2 size={18} className="animate-spin" /> Signing in…</>
+        {busy ? (
+          <><Loader2 size={18} className="animate-spin" /> {isSignup ? "Creating account…" : "Signing in…"}</>
         ) : (
-          <>Sign In <ArrowRight size={18} /></>
+          <>{isSignup ? "Request Access" : "Sign In"} <ArrowRight size={18} /></>
         )}
       </button>
+
+      <p className="text-center text-dim text-[13px] mt-6">
+        {isSignup ? "Already have a university account?" : "New here? Universities and colleges welcome."}{" "}
+        <button onClick={() => switchMode(isSignup ? "signin" : "signup")} className="text-gold hover:text-goldbright font-semibold">
+          {isSignup ? "Sign in" : "Request access"}
+        </button>
+      </p>
     </div>
   );
 }
