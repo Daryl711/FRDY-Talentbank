@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Search, MessageSquare, Check, X, UserPlus, Clock, Loader2 } from "lucide-react";
+import Avatar from "@/components/candidate/Avatar";
 import ChatDialog from "@/components/candidate/ChatDialog";
 import {
   acceptConnection,
@@ -203,10 +204,7 @@ export default function ConnectPage() {
         ) : (
           filtered.map((p) => (
             <div key={p.id} className="flex items-center gap-4 bg-surface border border-line rounded-2xl p-4">
-              <div className="relative w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-[15px] shrink-0" style={{ backgroundColor: p.color }}>
-                {p.initials}
-                {p.online && <span className="absolute -bottom-[2px] -right-[2px] w-3 h-3 rounded-full bg-ok border-2 border-surface" />}
-              </div>
+              <Avatar size={48} online={p.online} />
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[15.5px] text-ink truncate">{p.name}</div>
                 <div className="text-dim text-[12.5px] mt-[3px] truncate">{p.role}</div>
