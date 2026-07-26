@@ -1,4 +1,4 @@
-import { Applicant, MonthPoint, PipelineStage, StatCard, TraitCandidate, TraitStat, TrajProfile, JobRole} from "./types";
+import { Applicant, AnimalTrait, MonthPoint, NextRole, PipelineStage, SkillGap, StatCard, TraitCandidate, TraitStat, TrajPoint, TrajProfile, JobRole} from "./types";
 
 export const orgName = "CelcomDigi";
 export const orgInitials = "CD";
@@ -108,68 +108,120 @@ export const trajStats = [
   { label: "Correct Predictions", value: "1,820", icon: "arrow" as const },
 ];
 
-export const trajProfiles: TrajProfile[] = [
-  {
-    id: "t1", name: "Victoria Harmon", initials: "VH", trait: "Lion", role: "Senior PM",
-    currentSalary: "$145K", arrowTarget: "Product", score: 92,
-    targetRole: "VP of Product", targetSalary: "$210K", confidence: 92, horizonMonths: 18,
-    trajectory: [
-      { label: "Now", value: 78 }, { label: "6mo", value: 82 }, { label: "12mo", value: 86 },
-      { label: "18mo", value: 91 }, { label: "24mo", value: 95 },
-    ],
-    nextRoles: [
-      { role: "VP of Product", context: "Series B–D SaaS", pct: 92 },
-      { role: "Director of Product", context: "Enterprise Tech", pct: 85 },
-      { role: "Chief Product Officer", context: "Startup (2yr+)", pct: 41 },
-    ],
-    skills: [
-      { name: "Executive Presence", current: 72, required: 90 },
-      { name: "P&L Management", current: 65, required: 85 },
-      { name: "Board Communication", current: 55, required: 80 },
-      { name: "Team Scaling", current: 80, required: 88 },
-    ],
-  },
-  {
-    id: "t2", name: "James Whitfield", initials: "JW", trait: "Owl", role: "VP Engineering",
-    currentSalary: "$185K", arrowTarget: "CTO", score: 87,
-    targetRole: "Chief Technology Officer", targetSalary: "$260K", confidence: 87, horizonMonths: 24,
-    trajectory: [
-      { label: "Now", value: 82 }, { label: "6mo", value: 84 }, { label: "12mo", value: 87 },
-      { label: "18mo", value: 90 }, { label: "24mo", value: 93 },
-    ],
-    nextRoles: [
-      { role: "Chief Technology Officer", context: "Series C SaaS", pct: 87 },
-      { role: "VP of Platform", context: "Enterprise Tech", pct: 79 },
-      { role: "Technical Co-founder", context: "Startup", pct: 38 },
-    ],
-    skills: [
-      { name: "Org Design", current: 68, required: 88 },
-      { name: "Budget Ownership", current: 60, required: 82 },
-      { name: "Executive Comms", current: 64, required: 85 },
-      { name: "Vision Setting", current: 78, required: 90 },
-    ],
-  },
-  {
-    id: "t3", name: "Sophia Laurent", initials: "SL", trait: "Eagle", role: "Director Strategy",
-    currentSalary: "$160K", arrowTarget: "Officer", score: 84,
-    targetRole: "Chief Strategy Officer", targetSalary: "$240K", confidence: 84, horizonMonths: 24,
-    trajectory: [
-      { label: "Now", value: 76 }, { label: "6mo", value: 80 }, { label: "12mo", value: 84 },
-      { label: "18mo", value: 88 }, { label: "24mo", value: 92 },
-    ],
-    nextRoles: [
-      { role: "Chief Strategy Officer", context: "Growth-stage", pct: 84 },
-      { role: "VP Corporate Development", context: "Enterprise", pct: 80 },
-      { role: "General Manager", context: "Business Unit", pct: 45 },
-    ],
-    skills: [
-      { name: "P&L Ownership", current: 66, required: 88 },
-      { name: "Executive Presence", current: 74, required: 90 },
-      { name: "Capital Allocation", current: 58, required: 82 },
-      { name: "Stakeholder Mgmt", current: 82, required: 88 },
-    ],
-  },
+// Deterministic pseudo-random in [0, 1), seeded by a plain number — used
+// instead of Math.random() so trajProfiles renders identically on every
+// evaluation (server and client). A module-scope array built with real
+// randomness would produce a different 500 entries per SSR pass than per
+// client hydration, and React would flag a hydration mismatch.
+function seeded(seed: number): number {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+// Sizes are coprime primes (31, 29): indexing each pool by `i % size` means the
+// (first, last) pair only fully repeats every 31*29 = 899 candidates, so all
+// 500 generated names stay distinct instead of cycling every 30.
+const TRAJ_FIRST_NAMES = ["James","Sophia","Marcus","Eleanor","Victoria","Daniel","Priya","Wei","Aisha","Lucas","Mei","Arjun","Isabella","Ethan","Nadia","Omar","Grace","Ravi","Chloe","Hassan","Amara","Felix","Yuki","Zoe","Kai","Layla","Noah","Mira","Diego","Ingrid","Sara"];
+const TRAJ_LAST_NAMES = ["Harmon","Whitfield","Laurent","Chen","Voss","Rahman","Patel","Zhang","Osei","Reyes","Tanaka","Sharma","Novak","Kim","Haddad","Silva","Ibrahim","Nakamura","Fischer","Adeyemi","Larsson","Petrov","Nguyen","Costa","Abara","Lindqvist","Suzuki","Okafor","Moreau"];
+const TRAJ_CONTEXTS = ["Series B–D SaaS","Enterprise Tech","Growth-stage","Startup (2yr+)","Public Company","Scale-up","MNC"];
+const TRAJ_TRAITS: AnimalTrait[] = ["Lion","Eagle","Wolf","Owl","Octopus","Elephant","Cheetah","Fox","Ant","Horse","Dolphin","Peacock"];
+// One ladder + skill pool per career family (Product, Engineering, Design,
+// Data, Marketing, Sales, Finance, Operations, HR, Strategy) — mirrors the
+// families used by the real seed generator (supabase/seed_demo_data.sql), so
+// demo mode and a real database produce comparable-looking trajectories.
+const TRAJ_LADDERS: string[][] = [
+  ["Associate Product Manager","Product Manager","Senior Product Manager","Director of Product","VP of Product"],
+  ["Software Engineer","Senior Software Engineer","Staff Software Engineer","Engineering Manager","VP of Engineering"],
+  ["Junior Designer","Product Designer","Senior Product Designer","Design Lead","Head of Design"],
+  ["Data Analyst","Data Scientist","Senior Data Scientist","Data Science Manager","Head of Data"],
+  ["Marketing Coordinator","Marketing Manager","Senior Marketing Manager","Director of Marketing","VP of Marketing"],
+  ["Sales Development Rep","Account Executive","Senior Account Executive","Sales Manager","VP of Sales"],
+  ["Financial Analyst","Finance Manager","Senior Finance Manager","Director of Finance","VP of Finance"],
+  ["Operations Coordinator","Operations Manager","Senior Operations Manager","Director of Operations","VP of Operations"],
+  ["HR Coordinator","HR Business Partner","Senior HRBP","Director of HR","VP of People"],
+  ["Strategy Analyst","Strategy Manager","Senior Strategy Manager","Director of Strategy","Chief Strategy Officer"],
 ];
+const TRAJ_SKILL_POOLS: string[][] = [
+  ["Roadmapping","User Research","Prioritization","Stakeholder Mgmt","Executive Presence","P&L Management"],
+  ["Coding","System Design","Code Review","Architecture","Team Scaling","Org Design"],
+  ["Wireframing","Prototyping","Design Systems","User Testing","Design Leadership","Cross-team Influence"],
+  ["SQL","Statistics","Experimentation","ML Modeling","Data Strategy","Team Leadership"],
+  ["Copywriting","Campaign Mgmt","SEO/SEM","Brand Strategy","Budget Ownership","Executive Comms"],
+  ["Prospecting","Negotiation","Account Mgmt","Territory Planning","Sales Strategy","Team Leadership"],
+  ["Financial Modeling","Budgeting","Forecasting","Reporting","Capital Allocation","Board Communication"],
+  ["Process Design","Vendor Mgmt","Logistics","Resource Planning","Change Management","Executive Presence"],
+  ["Recruiting","Onboarding","Employee Relations","Comp & Benefits","Org Design","Culture Leadership"],
+  ["Market Analysis","Competitive Intel","Business Cases","Corp Development","Capital Allocation","Board Communication"],
+];
+
+function buildTrajProfiles(count: number): TrajProfile[] {
+  const profiles: TrajProfile[] = [];
+  for (let i = 1; i <= count; i++) {
+    const fam = i % 10;
+    const ladder = TRAJ_LADDERS[fam];
+    const skillPool = TRAJ_SKILL_POOLS[fam];
+
+    const lvl = Math.min(3, Math.floor(seeded(i * 7.13) * seeded(i * 13.7) * 4));
+    const headline = ladder[lvl];
+    const targetRole = ladder[lvl + 1];
+    const trait = TRAJ_TRAITS[i % 12];
+    const name = `${TRAJ_FIRST_NAMES[(i - 1) % 31]} ${TRAJ_LAST_NAMES[(i - 1) % 29]}`;
+    const initials = name.split(" ").map((w) => w[0]).join("").toUpperCase();
+
+    const confidence = Math.min(97, 58 + lvl * 9 + Math.floor(seeded(i * 9.9) * 12));
+    const horizonMonths = [24, 20, 16, 12][lvl];
+
+    const currentSalaryNum = 45000 + lvl * 35000 + Math.floor(seeded(i * 2.2) * 15000);
+    const targetSalaryNum = currentSalaryNum + 25000 + lvl * 15000 + Math.floor(seeded(i * 4.4) * 20000);
+
+    const skills: SkillGap[] = [];
+    const gapStart = Math.min(2, lvl);
+    for (let k = gapStart; k < gapStart + 4 && k < 6; k++) {
+      skills.push({
+        name: skillPool[k],
+        current: Math.max(30, 50 + lvl * 6 - (k + 1) * 4 + Math.floor(seeded(i * (k + 1) * 1.7) * 10)),
+        required: Math.min(98, 65 + lvl * 6 + (k + 1) * 3 + Math.floor(seeded(i * (k + 1) * 2.3) * 10)),
+      });
+    }
+
+    const base = Math.max(50, confidence - 20 - lvl * 3);
+    const step = Math.max(1, Math.floor((confidence - base) / 4));
+    const trajectory: TrajPoint[] = [
+      { label: "Now", value: base },
+      { label: "6mo", value: Math.min(99, base + step) },
+      { label: "12mo", value: Math.min(99, base + step * 2) },
+      { label: "18mo", value: Math.min(99, base + step * 3) },
+      { label: "24mo", value: Math.min(99, confidence) },
+    ];
+
+    const nextRoles: NextRole[] = [
+      { role: targetRole, context: TRAJ_CONTEXTS[i % 7], pct: confidence },
+      { role: ladder[Math.min(4, lvl + 2)], context: TRAJ_CONTEXTS[(i + 2) % 7], pct: Math.max(30, confidence - 15) },
+      { role: ladder[4], context: TRAJ_CONTEXTS[(i + 4) % 7], pct: Math.max(15, confidence - 40) },
+    ];
+
+    profiles.push({
+      id: `traj_${i}`,
+      name,
+      initials,
+      trait,
+      role: headline,
+      currentSalary: `$${Math.round(currentSalaryNum / 1000)}K`,
+      arrowTarget: targetRole.split(" ").pop() ?? targetRole,
+      score: confidence,
+      targetRole,
+      targetSalary: `$${Math.round(targetSalaryNum / 1000)}K`,
+      confidence,
+      horizonMonths,
+      trajectory,
+      nextRoles,
+      skills,
+    });
+  }
+  return profiles;
+}
+
+export const trajProfiles: TrajProfile[] = buildTrajProfiles(500);
 
 // Hiring Page
 export const jobRoles: JobRole[] = [

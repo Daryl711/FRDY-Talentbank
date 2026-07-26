@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import type { AnimalTrait, HireStage, MatchedCandidate } from "@/lib/types";
+import type { AnimalTrait, HireStage, MatchedCandidate, TrajProfile } from "@/lib/types";
 
 // Live employer data. Each call returns null / [] when Supabase isn't configured
 // so the dashboard falls back to mock data (lib/mock.ts), mirroring the mobile
@@ -414,4 +414,54 @@ export function subscribeCompanyMatches(companyId: string, onChange: () => void)
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+// ---------------------------------------------------------------------------
+// TRAJECTORY — career-path predictions shown to both employer and university
+// viewers (apps/web/app/employer/trajectory, .../university/trajectory).
+// Paginated + searchable via the get_candidate_trajectories RPC so the page
+// stays usable against hundreds of candidates. Returns null when Supabase
+// isn't configured so the caller can fall back to mock data.
+// ---------------------------------------------------------------------------
+
+export interface TrajectoryPage {
+  profiles: TrajProfile[];
+  total: number;
+}
+
+export async function getTrajectoryProfiles(input: {
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<TrajectoryPage | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase.rpc("get_candidate_trajectories", {
+    p_search: input.search?.trim() || null,
+    p_limit: input.limit ?? 20,
+    p_offset: input.offset ?? 0,
+  });
+  if (error || !data) return null;
+  const rows = data as Array<Record<string, unknown>>;
+  const profiles: TrajProfile[] = rows.map((r) => {
+    const confidence = (r.confidence as number) ?? 0;
+    return {
+      id: r.id as string,
+      name: (r.name as string) ?? "Candidate",
+      initials: (r.initials as string) ?? "•",
+      trait: ((r.animal_trait as AnimalTrait | null) ?? "Fox") as AnimalTrait,
+      role: (r.headline as string) ?? "",
+      currentSalary: (r.current_salary as string) ?? "",
+      arrowTarget: (r.arrow_target as string) ?? "",
+      score: confidence,
+      targetRole: (r.target_role as string) ?? "",
+      targetSalary: (r.target_salary as string) ?? "",
+      confidence,
+      horizonMonths: (r.horizon_months as number) ?? 12,
+      trajectory: (r.trajectory as TrajProfile["trajectory"]) ?? [],
+      nextRoles: (r.next_roles as TrajProfile["nextRoles"]) ?? [],
+      skills: (r.skills as TrajProfile["skills"]) ?? [],
+    };
+  });
+  const total = rows.length ? Number(rows[0].total_count ?? rows.length) : 0;
+  return { profiles, total };
 }

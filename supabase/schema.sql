@@ -317,6 +317,30 @@ alter table resumes add column if not exists ats_score   int;
 alter table resumes alter column label drop not null;
 alter table resumes alter column storage_path drop not null;
 
+-- ----------------------------------------------------------------------------
+-- CANDIDATE TRAJECTORIES — one row per candidate: a career-path prediction
+-- (target role/salary, confidence, readiness-over-time, ranked next roles,
+-- skills gap). Powers the Trajectory page shown to both employer and
+-- university viewers (apps/web/app/employer/trajectory, .../university/trajectory).
+-- There's no real ML model behind this yet — values are generated once
+-- (see supabase/seed_demo_data.sql) from each candidate's own profile data
+-- (family/level/skills), not randomly re-rolled per view.
+-- ----------------------------------------------------------------------------
+create table if not exists candidate_trajectories (
+  id             uuid primary key default uuid_generate_v4(),
+  profile_id     uuid not null unique references profiles(id) on delete cascade,
+  current_salary text not null,
+  arrow_target   text not null,
+  target_role    text not null,
+  target_salary  text not null,
+  confidence     int not null,
+  horizon_months int not null,
+  trajectory     jsonb not null,  -- [{label, value}] readiness over time
+  next_roles     jsonb not null,  -- [{role, context, pct}] ranked predictions
+  skills         jsonb not null,  -- [{name, current, required}] skills gap
+  created_at     timestamptz default now()
+);
+
 -- ============================================================================
 -- MUTUAL-MATCH TRIGGER
 -- When a user swipes right on a company that has already swiped right on them
@@ -422,6 +446,53 @@ returns table (
 $$;
 
 -- ============================================================================
+-- EMPLOYER + UNIVERSITY: career-path predictions for the Trajectory page.
+-- Paginated + searchable so it stays usable against hundreds of candidates.
+-- Excludes candidates who opted out of employer visibility (profile_visible).
+-- `total_count` (a window function) rides along so the client can paginate
+-- without a second round trip.
+-- ============================================================================
+create or replace function get_candidate_trajectories(
+  p_search text default null,
+  p_limit  int  default 20,
+  p_offset int  default 0
+)
+returns table (
+  id             uuid,
+  name           text,
+  initials       text,
+  animal_trait   text,
+  headline       text,
+  years_exp      int,
+  current_salary text,
+  arrow_target   text,
+  target_role    text,
+  target_salary  text,
+  confidence     int,
+  horizon_months int,
+  trajectory     jsonb,
+  next_roles     jsonb,
+  skills         jsonb,
+  total_count    bigint
+) language sql security definer as $$
+  select
+    p.id, p.name, p.initials, p.animal_trait, p.headline, p.years_exp,
+    ct.current_salary, ct.arrow_target, ct.target_role, ct.target_salary,
+    ct.confidence, ct.horizon_months, ct.trajectory, ct.next_roles, ct.skills,
+    count(*) over() as total_count
+  from candidate_trajectories ct
+  join profiles p on p.id = ct.profile_id
+  where coalesce(p.profile_visible, true)
+    and (
+      p_search is null or btrim(p_search) = '' or
+      p.name ilike '%' || p_search || '%' or
+      p.headline ilike '%' || p_search || '%'
+    )
+  order by p.name asc
+  limit p_limit offset p_offset;
+$$;
+
+-- ============================================================================
 -- CANDIDATE: jobs the caller has applied to (right-swiped), newest first.
 -- swipes.target_id holds a company id but has no declared FK, so PostgREST can't
 -- auto-embed — hence an RPC. security definer + explicit auth.uid() filter keeps
@@ -506,6 +577,7 @@ alter table matches     enable row level security;
 alter table connections enable row level security;
 alter table messages    enable row level security;
 alter table resumes     enable row level security;
+alter table candidate_trajectories enable row level security;
 
 -- Policies are dropped first so this whole script can be re-run safely
 -- (create policy is not idempotent and errors if the policy already exists).
@@ -517,6 +589,12 @@ drop policy if exists "profiles write"  on profiles;
 create policy "profiles write"  on profiles for update to authenticated using (auth.uid() = id);
 drop policy if exists "profiles insert" on profiles;
 create policy "profiles insert" on profiles for insert to authenticated with check (auth.uid() = id);
+
+-- candidate trajectories: readable by all signed-in users (employer + university
+-- viewers), same openness as "profiles read" above; not directly writable —
+-- rows come from the seed/generation script only.
+drop policy if exists "candidate trajectories read" on candidate_trajectories;
+create policy "candidate trajectories read" on candidate_trajectories for select to authenticated using (true);
 
 -- companies & roles: readable by all signed-in users
 drop policy if exists "companies read" on companies;
