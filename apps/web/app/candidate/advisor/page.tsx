@@ -17,7 +17,6 @@ export default function AdvisorPage() {
   const [snapshot, setSnapshot] = useState<AdvisorSnapshot | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [started, setStarted] = useState(false);
   const [thinking, setThinking] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +33,6 @@ export default function AdvisorPage() {
 
   async function send(question: string) {
     if (!question.trim() || thinking) return;
-    setStarted(true);
     setMessages((prev) => [...prev, { id: `m${Date.now()}`, who: "me", text: question, time: "Just now" }]);
     setInput("");
     setThinking(true);
@@ -47,7 +45,6 @@ export default function AdvisorPage() {
 
   function reset() {
     setMessages([{ id: "g1", who: "ai", text: `Chat reset. What would you like to explore next, ${(snapshot?.name ?? "there").split(" ")[0]}?`, time: "Just now" }]);
-    setStarted(false);
   }
 
   return (
@@ -122,18 +119,16 @@ export default function AdvisorPage() {
           </div>
         )}
 
-        {!started && (
-          <div className="mt-2">
-            <div className="eyebrow mb-3">Suggested Questions</div>
-            <div className="flex flex-wrap gap-[10px]">
-              {suggestedQuestions.map((qq) => (
-                <button key={qq} onClick={() => send(qq)} className="rounded-xl px-[15px] py-[10px] text-goldbright text-[13px]" style={{ backgroundColor: "rgba(216,180,90,0.08)", border: "1px solid rgba(216,180,90,0.28)" }}>
-                  {qq}
-                </button>
-              ))}
-            </div>
+        <div className="mt-2">
+          <div className="eyebrow mb-3">Suggested Questions</div>
+          <div className="flex flex-wrap gap-[10px]">
+            {suggestedQuestions.map((qq) => (
+              <button key={qq} onClick={() => send(qq)} className="rounded-xl px-[15px] py-[10px] text-goldbright text-[13px]" style={{ backgroundColor: "rgba(216,180,90,0.08)", border: "1px solid rgba(216,180,90,0.28)" }}>
+                {qq}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
         <div ref={endRef} />
       </div>
 

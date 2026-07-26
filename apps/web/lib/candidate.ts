@@ -4,7 +4,7 @@
 // falls back to local mock data so the portal runs out of the box.
 
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import type { AnimalTrait, PersonaScores } from "@/lib/persona";
+import { ANIMALS, type AnimalMeta, type AnimalTrait, type PersonaScores } from "@/lib/persona";
 
 // ---------------------------------------------------------------------------
 // TYPES (mirrors apps/mobile/src/data/types.ts)
@@ -1132,6 +1132,7 @@ export interface AdvisorSnapshot {
   headline: string;
   yearsExp: number;
   topSkills: string[];
+  about: string;
   applications: SubmittedJob[];
   advancedCount: number;
   interviewRatePct: number;
@@ -1140,6 +1141,11 @@ export interface AdvisorSnapshot {
   salaryRange: { min: number; max: number } | null;
   /** Open roles not yet swiped on — what's actually available right now. */
   openRoles: SwipeCompany[];
+  /** Animal Persona quiz result — grounds advice in how this candidate actually
+   *  operates, not just their resume stats. Null until they take the quiz
+   *  (mock profile falls back to `persona`, real rows use `animal_trait`). */
+  trait: AnimalTrait | null;
+  traitMeta: AnimalMeta | null;
 }
 
 export async function getAdvisorSnapshot(): Promise<AdvisorSnapshot> {
@@ -1151,11 +1157,13 @@ export async function getAdvisorSnapshot(): Promise<AdvisorSnapshot> {
   const advanced = applications.filter((a) => a.stage === "interview" || a.stage === "offer");
   const salaries = applications.map((a) => a.expectedSalary).filter((v): v is number => !!v);
   const topMatches = [...applications].sort((a, b) => b.match - a.match).slice(0, 2);
+  const trait = profile.animal_trait ?? profile.persona ?? null;
   return {
     name: profile.name,
     headline: profile.headline || "your target role",
     yearsExp: profile.years_exp ?? 0,
     topSkills: (profile.skills ?? []).slice(0, 3),
+    about: profile.about ?? "",
     applications,
     advancedCount: advanced.length,
     interviewRatePct: applications.length ? Math.round((advanced.length / applications.length) * 100) : 0,
@@ -1163,6 +1171,8 @@ export async function getAdvisorSnapshot(): Promise<AdvisorSnapshot> {
     topFitPct: topMatches[0]?.match ?? null,
     salaryRange: salaries.length ? { min: Math.min(...salaries), max: Math.max(...salaries) } : null,
     openRoles: [...openRoles].sort((a, b) => b.match - a.match),
+    trait,
+    traitMeta: trait ? ANIMALS[trait] : null,
   };
 }
 
@@ -1174,24 +1184,110 @@ function years(n: number): string {
   return `${n} year${n === 1 ? "" : "s"}`;
 }
 
+// Practical, trait-specific plays — how each archetype actually operates in a
+// real search, so the advisor's answers read as advice tailored to how this
+// candidate works, not generic career-coach filler.
+const TRAIT_TIPS: Record<AnimalTrait, { search: string; interview: string; negotiate: string }> = {
+  Lion: {
+    search: "Target roles that hand you real ownership and a mandate to lead — you'll stall in anything that boxes you into pure execution.",
+    interview: "Lead with outcomes you drove, not tasks you did — panels read decisiveness as a hiring signal for you.",
+    negotiate: "Anchor high and hold your number; you lose more by underselling conviction than by asking.",
+  },
+  Eagle: {
+    search: "Look for roles building something 0→1 or setting multi-year direction — mature, maintenance-mode teams will bore you fast.",
+    interview: "Talk in outcomes and horizons, not day-to-day tasks — interviewers hiring for vision want to hear you think in systems.",
+    negotiate: "Tie your ask to the long-term impact you're pitching, not just market rate — you're negotiating for scope as much as pay.",
+  },
+  Wolf: {
+    search: "Prioritize roles with a real team to build and protect — solo-contributor tracks will underuse you.",
+    interview: "Bring stories about what your team accomplished, not just your individual wins — that's the signal you're actually selling.",
+    negotiate: "Ask about team headcount and resourcing alongside salary — for you, the package includes who you get to lead.",
+  },
+  Owl: {
+    search: "Filter for roles that reward depth in one domain over broad generalist scope — shallow breadth will frustrate you.",
+    interview: "Let your answers run deep on the two or three things you know best rather than skimming everything — depth is your edge.",
+    negotiate: "Use your specialization as leverage — a hard-to-replace specialist has more room to push than the number suggests.",
+  },
+  Octopus: {
+    search: "Go for early-stage or ambiguous roles where you're building from scratch — heavily-processed, single-lane roles will cap you.",
+    interview: "Show range — talk about the different hats you've worn, not one narrow lane — that's exactly what ambiguous roles need.",
+    negotiate: "Negotiate for scope and autonomy as hard as you negotiate salary — that's what actually keeps you engaged.",
+  },
+  Elephant: {
+    search: "Look for roles with people to grow — a team to coach, juniors to mentor — pure lone-wolf roles will waste your strength.",
+    interview: "Bring an example of someone you developed and what changed for them — that's a stronger signal for you than a solo metric.",
+    negotiate: "Ask about mentorship scope and growth budget for your team alongside your own number — that's part of your real comp.",
+  },
+  Cheetah: {
+    search: "Look for fast-moving teams with visible, short-cycle wins — slow-moving, consensus-heavy orgs will frustrate you.",
+    interview: "Quantify how fast you shipped, not just what you shipped — speed is your differentiator, make it visible.",
+    negotiate: "Push for a shorter review cycle to your next raise or promotion alongside comp — you'll outperform the standard timeline.",
+  },
+  Fox: {
+    search: "Read the fine print on every offer — you'll spot trade-offs (equity, title, scope) others miss, so use that.",
+    interview: "Walk through a real trade-off you weighed and the smarter path you found — that's your strongest interview story.",
+    negotiate: "Counter with a specific, reasoned ask, not a round number — specificity signals leverage for you.",
+  },
+  Ant: {
+    search: "Target roles with real process to own — chaotic, unstructured teams will burn you out fast.",
+    interview: "Lead with the systems you built and the errors they prevented — reliability is your headline, not flash.",
+    negotiate: "Ask for clarity on review cadence and criteria as much as the number — a defined path to your next raise matters more to you than a slightly higher offer.",
+  },
+  Horse: {
+    search: "Favor roles with a track record of stability over high-churn, high-drama teams — consistency is where you compound.",
+    interview: "Talk about what you carried through hard stretches — tenure and follow-through are your credibility.",
+    negotiate: "Your case is retention risk — remind them what it costs to replace someone who reliably delivers, quarter after quarter.",
+  },
+  Dolphin: {
+    search: "Weight team culture and collaboration style as heavily as the role itself — a great team matters more to your output than title.",
+    interview: "Bring up how you kept a cross-functional group aligned — that's the story that differentiates you, not a solo metric.",
+    negotiate: "Don't undersell relationship-driven wins just because they're hard to quantify — ask them to value what your alignment work actually saved.",
+  },
+  Peacock: {
+    search: "Go for roles that put you in front of people — sales, brand, evangelism, leadership — heads-down solo roles will flatten you.",
+    interview: "Let your energy show — panels remember how a conversation felt as much as what was said, and that's your strength.",
+    negotiate: "Your presence is part of the offer — negotiate for visibility (stage time, client-facing scope) alongside base pay.",
+  },
+};
+
 function answerRoles(s: AdvisorSnapshot): string {
   const skillsText = s.topSkills.length ? s.topSkills.join(", ") : "the skills on your profile";
+  const traitLine = s.trait ? ` ${TRAIT_TIPS[s.trait].search}` : "";
   if (!s.applications.length) {
-    return `With ${years(s.yearsExp)} as a ${s.headline} and strengths in ${skillsText}, I don't have any applications to judge fit against yet — swipe right on a few roles in Discover and I'll tell you which ones actually suit you.`;
+    return `With ${years(s.yearsExp)} as a ${s.headline} and strengths in ${skillsText}, I don't have any applications to judge fit against yet — swipe right on a few roles in Discover and I'll tell you which ones actually suit you.${traitLine}`;
   }
   const names = s.topMatches.map((m) => `${m.name} (${m.match}% fit)`).join(" and ");
-  return `Based on your ${years(s.yearsExp)} as a ${s.headline} and your ${skillsText} background, your strongest matches so far are ${names}. ${s.interviewRatePct}% of your applications have reached interview stage — prioritize roles above that top match's fit score, they convert best for you.`;
+  return `Based on your ${years(s.yearsExp)} as a ${s.headline} and your ${skillsText} background, your strongest matches so far are ${names}. ${s.interviewRatePct}% of your applications have reached interview stage — prioritize roles above that top match's fit score, they convert best for you.${traitLine}`;
 }
 
 function answerSalary(s: AdvisorSnapshot): string {
+  const traitLine = s.trait ? ` ${TRAIT_TIPS[s.trait].negotiate}` : "";
   if (!s.salaryRange) {
-    return `You haven't entered an expected salary on any application yet, so I don't have a real range to work from for you as a ${s.headline}. Add one next time you apply and I can tell you where you stand.`;
+    return `You haven't entered an expected salary on any application yet, so I don't have a real range to work from for you as a ${s.headline}. Add one next time you apply and I can tell you where you stand.${traitLine}`;
   }
   const { min, max } = s.salaryRange;
   const spread = min === max
     ? fmtMoney(min)
     : `${fmtMoney(min)}–${fmtMoney(max)}`;
-  return `Across the ${s.applications.length} role${s.applications.length === 1 ? "" : "s"} you've applied to, your expected salary has ranged ${spread}. With a ${s.interviewRatePct}% interview rate, you're in a position to anchor near the top of that range.`;
+  return `Across the ${s.applications.length} role${s.applications.length === 1 ? "" : "s"} you've applied to, your expected salary has ranged ${spread}. With a ${s.interviewRatePct}% interview rate, you're in a position to anchor near the top of that range.${traitLine}`;
+}
+
+// Dedicated "what does my persona mean" answer — the fullest, most
+// real-world-flavored response, since this is the one question that's
+// entirely about the trait rather than the trait being a garnish on top of
+// application stats.
+function answerPersona(s: AdvisorSnapshot): string {
+  if (!s.trait || !s.traitMeta) {
+    return `You haven't taken the Animal Persona quiz yet, so I don't have an archetype to ground this in. Take it from your profile and I'll tailor your search strategy, interview framing, and even how you negotiate around it.`;
+  }
+  const tips = TRAIT_TIPS[s.trait];
+  const tagText = s.traitMeta.tags.join(", ").toLowerCase();
+  // Quoting the candidate's own bio back at them (truncated) is what makes
+  // this read as grounded in their actual profile rather than a canned
+  // archetype blurb.
+  const bio = s.about.trim();
+  const aboutLine = bio ? ` And it tracks with how you describe yourself: "${bio.length > 140 ? `${bio.slice(0, 140).trim()}…` : bio}"` : "";
+  return `You're ${s.traitMeta.archetype} — the ${s.trait} archetype. ${s.traitMeta.description} That shows up as ${tagText}.${aboutLine} For your search: ${tips.search} In interviews: ${tips.interview} And when you're negotiating: ${tips.negotiate}`;
 }
 
 function answerIndustries(s: AdvisorSnapshot): string {
@@ -1244,11 +1340,14 @@ function answerStatus(s: AdvisorSnapshot): string {
 }
 
 function answerGeneral(s: AdvisorSnapshot): string {
+  const traitLine = s.trait && s.traitMeta
+    ? ` As ${s.traitMeta.archetype}, here's the shape of how you tend to operate: ${s.traitMeta.description}`
+    : "";
   if (!s.applications.length) {
-    return `I don't have any applications from you yet, so I can't give you data-backed advice. Head to Discover, apply to a few roles, and come back — I'll have real numbers to work with.`;
+    return `I don't have any applications from you yet, so I can't give you data-backed advice.${traitLine} Head to Discover, apply to a few roles, and come back — I'll have real numbers to work with.`;
   }
   const top = s.topMatches[0];
-  return `You've applied to ${s.applications.length} role${s.applications.length === 1 ? "" : "s"} with a ${s.interviewRatePct}% interview rate. Your top match right now is ${top?.name} at ${top?.match}% fit — that's the one I'd focus your energy on.`;
+  return `You've applied to ${s.applications.length} role${s.applications.length === 1 ? "" : "s"} with a ${s.interviewRatePct}% interview rate. Your top match right now is ${top?.name} at ${top?.match}% fit — that's the one I'd focus your energy on.${traitLine}`;
 }
 
 export async function askAdvisor(question: string): Promise<string> {
@@ -1259,6 +1358,8 @@ export async function askAdvisor(question: string): Promise<string> {
   // Order matters: check the more specific intents before generic ones like
   // "job"/"role" so e.g. "what jobs are available" doesn't fall into the
   // suitability branch just because it contains "job".
+  if (q.includes("trait") || q.includes("animal") || q.includes("persona") || q.includes("archetype"))
+    return answerPersona(snapshot);
   if (q.includes("available") || q.includes("opening") || q.includes("open role") || q.includes("open position") || q.includes("any jobs") || q.includes("new jobs"))
     return answerAvailableJobs(snapshot);
   if (q.includes("salary") || q.includes("pay") || q.includes("compensation") || q.includes("wage") || q.includes("earn"))
@@ -1281,4 +1382,5 @@ export const suggestedQuestions = [
   "How are my applications doing?",
   "Best industries for me",
   "Remote vs on-site preference",
+  "What does my animal trait mean for my job search?",
 ];
