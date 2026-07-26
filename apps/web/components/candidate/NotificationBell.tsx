@@ -30,12 +30,23 @@ function timeAgo(iso: string): string {
 }
 
 /**
- * Sidebar bell: connection messages, connection requests/accepts, new
+ * Notification bell: connection messages, connection requests/accepts, new
  * matches, and hiring-stage changes — all rows come from
  * supabase/schema.sql triggers on messages/connections/matches (see
  * lib/candidate.ts's getNotifications). Live via subscribeNotifications.
+ * Reused in both the sidebar (narrow column, so the panel flies out to the
+ * side) and the dashboard header (wide row, so the panel drops down
+ * right-aligned instead of running off the edge of the viewport).
  */
-export default function NotificationBell() {
+export default function NotificationBell({
+  buttonClassName = "w-9 h-9 rounded-xl",
+  iconSize = 17,
+  panelPlacement = "flyout",
+}: {
+  buttonClassName?: string;
+  iconSize?: number;
+  panelPlacement?: "flyout" | "dropdown";
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<AppNotification[]>([]);
@@ -98,14 +109,16 @@ export default function NotificationBell() {
     setUnread(0);
   }
 
+  const panelPositionClass = panelPlacement === "flyout" ? "left-full top-0 ml-2" : "right-0 top-full mt-2";
+
   return (
     <div className="relative" ref={rootRef}>
       <button
         onClick={toggle}
-        className="relative w-9 h-9 rounded-xl bg-surface2 border border-line flex items-center justify-center text-dim hover:text-ink transition-colors"
+        className={`relative bg-surface2 border border-line flex items-center justify-center text-dim hover:text-ink transition-colors ${buttonClassName}`}
         aria-label="Notifications"
       >
-        <Bell size={17} />
+        <Bell size={iconSize} />
         {unread > 0 && (
           <span className="absolute -top-[3px] -right-[3px] min-w-[16px] h-[16px] px-1 rounded-full bg-danger text-white text-[9px] font-bold flex items-center justify-center">
             {unread > 9 ? "9+" : unread}
@@ -114,7 +127,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute left-full top-0 ml-2 z-50 w-[340px] max-h-[440px] overflow-y-auto bg-bgtop border border-line rounded-2xl shadow-xl">
+        <div className={`absolute ${panelPositionClass} z-50 w-[340px] max-h-[440px] overflow-y-auto bg-bgtop border border-line rounded-2xl shadow-xl`}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-line">
             <span className="font-serif text-[15px] font-bold text-ink">Notifications</span>
             {unread > 0 && (

@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Bell, Bookmark, MapPin, Clock, ChevronRight, TrendingUp, Briefcase, Star, X, ArrowRight } from "lucide-react";
+import { Search, Bookmark, MapPin, Clock, ChevronRight, TrendingUp, Briefcase, Star, X, ArrowRight } from "lucide-react";
 import {
   careerInsights, getFeaturedRoles, getMyProfile, getSavedJobs, toggleSavedJob, trendingSectors, unsaveJob,
   type CandidateProfile, type Role,
 } from "@/lib/candidate";
 import Avatar from "@/components/candidate/Avatar";
+import NotificationBell from "@/components/candidate/NotificationBell";
 
 const fmtK = (n: number) => `$${Math.round(n / 1000)}K`;
 
@@ -77,10 +78,7 @@ export default function CandidateHome() {
               </span>
             )}
           </button>
-          <button className="relative w-11 h-11 rounded-full bg-surface2 border border-line flex items-center justify-center text-dim hover:text-ink">
-            <Bell size={18} />
-            <span className="absolute top-2 right-[10px] w-[7px] h-[7px] rounded-full bg-gold" />
-          </button>
+          <NotificationBell buttonClassName="w-11 h-11 rounded-full" iconSize={18} panelPlacement="dropdown" />
           <button onClick={() => router.push("/candidate/profile")} className="rounded-full" aria-label="Profile">
             <Avatar size={44} online />
           </button>

@@ -854,11 +854,20 @@ export async function markAllNotificationsRead(): Promise<void> {
   await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", uid).is("read_at", null);
 }
 
-/** Live-subscribe to new/updated notifications. No-op in mock mode. */
+let notificationsChannelSeq = 0;
+
+/**
+ * Live-subscribe to new/updated notifications. No-op in mock mode.
+ * NotificationBell can be mounted more than once at a time (sidebar + page
+ * header both render one), so the channel name is suffixed with a counter —
+ * a shared static name would make the second `.channel()` call reuse the
+ * first's already-subscribed channel, and Supabase throws if you attach a
+ * `postgres_changes` callback after `.subscribe()` has already run.
+ */
 export function subscribeNotifications(onChange: () => void): () => void {
   if (!isSupabaseConfigured) return () => {};
   const channel = supabase
-    .channel("notifications-live")
+    .channel(`notifications-live-${++notificationsChannelSeq}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, onChange)
     .subscribe();
   return () => {
