@@ -9,27 +9,24 @@ import { traitStats, traitCandidates, traitsProfiled, traitEmoji } from "@/lib/m
 import { generateTraitsReport } from "@/lib/sharedReport";
 import { computeTraitBreakdown } from "@/lib/traitAnalytics";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { getMyCompany, getCompanyMatches, type Company } from "@/lib/employer";
+import { getMyCompany, getCompanyMatches } from "@/lib/employer";
 import type { MatchedCandidate } from "@/lib/types";
 
 export default function AnimalTraitsPage() {
-  const [company, setCompany] = useState<Company | null>(null);
-  const [cands, setCands] = useState<MatchedCandidate[]>([]);
-  const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [cands, setCands] = useState<MatchedCandidate[] | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     getMyCompany().then((c) => {
       if (!c) {
-        setLoading(false);
+        setCands([]);
         return;
       }
-      setCompany(c);
-      getCompanyMatches().then(setCands).finally(() => setLoading(false));
+      getCompanyMatches().then(setCands);
     });
   }, []);
 
-  if (loading) {
+  if (isSupabaseConfigured && cands === null) {
     return (
       <>
         <PageHeader title="Animal Traits" subtitle="Loading your candidates…" />
@@ -40,7 +37,7 @@ export default function AnimalTraitsPage() {
     );
   }
 
-  if (company) {
+  if (cands && cands.length > 0) {
     return <LiveTraits cands={cands} />;
   }
 
