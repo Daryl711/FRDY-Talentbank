@@ -7,6 +7,7 @@ import { OrgType } from "@/lib/types";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { signInWithEmail, signUpWithEmail } from "@/lib/candidate";
 import { signUpEmployer, EMPLOYER_SIZES } from "@/lib/employer";
+import { firstError, isValidEmail, validateEmail, validatePassword, validateRequired } from "@/lib/validation";
 
 const PORTALS: Record<OrgType, string> = {
   candidate: "/candidate",
@@ -79,11 +80,19 @@ function CandidateAuth() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const isSignup = mode === "signup";
-  const canSubmit =
-    email.includes("@") && password.length >= 6 && (!isSignup || name.trim().length >= 2);
 
   async function submit() {
-    if (!canSubmit || busy) return;
+    if (busy) return;
+    const validationError = firstError(
+      validateEmail(email),
+      validatePassword(password),
+      isSignup ? validateRequired(name, "Full name") : null
+    );
+    if (validationError) {
+      setError(validationError);
+      setNotice(null);
+      return;
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -107,7 +116,7 @@ function CandidateAuth() {
   }
 
   async function forgotPassword() {
-    if (!email.includes("@") || busy) {
+    if (!isValidEmail(email) || busy) {
       setError("Enter your email address above, then click “Forgot password?”");
       return;
     }
@@ -183,7 +192,7 @@ function CandidateAuth() {
 
       <button
         onClick={submit}
-        disabled={busy || !canSubmit}
+        disabled={busy}
         className="mt-6 w-full bg-gradient-to-r from-goldbright to-golddeep rounded-xl py-[15px] flex items-center justify-center gap-2 font-semibold text-[15px] transition-opacity hover:opacity-90 disabled:opacity-60"
         style={{ color: "#2b2106" }}
       >
@@ -226,10 +235,6 @@ function EmployerAuth() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const isSignup = mode === "signup";
-  const canSubmit =
-    email.includes("@") &&
-    password.length >= 6 &&
-    (!isSignup || (name.trim().length >= 2 && companyName.trim().length >= 2));
 
   function switchMode(next: "signin" | "signup") {
     setMode(next);
@@ -246,7 +251,18 @@ function EmployerAuth() {
   }
 
   async function submit() {
-    if (!canSubmit || busy) return;
+    if (busy) return;
+    const validationError = firstError(
+      validateEmail(email),
+      validatePassword(password),
+      isSignup ? validateRequired(name, "Your name") : null,
+      isSignup ? validateRequired(companyName, "Company name") : null
+    );
+    if (validationError) {
+      setError(validationError);
+      setNotice(null);
+      return;
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -275,7 +291,7 @@ function EmployerAuth() {
   }
 
   async function forgotPassword() {
-    if (!email.includes("@") || busy) {
+    if (!isValidEmail(email) || busy) {
       setError("Enter your email address above, then click “Forgot password?”");
       return;
     }
@@ -352,7 +368,7 @@ function EmployerAuth() {
 
       <button
         onClick={submit}
-        disabled={busy || !canSubmit}
+        disabled={busy}
         className="mt-6 w-full bg-gradient-to-r from-goldbright to-golddeep rounded-xl py-[15px] flex items-center justify-center gap-2 font-semibold text-[15px] transition-opacity hover:opacity-90 disabled:opacity-60"
         style={{ color: "#2b2106" }}
       >
@@ -392,6 +408,11 @@ function DemoAuth({ portal, defaults }: { portal: string; defaults: { email: str
       router.push(portal);
       return;
     }
+    const validationError = firstError(validateEmail(email), validatePassword(password));
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setLoading(false);
@@ -403,7 +424,7 @@ function DemoAuth({ portal, defaults }: { portal: string; defaults: { email: str
   }
 
   async function forgotPassword() {
-    if (!email.includes("@") || loading) {
+    if (!isValidEmail(email) || loading) {
       setError("Enter your email address above, then click “Forgot password?”");
       return;
     }
