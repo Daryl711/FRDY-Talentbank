@@ -61,7 +61,7 @@ export default function SignInPage() {
           <DemoAuth portal={PORTALS[org]} defaults={DEMO_CREDS.university} />
         )}
 
-        <p className="text-center eyebrow mt-12">Elevate Enterprise v2.4 · Terms · Privacy</p>
+        <p className="text-center eyebrow mt-12">FRDY Talentbank Hackathon· Terms · Privacy</p>
       </div>
     </main>
   );
