@@ -36,6 +36,7 @@ export default function ProfilePage() {
   const [tab, setTab] = useState<"profile" | "settings">("profile");
   const [me, setMe] = useState<CandidateProfile | null>(null);
   const [personaOpen, setPersonaOpen] = useState(false);
+  const [retakeConfirmOpen, setRetakeConfirmOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
@@ -325,9 +326,9 @@ export default function ProfilePage() {
         </>
       ) : (
         <div className="flex flex-col gap-3 mt-6">
-          <Link href="/candidate/quiz" className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-4 text-ink text-[14.5px] hover:border-line2">
+          <button onClick={() => setRetakeConfirmOpen(true)} className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-4 text-ink text-[14.5px] text-left hover:border-line2">
             Persona Assessment <ChevronRight size={18} className="text-mut" />
-          </Link>
+          </button>
           <button onClick={() => setAccountOpen(true)} className="flex items-center justify-between bg-surface border border-line rounded-xl px-4 py-4 text-ink text-[14.5px] text-left hover:border-line2">
             Account & Security <ChevronRight size={18} className="text-mut" />
           </button>
@@ -348,6 +349,13 @@ export default function ProfilePage() {
 
       {me.animal_trait && ANIMALS[me.animal_trait as AnimalTrait] && personaOpen && (
         <PersonaStatsModal trait={me.animal_trait as AnimalTrait} scores={me.animal_scores} onClose={() => setPersonaOpen(false)} />
+      )}
+
+      {retakeConfirmOpen && (
+        <RetakeQuizConfirmModal
+          onCancel={() => setRetakeConfirmOpen(false)}
+          onConfirm={() => router.push("/candidate/quiz")}
+        />
       )}
 
       {accountOpen && <AccountSecurityModal email={user?.email ?? null} onClose={() => setAccountOpen(false)} />}
@@ -429,6 +437,37 @@ function PersonaStatsModal({ trait, scores, onClose }: { trait: AnimalTrait; sco
         <button onClick={onClose} className="mt-7 w-full bg-surface2 border border-line rounded-xl py-[14px] text-ink text-[14px] font-medium">Close</button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Guards the "Persona Assessment" settings link — retaking overwrites the
+ * candidate's current trait/scores and, since the Animal Persona quiz is
+ * compulsory and feeds the ML career trajectory prediction, immediately
+ * regenerates that prediction too. Both are worth confirming before the
+ * candidate walks back into the 40-question quiz.
+ */
+function RetakeQuizConfirmModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <ModalShell title="Retake the Animal Persona quiz?" subtitle="This will replace your current results." onClose={onCancel}>
+      <p className="text-dim text-[13.5px] leading-[21px]">
+        Retaking the quiz overwrites your current Animal Persona trait and scores, and immediately
+        regenerates your ML-driven career trajectory prediction to match the new result. Your current
+        trajectory prediction will be lost.
+      </p>
+      <div className="flex gap-3 mt-6">
+        <button onClick={onCancel} className="flex-1 bg-surface2 border border-line rounded-xl py-[13px] text-ink text-[14px] font-medium">
+          Cancel
+        </button>
+        <button
+          onClick={onConfirm}
+          className="flex-1 rounded-xl py-[13px] text-[14px] font-semibold"
+          style={{ backgroundColor: "#d8b45a", color: "#3a2d08" }}
+        >
+          Retake Quiz
+        </button>
+      </div>
+    </ModalShell>
   );
 }
 
