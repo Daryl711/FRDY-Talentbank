@@ -8,7 +8,7 @@ export const periodLabel = "CelcomDigi hiring overview · June 2026";
 export const hiringUser = {
   name: "Aisyah Rahman",
   role: "Talent Acquisition Lead",
-  initials: "AR",
+  initials: "A",
 };
 
 // Dashboard 
@@ -38,11 +38,11 @@ export const pipeline: PipelineStage[] = [
 ];
 
 export const applicants: Applicant[] = [
-  { id: "a1", name: "Victoria Harmon", initials: "VH", role: "Senior PM", trait: "Lion", match: 94, stage: "Interview" },
-  { id: "a2", name: "James Whitfield", initials: "JW", role: "VP Engineering", trait: "Owl", match: 88, stage: "Screening" },
-  { id: "a3", name: "Sophia Laurent", initials: "SL", role: "Director Strategy", trait: "Eagle", match: 91, stage: "Offer" },
-  { id: "a4", name: "Marcus Chen", initials: "MC", role: "Head of Finance", trait: "Bear", match: 82, stage: "Applied" },
-  { id: "a5", name: "Eleanor Voss", initials: "EV", role: "Chief of Staff", trait: "Dolphin", match: 87, stage: "Interview" },
+  { id: "a1", name: "Victoria Harmon", initials: "V", role: "Senior PM", trait: "Lion", match: 94, stage: "Interview" },
+  { id: "a2", name: "James Whitfield", initials: "J", role: "VP Engineering", trait: "Owl", match: 88, stage: "Screening" },
+  { id: "a3", name: "Sophia Laurent", initials: "S", role: "Director Strategy", trait: "Eagle", match: 91, stage: "Offer" },
+  { id: "a4", name: "Marcus Chen", initials: "M", role: "Head of Finance", trait: "Bear", match: 82, stage: "Applied" },
+  { id: "a5", name: "Eleanor Voss", initials: "E", role: "Chief of Staff", trait: "Dolphin", match: 87, stage: "Interview" },
 ];
 
 export const traitEmoji: Record<string, string> = {
@@ -80,19 +80,19 @@ function radar(vals: number[]) {
 
 export const traitCandidates: TraitCandidate[] = [
   {
-    id: "c1", name: "Victoria Harmon", initials: "VH", role: "Sr. PM", trait: "Lion", match: 94,
+    id: "c1", name: "Victoria Harmon", initials: "V", role: "Sr. PM", trait: "Lion", match: 94,
     archetype: "Lion Archetype",
     tags: ["Leadership", "Decisiveness", "Drive", "Confidence", "Risk Appetite"],
     radar: radar([92, 70, 82, 62, 68]),
   },
   {
-    id: "c2", name: "James Whitfield", initials: "JW", role: "VP Engineering", trait: "Owl", match: 88,
+    id: "c2", name: "James Whitfield", initials: "J", role: "VP Engineering", trait: "Owl", match: 88,
     archetype: "Owl Archetype",
     tags: ["Analysis", "Precision", "Expertise", "Focus", "Depth"],
     radar: radar([64, 94, 78, 80, 52]),
   },
   {
-    id: "c3", name: "Sophia Laurent", initials: "SL", role: "Director Strategy", trait: "Eagle", match: 91,
+    id: "c3", name: "Sophia Laurent", initials: "S", role: "Director Strategy", trait: "Eagle", match: 91,
     archetype: "Eagle Archetype",
     tags: ["Vision", "Strategy", "Innovation", "Foresight", "Independence"],
     radar: radar([78, 76, 95, 58, 66]),
@@ -166,7 +166,7 @@ function buildTrajProfiles(count: number): TrajProfile[] {
     const targetRole = ladder[lvl + 1];
     const trait = TRAJ_TRAITS[i % 12];
     const name = `${TRAJ_FIRST_NAMES[(i - 1) % 31]} ${TRAJ_LAST_NAMES[(i - 1) % 29]}`;
-    const initials = name.split(" ").map((w) => w[0]).join("").toUpperCase();
+    const initials = name.charAt(0).toUpperCase();
 
     const confidence = Math.min(97, 58 + lvl * 9 + Math.floor(seeded(i * 9.9) * 12));
     const horizonMonths = [24, 20, 16, 12][lvl];

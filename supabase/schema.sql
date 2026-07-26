@@ -33,7 +33,7 @@ create table if not exists profiles (
   id            uuid primary key references auth.users(id) on delete cascade,
   user_type     user_type not null default 'individual',
   name          text not null,
-  initials      text generated always as (upper(left(name,1)) || upper(coalesce(split_part(name,' ',2),' '))) stored,
+  initials      text generated always as (upper(left(name,1))) stored,
   headline      text,
   location      text,
   years_exp     int default 0,
@@ -47,6 +47,18 @@ create table if not exists profiles (
   embedding     vector(384),               -- persona/profile embedding
   created_at    timestamptz default now()
 );
+
+-- Avatar initials are just the first letter now (was first-name-initial +
+-- first-letter-of-second-word, e.g. "James Harmon" -> "JH"). Generated
+-- columns can't have their expression altered in place, so drop and re-add —
+-- `stored` recomputes it for every existing row from `name`, no data lost.
+-- connections_view (defined further down) selects this column, so Postgres
+-- won't drop it without dropping the view first; the view is re-created
+-- later in this script (`create or replace view connections_view`), so
+-- dropping it here is safe and doesn't need CASCADE.
+drop view if exists connections_view;
+alter table profiles drop column if exists initials;
+alter table profiles add column initials text generated always as (upper(left(name,1))) stored;
 
 -- Backfill columns onto profiles tables created before this column existed.
 -- `create table if not exists` above is a no-op on an existing table, so new

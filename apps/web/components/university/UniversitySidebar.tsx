@@ -71,7 +71,7 @@ export default function UniversitySidebar() {
       <div className="mt-auto border-t border-line">
         <div className="px-4 py-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center text-[12px] font-bold" style={{ color: "#2b2106" }}>
-            AR
+            A
           </div>
           <div>
             <div className="text-ink text-[13px] font-semibold leading-none">Dr. Aisha Rahman</div>
