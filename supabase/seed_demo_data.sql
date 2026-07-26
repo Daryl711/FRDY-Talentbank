@@ -249,7 +249,13 @@ begin
     v_years := (v_lvl * 4) + 1 + floor(random() * 3)::int;
     v_headline := v_ladder[v_lvl + 1];
     v_target_role := v_ladder[v_lvl + 2];
-    v_trait := traits[1 + (i % 12)];
+    -- Random, not `traits[1 + (i % 12)]` — that shared the exact same 12-slot
+    -- index expression as `schools[1 + (i % 12)]` below, so trait was a
+    -- perfect 1:1 function of school (every "University of Malaya" candidate
+    -- landed on "Eagle", every single time). Invisible browsing all 500, but
+    -- glaring once a view filters down to one school, like the university
+    -- portal's Animal Traits page.
+    v_trait := traits[1 + floor(random() * 12)::int];
 
     v_score := least(99, 60 + v_lvl * 8 + floor(random() * 10)::int);
     v_confidence := least(97, 58 + v_lvl * 9 + floor(random() * 12)::int);
@@ -349,7 +355,7 @@ begin
       profile_visible = excluded.profile_visible,
       is_demo         = excluded.is_demo;
 
-    insert into candidate_trajectories (1
+    insert into candidate_trajectories (
       profile_id, current_salary, arrow_target, target_role, target_salary,
       confidence, horizon_months, trajectory, next_roles, skills
     ) values (
@@ -364,4 +370,31 @@ begin
   end loop;
 exception when undefined_table then
   raise notice 'auth schema not present; skipped demo candidate seed';
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- BACKFILL: the candidate loop above skips any account that already exists
+-- (`continue` right after the auth.users lookup), so fixing the trait-vs-
+-- school correlation bug in the generator only affects candidates seeded from
+-- here on — it does nothing for a database that already ran the old version
+-- of this script. This re-randomizes animal_trait (and its matching
+-- animal_scores) for every already-seeded demo candidate so an existing
+-- database picks up the fix too. Only touches is_demo rows — never a real
+-- candidate's own quiz result.
+-- ----------------------------------------------------------------------------
+do $$
+declare
+  r record;
+  v_trait text;
+  traits text[] := array['Lion','Eagle','Wolf','Owl','Octopus','Elephant','Cheetah','Fox','Ant','Horse','Dolphin','Peacock'];
+begin
+  for r in select id from profiles where is_demo loop
+    v_trait := traits[1 + floor(random() * 12)::int];
+    update profiles
+       set animal_trait = v_trait,
+           animal_scores = jsonb_build_object(v_trait, 8 + floor(random() * 4)::int)
+     where id = r.id;
+  end loop;
+exception when undefined_table then
+  raise notice 'profiles not present; skipped animal-trait backfill';
 end $$;
