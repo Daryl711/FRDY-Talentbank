@@ -460,23 +460,34 @@ export async function updateMyPassword(password: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // PROFILE SETUP — the About/Skills/Experience step is optional. Candidates can
 // skip it during onboarding and complete it later from their profile. The skip
-// is remembered per-browser (localStorage) so the onboarding step doesn't
-// reappear on every navigation while the profile is still empty. Mirrors the
-// mobile app's AsyncStorage flag.
+// is remembered in localStorage so the onboarding step doesn't reappear on
+// every navigation while the profile is still empty. Keyed per signed-in user
+// (not just per-browser) — a bare, unscoped key would leak one account's skip
+// onto every other account that ever signs into the same browser, which is
+// exactly what happens with the candidate login bypass: each click either
+// reuses or mints a *different* Supabase user in the same browser, and an
+// unscoped flag would make a fresh bypass account inherit some earlier
+// account's skip and silently jump straight past profile setup.
 // ---------------------------------------------------------------------------
 
 const PROFILE_SETUP_SKIPPED_KEY = "mango.profile_setup_skipped";
 
-/** True once the candidate has chosen to skip the profile setup step. */
-export function getProfileSetupSkipped(): boolean {
-  return typeof window !== "undefined" && window.localStorage.getItem(PROFILE_SETUP_SKIPPED_KEY) === "1";
+function skipKey(uid: string | null): string {
+  return uid ? `${PROFILE_SETUP_SKIPPED_KEY}:${uid}` : PROFILE_SETUP_SKIPPED_KEY;
 }
 
-/** Remember (or clear) that the candidate skipped profile setup. */
-export function setProfileSetupSkipped(skipped: boolean): void {
+/** True once the signed-in candidate has chosen to skip the profile setup step. */
+export async function getProfileSetupSkipped(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(skipKey(await currentUid())) === "1";
+}
+
+/** Remember (or clear) that the signed-in candidate skipped profile setup. */
+export async function setProfileSetupSkipped(skipped: boolean): Promise<void> {
   if (typeof window === "undefined") return;
-  if (skipped) window.localStorage.setItem(PROFILE_SETUP_SKIPPED_KEY, "1");
-  else window.localStorage.removeItem(PROFILE_SETUP_SKIPPED_KEY);
+  const key = skipKey(await currentUid());
+  if (skipped) window.localStorage.setItem(key, "1");
+  else window.localStorage.removeItem(key);
 }
 
 // ---------------------------------------------------------------------------

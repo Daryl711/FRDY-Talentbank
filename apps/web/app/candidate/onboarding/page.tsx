@@ -59,7 +59,7 @@ export default function OnboardingPage() {
         })),
       });
       // Filling the profile supersedes any earlier skip, so clear the flag.
-      setProfileSetupSkipped(false);
+      await setProfileSetupSkipped(false);
       router.push("/candidate");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save your profile. Please try again.");
@@ -67,11 +67,11 @@ export default function OnboardingPage() {
     }
   }
 
-  function skip() {
+  async function skip() {
     if (saving) return;
     // Remember the skip so the onboarding step doesn't reappear on every
     // navigation while the profile is still empty; they can complete it later.
-    setProfileSetupSkipped(true);
+    await setProfileSetupSkipped(true);
     router.push("/candidate");
   }
 

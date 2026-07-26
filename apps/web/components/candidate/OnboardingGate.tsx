@@ -44,7 +44,7 @@ export default function OnboardingGate({ children }: { children: React.ReactNode
       }
       const profile = await getMyProfile();
       if (!alive) return;
-      if (!isProfileComplete(profile) && !getProfileSetupSkipped()) {
+      if (!isProfileComplete(profile) && !(await getProfileSetupSkipped())) {
         router.replace(ONBOARDING);
         return;
       }
