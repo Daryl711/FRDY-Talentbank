@@ -32,7 +32,9 @@ See [`apps/web/README.md`](apps/web/README.md) for the web portal.
 ## System workflow
 
 Both surfaces talk to one shared Supabase backend (Postgres + Auth), so a
-candidate on mobile and an employer on the web portal see the same data.
+candidate on mobile and an employer on the web portal see the same data. For
+the full breakdown (startup flow, data layer, every feature workflow, and the
+backend schema), see [`docs/system-workflow.md`](docs/system-workflow.md).
 
 ```
    Candidate (mobile / web)                 Employer · University (web)
@@ -76,6 +78,11 @@ and profile — wired to a Supabase backend.
 | Backend       | Supabase (Postgres + Auth + Realtime + Storage)           |
 | Matching      | pgvector cosine similarity + rule-based fallback          |
 | AI advisor    | Anthropic Claude API via Supabase Edge Function (stubbed) |
+
+The app is gated by three nested checks before showing the main tabs: signed
+in (`AuthGate`) → Animal Persona quiz completed (`PersonaGate`) → profile
+setup (`ProfileGate`, skippable). See
+[`docs/system-workflow.md`](docs/system-workflow.md) for the full flow.
 
 ## Prerequisites 
 Make sure to download **Expo Go** in your mobile phone
@@ -123,17 +130,18 @@ when configured and falls back to `src/data/mock.ts` otherwise:
 Paths below are relative to `apps/mobile/`.
 
 ```
-App.tsx                  font loading + navigation root
+App.tsx                  font loading + navigation root (AuthGate → PersonaGate → ProfileGate → tabs)
 global.css               tailwind directives
 tailwind.config.js       Mango color + font tokens
 src/
   theme/colors.ts        tokens for LinearGradient / icon tints
   lib/supabase.ts        client + isSupabaseConfigured flag
-  data/                  types, mock seed, repo (Supabase + fallback)
+  auth/                  AuthContext, AuthGate, PersonaGate, ProfileGate
+  data/                  types, persona (animal archetypes + quiz), mock seed, repo (Supabase + fallback)
   services/advisor.ts    AI advisor (Edge Function wiring documented)
-  components/ui.tsx       ScreenBg, Avatar, Card, GoldButton, Pill, etc.
+  components/            ui.tsx (ScreenBg, Avatar, Card, GoldButton, Pill), SwipeDeck, modals (chat, applications, resume, saved jobs)
   navigation/BottomTabs.tsx
-  screens/               Home, Match, Connect, Advisor, Profile
+  screens/               Home, Match, Resume, Connect, Advisor, Profile, PersonaQuiz, ProfileSetup, SignIn, SignUp
 supabase/schema.sql      full backend schema
 ```
 
@@ -148,9 +156,10 @@ supabase/schema.sql      full backend schema
 
 # Web app (Next.js)
 
-The candidate web experience **and** the employer/university portal — a
-hiring/talent dashboard with analytics, an applicant pipeline, and candidate
-management. See [`apps/web/README.md`](apps/web/README.md) for full detail.
+Three portals behind one sign-in page: the candidate web experience (same
+persona matching as mobile), an employer portal (hiring analytics + applicant
+pipeline), and a university portal (graduate-outcomes analytics). See
+[`apps/web/README.md`](apps/web/README.md) for full detail.
 
 ## Stack
 
@@ -176,9 +185,10 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000); the dashboard lives at
-[/dashboard](http://localhost:3000/dashboard). Other scripts: `npm run build`,
-`npm run start` (serve the production build), `npm run lint`.
+Open [http://localhost:3000](http://localhost:3000) — pick an account type on
+the sign-in page and land on `/candidate`, `/employer`, or `/university`.
+Other scripts: `npm run build`, `npm run start` (serve the production build),
+`npm run lint`.
 
 > The portal runs immediately with built-in mock data — no backend needed.
 
@@ -191,8 +201,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
 ```
 
-`lib/supabase.ts` exposes `isSupabaseConfigured`, which flips the dashboard from
-mock data (`lib/mock.ts`) to live queries when both vars are present.
+`lib/supabase.ts` exposes `isSupabaseConfigured`, which flips every portal
+from mock data to live queries when both vars are present.
 
 # Deployment
 ## Mobile App
