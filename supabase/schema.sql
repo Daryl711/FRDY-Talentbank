@@ -298,6 +298,161 @@ alter table messages alter column match_id drop not null;
 create index if not exists messages_connection_idx on messages(connection_id, created_at);
 
 -- ----------------------------------------------------------------------------
+-- NOTIFICATIONS — one row per event a user should be told about: a message
+-- (from a connection or a company chat), a connection request/acceptance, a
+-- new match, or a hiring-stage change on one of their applications. Populated
+-- entirely by triggers on messages/connections/matches below — nothing
+-- inserts here directly except those triggers (see RLS: no insert policy for
+-- authenticated users). `link` is the route the client opens on click.
+-- ----------------------------------------------------------------------------
+create table if not exists notifications (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  kind       text not null,   -- 'message' | 'connection_request' | 'connection_accepted' | 'match' | 'stage_change'
+  title      text not null,
+  body       text,
+  link       text,
+  read_at    timestamptz,
+  created_at timestamptz default now()
+);
+create index if not exists notifications_user_created_idx on notifications(user_id, created_at desc);
+
+alter table notifications enable row level security;
+
+drop policy if exists "notifications read" on notifications;
+create policy "notifications read" on notifications for select to authenticated
+  using (user_id = auth.uid());
+
+-- Lets the client mark its own notifications read directly (update read_at)
+-- without needing an RPC — inserts still only ever come from the triggers below.
+drop policy if exists "notifications mark read" on notifications;
+create policy "notifications mark read" on notifications for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- New message (connection DM or company-match chat) -> notify the other side.
+-- Gated on notif_messages (Settings > Notifications > "Messages").
+create or replace function notify_new_message()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_recipient uuid;
+  v_sender    text;
+  v_wants     boolean;
+begin
+  if new.connection_id is not null then
+    select case when requester_id = new.sender_id then addressee_id else requester_id end
+      into v_recipient
+    from connections where id = new.connection_id;
+  elsif new.match_id is not null then
+    select case when m.user_id = new.sender_id then c.owner_id else m.user_id end
+      into v_recipient
+    from matches m join companies c on c.id = m.company_id
+    where m.id = new.match_id;
+  end if;
+
+  if v_recipient is null or v_recipient = new.sender_id then
+    return new;
+  end if;
+
+  select coalesce(notif_messages, true) into v_wants from profiles where id = v_recipient;
+  if not coalesce(v_wants, true) then
+    return new;
+  end if;
+
+  select coalesce(nullif(name, ''), 'Someone') into v_sender from profiles where id = new.sender_id;
+
+  insert into notifications (user_id, kind, title, body, link) values (
+    v_recipient, 'message', v_sender || ' sent you a message', left(new.body, 140),
+    case when new.connection_id is not null then '/candidate/connect' else '/candidate/applications' end
+  );
+  return new;
+exception when others then
+  raise warning 'notify_new_message failed: %', sqlerrm;
+  return new;
+end; $$;
+
+drop trigger if exists on_message_notify on messages;
+create trigger on_message_notify after insert on messages
+  for each row execute function notify_new_message();
+
+-- Connection requested / accepted -> notify the other side. Not gated by any
+-- preference toggle (there's no dedicated "connections" category) so these
+-- always fire.
+create or replace function notify_connection_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_name text;
+begin
+  if TG_OP = 'INSERT' then
+    select coalesce(nullif(name, ''), 'Someone') into v_name from profiles where id = new.requester_id;
+    insert into notifications (user_id, kind, title, link) values (
+      new.addressee_id, 'connection_request', v_name || ' wants to connect', '/candidate/connect'
+    );
+  elsif TG_OP = 'UPDATE' and new.status = 'accepted' and old.status is distinct from 'accepted' then
+    select coalesce(nullif(name, ''), 'Someone') into v_name from profiles where id = new.addressee_id;
+    insert into notifications (user_id, kind, title, link) values (
+      new.requester_id, 'connection_accepted', v_name || ' accepted your connection request', '/candidate/connect'
+    );
+  end if;
+  return new;
+exception when others then
+  raise warning 'notify_connection_event failed: %', sqlerrm;
+  return new;
+end; $$;
+
+drop trigger if exists on_connection_notify on connections;
+create trigger on_connection_notify after insert or update of status on connections
+  for each row execute function notify_connection_event();
+
+-- New match (a job application was accepted into a company's pipeline) and
+-- hiring-stage changes (Screening/Shortlisted/Interview/.../Hired/Rejected)
+-- -> notify the candidate. Gated on notif_matches (Settings > Notifications >
+-- "New matches" — "A company matches with you or your application advances a
+-- stage.").
+create or replace function notify_match_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_company text;
+  v_wants   boolean;
+begin
+  select coalesce(notif_matches, true) into v_wants from profiles where id = new.user_id;
+  if not coalesce(v_wants, true) then
+    return new;
+  end if;
+
+  select coalesce(nullif(name, ''), 'A company') into v_company from companies where id = new.company_id;
+
+  if TG_OP = 'INSERT' then
+    insert into notifications (user_id, kind, title, body, link) values (
+      new.user_id, 'match', 'You matched with ' || v_company, 'Your application is now in their pipeline.', '/candidate/applications'
+    );
+  elsif TG_OP = 'UPDATE' and new.stage is distinct from old.stage then
+    insert into notifications (user_id, kind, title, link) values (
+      new.user_id, 'stage_change', v_company || ' moved your application to ' || new.stage, '/candidate/applications'
+    );
+  end if;
+  return new;
+exception when others then
+  raise warning 'notify_match_event failed: %', sqlerrm;
+  return new;
+end; $$;
+
+drop trigger if exists on_match_notify on matches;
+create trigger on_match_notify after insert or update of stage on matches
+  for each row execute function notify_match_event();
+
+-- ----------------------------------------------------------------------------
 -- RESUMES — versioned, stored in Supabase Storage
 -- ----------------------------------------------------------------------------
 create table if not exists resumes (
@@ -1168,9 +1323,10 @@ end $$;
 -- REALTIME — stream row changes to subscribed clients. The mobile app listens
 -- on `connections` (live Requests badge when someone adds you) and `messages`
 -- (live chat); the employer web board listens on `matches` so a new mutual
--- match with CelcomDigi shows up on the Hiring pipeline instantly. RLS still
--- applies, so each client only receives rows it may read. Guarded so re-running
--- the script (or a non-Supabase Postgres) is a no-op.
+-- match with CelcomDigi shows up on the Hiring pipeline instantly; the
+-- candidate notification bell listens on `notifications` for a live badge and
+-- feed. RLS still applies, so each client only receives rows it may read.
+-- Guarded so re-running the script (or a non-Supabase Postgres) is a no-op.
 -- ============================================================================
 do $$
 begin
@@ -1191,6 +1347,12 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'matches'
   ) then
     alter publication supabase_realtime add table matches;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications'
+  ) then
+    alter publication supabase_realtime add table notifications;
   end if;
 exception when undefined_object then
   -- No supabase_realtime publication (plain Postgres) — nothing to enable.

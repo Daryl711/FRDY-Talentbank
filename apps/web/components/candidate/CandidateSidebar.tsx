@@ -7,6 +7,7 @@ import { Home, Briefcase, Send, FileText, Users, Sparkles, User, ChevronRight, L
 import { useAuth } from "@/lib/auth";
 import { getMyProfile } from "@/lib/candidate";
 import Avatar from "@/components/candidate/Avatar";
+import NotificationBell from "@/components/candidate/NotificationBell";
 
 const NAV = [
   { href: "/candidate", label: "Home", icon: Home },
@@ -39,14 +40,17 @@ export default function CandidateSidebar() {
   return (
     <aside className="w-[230px] shrink-0 bg-bgtop border-r border-line flex flex-col min-h-screen sticky top-0">
       {/* brand */}
-      <div className="px-5 py-5 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center">
-          <Sparkles size={18} style={{ color: "#2b2106" }} />
+      <div className="px-5 py-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center shrink-0">
+            <Sparkles size={18} style={{ color: "#2b2106" }} />
+          </div>
+          <div className="min-w-0">
+            <div className="font-serif text-[19px] font-bold text-ink leading-none">Mango</div>
+            <div className="eyebrow mt-1 !text-gold">Candidate</div>
+          </div>
         </div>
-        <div>
-          <div className="font-serif text-[19px] font-bold text-ink leading-none">Mango</div>
-          <div className="eyebrow mt-1 !text-gold">Candidate</div>
-        </div>
+        <NotificationBell />
       </div>
 
       {/* identity card */}

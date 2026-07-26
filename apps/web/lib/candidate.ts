@@ -783,6 +783,90 @@ export function subscribeMessages(
 }
 
 // ---------------------------------------------------------------------------
+// NOTIFICATIONS — messages, connection requests/accepts, new matches, and
+// hiring-stage changes. All rows come from triggers on messages/connections/
+// matches (see supabase/schema.sql) — this is read/mark-read only, there's no
+// client-side insert path.
+// ---------------------------------------------------------------------------
+
+export interface AppNotification {
+  id: string;
+  kind: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
+// Demo fallback so the bell has something to show when Supabase isn't configured.
+const mockNotifications: AppNotification[] = [
+  { id: "n1", kind: "message", title: "Victoria Harmon sent you a message", body: "Would love to connect about the PM role…", link: "/candidate/connect", read: false, createdAt: new Date(Date.now() - 5 * 60_000).toISOString() },
+  { id: "n2", kind: "stage_change", title: "CelcomDigi moved your application to Interview", body: null, link: "/candidate/applications", read: false, createdAt: new Date(Date.now() - 2 * 3600_000).toISOString() },
+  { id: "n3", kind: "connection_request", title: "Rachel Donovan wants to connect", body: null, link: "/candidate/connect", read: true, createdAt: new Date(Date.now() - 26 * 3600_000).toISOString() },
+  { id: "n4", kind: "match", title: "You matched with CelcomDigi", body: "Your application is now in their pipeline.", link: "/candidate/applications", read: true, createdAt: new Date(Date.now() - 3 * 86_400_000).toISOString() },
+];
+
+function rowToNotification(r: Record<string, unknown>): AppNotification {
+  return {
+    id: String(r.id),
+    kind: String(r.kind),
+    title: String(r.title),
+    body: (r.body as string | null) ?? null,
+    link: (r.link as string | null) ?? null,
+    read: !!r.read_at,
+    createdAt: String(r.created_at),
+  };
+}
+
+/** Most recent notifications for the signed-in user, newest first. */
+export async function getNotifications(limit = 30): Promise<AppNotification[]> {
+  if (!isSupabaseConfigured) return mockNotifications;
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, kind, title, body, link, read_at, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map(rowToNotification);
+}
+
+/** Count of unread notifications, for the sidebar bell badge. */
+export async function getUnreadNotificationCount(): Promise<number> {
+  if (!isSupabaseConfigured) return mockNotifications.filter((n) => !n.read).length;
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .is("read_at", null);
+  if (error) return 0;
+  return count ?? 0;
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id);
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const uid = await currentUid();
+  if (!uid) return;
+  await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", uid).is("read_at", null);
+}
+
+/** Live-subscribe to new/updated notifications. No-op in mock mode. */
+export function subscribeNotifications(onChange: () => void): () => void {
+  if (!isSupabaseConfigured) return () => {};
+  const channel = supabase
+    .channel("notifications-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, onChange)
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+// ---------------------------------------------------------------------------
 // SAVED JOBS (browser localStorage, mirrors the mobile AsyncStorage store)
 // ---------------------------------------------------------------------------
 
