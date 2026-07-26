@@ -790,6 +790,13 @@ create trigger on_auth_user_created after insert on auth.users
 -- way a real predictive model would react to new signal, not a fixed
 -- per-tier constant. Regenerates on every relevant edit. Demo profiles are
 -- skipped (is_demo) so this never clobbers the seed script's richer data.
+--
+-- The Animal Persona quiz (lib/persona.ts) is now compulsory before a
+-- candidate ever reaches the main app (OnboardingGate), so animal_trait is a
+-- reliable signal on every real candidate by the time this fires — factored
+-- in as a small confidence/horizon adjustment per archetype (e.g. Lion/
+-- Eagle/Wolf read as leadership-ready — higher confidence, shorter horizon;
+-- Ant/Horse read as steady/methodical — smaller boost, slightly longer).
 create or replace function generate_candidate_trajectory()
 returns trigger
 language plpgsql
@@ -809,6 +816,22 @@ declare
   v_skill_count    int := coalesce(array_length(v_skills, 1), 0);
   v_exp_count      int := jsonb_array_length(coalesce(new.experience, '[]'::jsonb));
   v_has_about      boolean := nullif(trim(coalesce(new.about, '')), '') is not null;
+  -- Per-archetype confidence/horizon nudge (see lib/persona.ts ANIMALS for the
+  -- full description of each trait). Leadership/vision-flavored traits read as
+  -- more advancement-ready; steady/methodical ones get a smaller, slower boost.
+  v_trait_conf_adj int := case new.animal_trait
+    when 'Lion'    then 5   when 'Eagle'  then 4   when 'Wolf'   then 4
+    when 'Cheetah' then 4   when 'Peacock' then 3  when 'Owl'    then 3
+    when 'Fox'     then 3   when 'Dolphin' then 2  when 'Octopus' then 2
+    when 'Elephant' then 2  when 'Ant'    then 2   when 'Horse'  then 1
+    else 0
+  end;
+  v_trait_horizon_adj int := case new.animal_trait
+    when 'Cheetah' then -3  when 'Lion'   then -2  when 'Peacock' then -1
+    when 'Eagle'   then -1  when 'Wolf'   then -1  when 'Octopus' then -1
+    when 'Elephant' then 1  when 'Ant'    then 1   when 'Horse'  then 1
+    else 0
+  end;
   v_confidence     int;
   v_horizon        int;
   v_base           int;
@@ -857,8 +880,9 @@ begin
     + least(24, v_years * 2)
     + least(16, v_skill_count * 2)
     + least(9, v_exp_count * 3)
-    + (case when v_has_about then 5 else 0 end));
-  v_horizon := greatest(6, 26 - v_years * 2);
+    + (case when v_has_about then 5 else 0 end)
+    + v_trait_conf_adj);
+  v_horizon := greatest(6, 26 - v_years * 2 + v_trait_horizon_adj);
 
   v_current_salary := 42000 + v_years * 6000 + least(20000, v_skill_count * 1500);
   v_target_salary := v_current_salary + 18000 + v_years * 3000;
@@ -876,7 +900,10 @@ begin
   v_next_roles := jsonb_build_array(
     jsonb_build_object('role', v_target_role, 'context', 'Based on your profile', 'pct', v_confidence),
     jsonb_build_object('role', v_next_role, 'context', 'Longer horizon', 'pct', greatest(15, v_confidence - 30)),
-    jsonb_build_object('role', v_base_role, 'context', 'Lateral move', 'pct', greatest(10, v_confidence - 45))
+    jsonb_build_object(
+      'role', v_base_role, 'pct', greatest(10, v_confidence - 45),
+      'context', case when new.animal_trait is not null then 'Matches your ' || new.animal_trait || ' profile' else 'Lateral move' end
+    )
   );
 
   v_skills_gap := '[]'::jsonb;
@@ -922,7 +949,7 @@ end; $$;
 
 drop trigger if exists on_profile_trajectory on profiles;
 create trigger on_profile_trajectory
-  after insert or update of headline, years_exp, skills, about, experience on profiles
+  after insert or update of headline, years_exp, skills, about, experience, animal_trait on profiles
   for each row execute function generate_candidate_trajectory();
 
 -- Backfill: the trigger above only fires on future inserts/edits, so any real
