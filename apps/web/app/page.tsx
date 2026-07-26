@@ -47,7 +47,7 @@ export default function SignInPage() {
         <p className="text-dim text-[15px] mt-3">Select your account type to continue</p>
 
         {/* account type cards */}
-        <div className="grid grid-cols-3 gap-3 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-8">
           <OrgCard active={org === "candidate"} onClick={() => setOrg("candidate")} icon={<User size={20} />} title="Candidate" sub="Find roles & matches" />
           <OrgCard active={org === "employer"} onClick={() => setOrg("employer")} icon={<Building2 size={20} />} title="Employer" sub="Hiring & analytics" />
           <OrgCard active={org === "university"} onClick={() => setOrg("university")} icon={<GraduationCap size={20} />} title="University" sub="Graduate outcomes" />

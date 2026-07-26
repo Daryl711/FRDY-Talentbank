@@ -6,9 +6,9 @@ export function Panel({ children, className = "" }: { children: React.ReactNode;
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle: string; action?: React.ReactNode }) {
   return (
-    <header className="flex items-start justify-between mb-7">
+    <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-7">
       <div>
-        <h1 className="font-serif text-[32px] font-bold text-ink">{title}</h1>
+        <h1 className="font-serif text-[28px] sm:text-[32px] font-bold text-ink">{title}</h1>
         <p className="text-dim text-[14px] mt-1">{subtitle}</p>
       </div>
       {action}

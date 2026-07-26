@@ -33,7 +33,8 @@ export default function RecentApplicants({ applicants = mockApplicants }: { appl
         </a>
       </div>
 
-      <table className="w-full mt-5 border-collapse">
+      <div className="overflow-x-auto">
+      <table className="w-full mt-5 border-collapse min-w-[640px]">
         <thead>
           <tr className="eyebrow text-left">
             <th className="font-normal pb-3">Candidate</th>
@@ -83,6 +84,7 @@ export default function RecentApplicants({ applicants = mockApplicants }: { appl
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }

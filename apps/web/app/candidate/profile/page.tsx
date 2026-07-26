@@ -178,7 +178,7 @@ export default function ProfilePage() {
       </div>
 
       {/* stats */}
-      <div className="grid grid-cols-3 gap-3 mt-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
         <PStat icon={<TrendingUp size={16} className="text-gold" />} value={`${me.profile_score}%`} label="Profile Score" />
         <PStat icon={<Eye size={16} className="text-gold" />} value={`${me.views}`} label="Views" />
         <PStat icon={<Trophy size={16} className="text-gold" />} value={`${me.matches}`} label="Matches" />

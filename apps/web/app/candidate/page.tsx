@@ -102,7 +102,7 @@ export default function CandidateHome() {
       </div>
 
       {/* stats */}
-      <div className="grid grid-cols-3 gap-4 mt-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
         <StatTile icon={<Briefcase size={18} className="text-gold" />} value="2,840" label="Active Roles" />
         <StatTile icon={<TrendingUp size={18} className="text-gold" />} value={avgSalary ? fmtK(avgSalary) : "—"} label="Avg. Salary" />
         <StatTile icon={<Star size={18} className="text-gold" />} value={topMatch ? `${topMatch}%` : "—"} label="Top Match" />

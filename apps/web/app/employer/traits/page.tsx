@@ -113,7 +113,7 @@ function LiveTraits({ cands }: { cands: MatchedCandidate[] }) {
               <div className="mt-4">
                 <TraitDonut data={liveTraitStats} />
               </div>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-3 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mt-4">
                 {liveTraitStats.map((t) => (
                   <div key={t.trait} className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-dim text-[13px]">
@@ -230,7 +230,7 @@ function MockTraits() {
           <div className="mt-4">
             <TraitDonut />
           </div>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-3 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mt-4">
             {traitStats.map((t) => (
               <div key={t.trait} className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-dim text-[13px]">

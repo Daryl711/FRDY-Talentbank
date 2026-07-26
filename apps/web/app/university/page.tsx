@@ -118,7 +118,8 @@ function LiveDashboard({ candidates }: { candidates: UniversityCandidate[] }) {
       <Panel className="p-6 mt-6">
         <h2 className="font-serif text-[22px] font-bold text-ink">Course Readiness Overview</h2>
         <p className="text-mut text-[12px] mt-1">By degree · "Employed" is the average trajectory-model readiness score, not a confirmed outcome</p>
-        <table className="w-full mt-5 border-collapse">
+        <div className="overflow-x-auto">
+        <table className="w-full mt-5 border-collapse min-w-[560px]">
           <thead>
             <tr className="eyebrow text-left">
               <th className="font-normal pb-3">Course</th>
@@ -145,6 +146,7 @@ function LiveDashboard({ candidates }: { candidates: UniversityCandidate[] }) {
             ))}
           </tbody>
         </table>
+        </div>
       </Panel>
     </>
   );
@@ -214,7 +216,8 @@ function MockDashboard() {
           <h2 className="font-serif text-[22px] font-bold text-ink">Course Employability Overview</h2>
           <a className="text-info text-[13px] hover:opacity-80 cursor-pointer">Full report →</a>
         </div>
-        <table className="w-full mt-5 border-collapse">
+        <div className="overflow-x-auto">
+        <table className="w-full mt-5 border-collapse min-w-[640px]">
           <thead>
             <tr className="eyebrow text-left">
               <th className="font-normal pb-3">Course</th>
@@ -243,6 +246,7 @@ function MockDashboard() {
             ))}
           </tbody>
         </table>
+        </div>
       </Panel>
     </>
   );

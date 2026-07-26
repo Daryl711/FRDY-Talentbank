@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Briefcase, Send, FileText, Users, Sparkles, User, ChevronRight, LogOut } from "lucide-react";
+import { Home, Briefcase, Send, FileText, Users, Sparkles, User, ChevronRight, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getMyProfile } from "@/lib/candidate";
 import Avatar from "@/components/candidate/Avatar";
@@ -23,6 +23,12 @@ export default function CandidateSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setOpen(false);
+  }
 
   const [profile, setProfile] = useState<{ name: string; initials: string; headline: string } | null>(null);
   useEffect(() => {
@@ -38,7 +44,31 @@ export default function CandidateSidebar() {
   }
 
   return (
-    <aside className="w-[230px] shrink-0 bg-bgtop border-r border-line flex flex-col min-h-screen sticky top-0">
+    <>
+      {/* mobile top bar */}
+      <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between gap-3 bg-bgtop border-b border-line px-4 py-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-goldbright to-golddeep flex items-center justify-center shrink-0">
+            <Sparkles size={16} style={{ color: "#2b2106" }} />
+          </div>
+          <span className="font-serif text-[17px] font-bold text-ink leading-none truncate">Mango</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <NotificationBell />
+          <button onClick={() => setOpen(true)} className="text-dim hover:text-ink p-1" aria-label="Open menu">
+            <Menu size={22} />
+          </button>
+        </div>
+      </div>
+
+      {/* backdrop */}
+      {open && <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setOpen(false)} />}
+
+      <aside
+        className={`w-[230px] shrink-0 bg-bgtop border-r border-line flex flex-col min-h-screen fixed inset-y-0 left-0 z-50 overflow-y-auto transform transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
       {/* brand */}
       <div className="px-5 py-5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -50,7 +80,12 @@ export default function CandidateSidebar() {
             <div className="eyebrow mt-1 !text-gold">Candidate</div>
           </div>
         </div>
-        <NotificationBell />
+        <div className="flex items-center gap-1 shrink-0">
+          <div className="hidden lg:block"><NotificationBell /></div>
+          <button onClick={() => setOpen(false)} className="lg:hidden text-mut hover:text-ink p-1" aria-label="Close menu">
+            <X size={20} />
+          </button>
+        </div>
       </div>
 
       {/* identity card */}
@@ -105,6 +140,7 @@ export default function CandidateSidebar() {
           Sign Out
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

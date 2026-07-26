@@ -101,7 +101,7 @@ function LiveTraits({ candidates }: { candidates: UniversityCandidate[] }) {
               <div className="mt-4">
                 <TraitDonut data={liveTraitStats} />
               </div>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-3 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mt-4">
                 {liveTraitStats.map((t) => (
                   <div key={t.trait} className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-dim text-[13px]">
@@ -213,7 +213,7 @@ function MockTraits() {
           <h2 className="font-serif text-[22px] font-bold text-ink">Trait Distribution</h2>
           <p className="text-mut text-[12px] mt-1">All students · active profiles</p>
           <div className="mt-4"><TraitDonut /></div>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-3 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mt-4">
             {traitStats.map((t) => (
               <div key={t.trait} className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-dim text-[13px]">

@@ -102,7 +102,7 @@ export default function ApplicationDetailsModal({
           {/* salary details submitted with this application */}
           <section>
             <h3 className="eyebrow mb-3">Submitted Details</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-surface border border-line rounded-xl p-4">
                 <div className="flex items-center gap-1.5 text-mut text-[11.5px]"><DollarSign size={12} /> Expected Salary</div>
                 <div className="text-ink text-[16px] font-semibold mt-1">{fmtSalary(job.expectedSalary)}</div>
