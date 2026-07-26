@@ -1,11 +1,27 @@
+"use client";
+
+import { FileDown } from "lucide-react";
 import { PageHeader, Panel, StatTile } from "@/components/ui";
 import { EmployabilityTrendLine } from "@/components/university/UniCharts";
 import { uniName, uniStats, employabilityTrend, industryLanding, courseOverview } from "@/lib/university";
+import { generateUniversityDashboardReport } from "@/lib/universityReport";
 
 export default function UniversityDashboard() {
   return (
     <>
-      <PageHeader title="Dashboard" subtitle={`${uniName} · Graduate outcomes overview · Class of 2026`} />
+      <PageHeader
+        title="Dashboard"
+        subtitle={`${uniName} · Graduate outcomes overview · Class of 2026`}
+        action={
+          <button
+            onClick={() => generateUniversityDashboardReport(uniName, uniStats, industryLanding, courseOverview)}
+            title="Download a dashboard report (.xlsx)"
+            className="flex items-center gap-2 bg-surface2 border border-line rounded-xl px-4 py-[10px] text-dim text-[13px] font-semibold hover:text-ink"
+          >
+            <FileDown size={15} /> Generate Report
+          </button>
+        }
+      />
 
       {/* stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { FileDown, Search } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
 import { CourseTrendLine, EmployabilityGauge, RateByCourseBars } from "@/components/university/UniCharts";
 import {
   courseEmployability, employabilityOverall, facultyFilters, rateByCourse,
 } from "@/lib/university";
+import { generateEmployabilityReport } from "@/lib/universityReport";
 
 export default function EmployabilityPage() {
   const [selectedId, setSelectedId] = useState(courseEmployability[0].id);
@@ -22,7 +23,19 @@ export default function EmployabilityPage() {
 
   return (
     <>
-      <PageHeader title="Employability" subtitle={`Overall rate: ${employabilityOverall}% · ${courseEmployability.length} courses tracked · Class of 2026`} />
+      <PageHeader
+        title="Employability"
+        subtitle={`Overall rate: ${employabilityOverall}% · ${courseEmployability.length} courses tracked · Class of 2026`}
+        action={
+          <button
+            onClick={() => generateEmployabilityReport(employabilityOverall, courseEmployability)}
+            title="Download an employability report (.xlsx)"
+            className="flex items-center gap-2 bg-surface2 border border-line rounded-xl px-4 py-[10px] text-dim text-[13px] font-semibold hover:text-ink"
+          >
+            <FileDown size={15} /> Generate Report
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* gauge */}

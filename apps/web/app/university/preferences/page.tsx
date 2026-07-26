@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Search, TrendingUp } from "lucide-react";
+import { FileDown, Search, TrendingUp } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
 import { InterestScoreBars, SearchVolumeArea } from "@/components/university/UniCharts";
 import { prefStats, searchTerms } from "@/lib/university";
+import { generatePreferencesReport } from "@/lib/universityReport";
 
 export default function CoursePreferencesPage() {
     const [query, setQuery] = useState("");
@@ -18,8 +19,17 @@ export default function CoursePreferencesPage() {
                 title="Course Preferences"
                 subtitle="Student search behaviour & course interest signals · Live data"
                 action={
-                    <div className="flex items-center gap-2 bg-ok/10 border border-ok/30 rounded-full px-3 py-[6px] text-[12px] text-ok">
-                        <span className="w-[7px] h-[7px] rounded-full bg-ok animate-pulse" /> LIVE
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => generatePreferencesReport(prefStats, searchTerms)}
+                            title="Download a course preferences report (.xlsx)"
+                            className="flex items-center gap-2 bg-surface2 border border-line rounded-xl px-4 py-[10px] text-dim text-[13px] font-semibold hover:text-ink"
+                        >
+                            <FileDown size={15} /> Generate Report
+                        </button>
+                        <div className="flex items-center gap-2 bg-ok/10 border border-ok/30 rounded-full px-3 py-[6px] text-[12px] text-ok">
+                            <span className="w-[7px] h-[7px] rounded-full bg-ok animate-pulse" /> LIVE
+                        </div>
                     </div>
                 }
             />

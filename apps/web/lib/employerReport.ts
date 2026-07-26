@@ -1,6 +1,7 @@
-import * as XLSX from "xlsx";
 import type { HireStage, MatchedCandidate } from "@/lib/types";
 import type { Company, Role } from "@/lib/employer";
+import type { Applicant, PipelineStage, StatCard } from "@/lib/types";
+import { downloadReport, pct } from "@/lib/reportBuilder";
 
 // All pipeline stages a candidate can be in, in the order they should appear
 // on the report (mirrors the Hiring board's STAGE_ORDER plus the two terminal
@@ -9,16 +10,11 @@ const REPORT_STAGES: HireStage[] = [
   "Applied", "Screening", "Shortlisted", "Interview", "Final Round", "Offer", "Hired", "Rejected",
 ];
 
-function pct(count: number, total: number): string {
-  return total > 0 ? `${((count / total) * 100).toFixed(1)}%` : "0.0%";
-}
-
 /**
  * Builds and downloads a multi-sheet Excel management report for the
  * signed-in employer's hiring pipeline: total applicants, applicants per job,
  * the percentage breakdown of each pipeline stage, and a per-candidate detail
- * sheet. Runs entirely client-side (xlsx writer only — this never parses
- * untrusted files, so the known SheetJS read-path CVEs don't apply here).
+ * sheet.
  */
 export function generateHiringReport(company: Company, roles: Role[], candidates: MatchedCandidate[]): void {
   const total = candidates.length;
@@ -45,8 +41,6 @@ export function generateHiringReport(company: Company, roles: Role[], candidates
     ["Rejection Rate", pct(rejected, total)],
     ["Average Match Score", total > 0 ? `${avgScore.toFixed(1)}%` : "—"],
   ];
-  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
-  summarySheet["!cols"] = [{ wch: 22 }, { wch: 28 }];
 
   // ---- By Stage sheet ----------------------------------------------------
   const stageRows: (string | number)[][] = [["Stage", "Applicants", "% of Total"]];
@@ -55,8 +49,6 @@ export function generateHiringReport(company: Company, roles: Role[], candidates
     stageRows.push([stage, count, pct(count, total)]);
   }
   stageRows.push(["Total", total, "100.0%"]);
-  const stageSheet = XLSX.utils.aoa_to_sheet(stageRows);
-  stageSheet["!cols"] = [{ wch: 16 }, { wch: 12 }, { wch: 12 }];
 
   // ---- By Role sheet -------------------------------------------------
   // Every posted role, plus an "Unspecified" bucket for older matches made
@@ -71,8 +63,6 @@ export function generateHiringReport(company: Company, roles: Role[], candidates
     const status = name === "Unspecified" ? "—" : (roles.find((r) => r.title === name)?.status ?? "—");
     roleRows.push([name, status, inRole.length, pct(inRole.length, total), roleHired, inRole.length > 0 ? `${roleAvg.toFixed(1)}%` : "—"]);
   }
-  const roleSheet = XLSX.utils.aoa_to_sheet(roleRows);
-  roleSheet["!cols"] = [{ wch: 28 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 16 }];
 
   // ---- Applicants detail sheet -----------------------------------------
   const detailRows: (string | number)[][] = [["Candidate", "Role", "Stage", "Match Score", "Trait", "Date Applied"]];
@@ -86,16 +76,75 @@ export function generateHiringReport(company: Company, roles: Role[], candidates
       c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-US") : "—",
     ]);
   }
-  const detailSheet = XLSX.utils.aoa_to_sheet(detailRows);
-  detailSheet["!cols"] = [{ wch: 22 }, { wch: 26 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 14 }];
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, summarySheet, "Summary");
-  XLSX.utils.book_append_sheet(wb, stageSheet, "By Stage");
-  XLSX.utils.book_append_sheet(wb, roleSheet, "By Role");
-  XLSX.utils.book_append_sheet(wb, detailSheet, "Applicants");
+  downloadReport(`${company.name}-hiring-report`, [
+    { name: "Summary", rows: summaryRows, colWidths: [22, 28] },
+    { name: "By Stage", rows: stageRows, colWidths: [16, 12, 12] },
+    { name: "By Role", rows: roleRows, colWidths: [28, 10, 12, 12, 8, 16] },
+    { name: "Applicants", rows: detailRows, colWidths: [22, 26, 14, 12, 12, 14] },
+  ]);
+}
 
-  const datePart = generatedAt.toISOString().slice(0, 10);
-  const safeName = company.name.trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "") || "company";
-  XLSX.writeFile(wb, `${safeName}-hiring-report-${datePart}.xlsx`);
+/** Builds and downloads a report for the employer Dashboard page. */
+export function generateEmployerDashboardReport(
+  stats: StatCard[],
+  pipeline: PipelineStage[],
+  applicants: Applicant[],
+  periodLabel: string,
+): void {
+  const generatedAt = new Date();
+
+  const summaryRows: (string | number)[][] = [
+    ["Employer Dashboard Report"],
+    ["Period", periodLabel],
+    ["Generated", generatedAt.toLocaleString("en-US")],
+    [],
+    ["Metric", "Value", "Change"],
+    ...stats.map((s) => [s.label, s.value, s.delta]),
+  ];
+
+  const pipelineRows: (string | number)[][] = [["Stage", "Candidates"]];
+  for (const p of pipeline) pipelineRows.push([p.stage, p.count]);
+
+  const applicantRows: (string | number)[][] = [["Candidate", "Role", "Trait", "Match Score", "Stage"]];
+  for (const a of applicants) applicantRows.push([a.name, a.role, a.trait, a.match, a.stage]);
+
+  downloadReport("employer-dashboard-report", [
+    { name: "Summary", rows: summaryRows, colWidths: [20, 24, 16] },
+    { name: "Pipeline", rows: pipelineRows, colWidths: [18, 14] },
+    { name: "Recent Applicants", rows: applicantRows, colWidths: [22, 26, 12, 12, 14] },
+  ]);
+}
+
+/** Builds and downloads a report for the employer Hiring Rate page. */
+export function generateHiringRateReport(
+  overallRate: string,
+  bestDepartment: string,
+  avgTimeToHire: string,
+  trend: { month: string; rate: number }[],
+  byDepartment: { dept: string; rate: number }[],
+): void {
+  const generatedAt = new Date();
+
+  const summaryRows: (string | number)[][] = [
+    ["Hiring Rate Report"],
+    ["Generated", generatedAt.toLocaleString("en-US")],
+    [],
+    ["Metric", "Value"],
+    ["Overall Hiring Rate", overallRate],
+    ["Best Department", bestDepartment],
+    ["Avg. Time to Hire", avgTimeToHire],
+  ];
+
+  const trendRows: (string | number)[][] = [["Month", "Rate (%)"]];
+  for (const t of trend) trendRows.push([t.month, t.rate]);
+
+  const deptRows: (string | number)[][] = [["Department", "Rate (%)"]];
+  for (const d of byDepartment) deptRows.push([d.dept, d.rate]);
+
+  downloadReport("hiring-rate-report", [
+    { name: "Summary", rows: summaryRows, colWidths: [20, 22] },
+    { name: "Trend", rows: trendRows, colWidths: [12, 12] },
+    { name: "By Department", rows: deptRows, colWidths: [16, 12] },
+  ]);
 }

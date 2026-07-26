@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { FileDown } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
 import TraitDonut from "@/components/TraitDonut";
 import TraitRadar from "@/components/TraitRadar";
 import { traitStats, traitCandidates, traitsProfiled, traitEmoji } from "@/lib/mock";
+import { generateTraitsReport } from "@/lib/sharedReport";
 
 export default function AnimalTraitsView({
   subjectPlural = "candidates",
@@ -18,7 +20,19 @@ export default function AnimalTraitsView({
 
   return (
     <>
-      <PageHeader title="Animal Traits" subtitle={`Personality archetypes across your ${subjectPlural} — ${traitsProfiled} profiled`} />
+      <PageHeader
+        title="Animal Traits"
+        subtitle={`Personality archetypes across your ${subjectPlural} — ${traitsProfiled} profiled`}
+        action={
+          <button
+            onClick={() => generateTraitsReport(traitStats, traitCandidates, subjectPlural)}
+            title="Download an animal traits report (.xlsx)"
+            className="flex items-center gap-2 bg-surface2 border border-line rounded-xl px-4 py-[10px] text-dim text-[13px] font-semibold hover:text-ink"
+          >
+            <FileDown size={15} /> Generate Report
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         {traitStats.map((t) => (

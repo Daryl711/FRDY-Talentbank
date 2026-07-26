@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Cpu, ArrowRight, Search } from "lucide-react";
+import { Cpu, ArrowRight, FileDown, Search } from "lucide-react";
 import { PageHeader, Panel, StatTile } from "@/components/ui";
 import TrajectoryChart from "@/components/TrajectoryChart";
 import { trajProfiles as mockTrajProfiles, trajStats, trajModelVersion, traitEmoji } from "@/lib/mock";
 import { getTrajectoryProfiles } from "@/lib/employer";
+import { generateTrajectoryReport } from "@/lib/sharedReport";
 import type { TrajProfile } from "@/lib/types";
 
 const PAGE_SIZE = 20;
@@ -65,8 +66,18 @@ export default function TrajectoryView({ subjectPlural = "candidates" }: { subje
         title="Trajectory"
         subtitle={`ML-powered career path prediction · ${total} ${subjectPlural} modelled`}
         action={
-          <div className="flex items-center gap-2 bg-surface2 border border-line rounded-lg px-3 py-2 text-[12px] text-gold">
-            <Cpu size={14} /> ML Model {trajModelVersion}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => generateTrajectoryReport(profiles, subjectPlural, page, totalPages, total)}
+              disabled={profiles.length === 0}
+              title={profiles.length === 0 ? "No profiles loaded yet to report on" : "Download a trajectory report for this page (.xlsx)"}
+              className="flex items-center gap-2 bg-surface2 border border-line rounded-xl px-4 py-[10px] text-dim text-[13px] font-semibold hover:text-ink disabled:opacity-40"
+            >
+              <FileDown size={15} /> Generate Report
+            </button>
+            <div className="flex items-center gap-2 bg-surface2 border border-line rounded-lg px-3 py-2 text-[12px] text-gold">
+              <Cpu size={14} /> ML Model {trajModelVersion}
+            </div>
           </div>
         }
       />

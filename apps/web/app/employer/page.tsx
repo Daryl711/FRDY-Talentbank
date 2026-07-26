@@ -1,14 +1,30 @@
+"use client";
+
+import { FileDown } from "lucide-react";
 import { PageHeader, Panel, StatTile } from "@/components/ui";
 import ApplicationsChart from "@/components/employer/ApplicantsChart";
 import RecentApplicants from "@/components/employer/RecentApplicants";
-import { periodLabel, stats, pipeline } from "@/lib/mock";
+import { periodLabel, stats, pipeline, applicants } from "@/lib/mock";
+import { generateEmployerDashboardReport } from "@/lib/employerReport";
 
 export default function DashboardPage() {
   const peak = Math.max(...pipeline.map((s) => s.count));
 
   return (
     <>
-      <PageHeader title="Dashboard" subtitle={periodLabel} />
+      <PageHeader
+        title="Dashboard"
+        subtitle={periodLabel}
+        action={
+          <button
+            onClick={() => generateEmployerDashboardReport(stats, pipeline, applicants, periodLabel)}
+            title="Download a dashboard report (.xlsx)"
+            className="flex items-center gap-2 bg-surface2 border border-line rounded-xl px-4 py-[10px] text-dim text-[13px] font-semibold hover:text-ink"
+          >
+            <FileDown size={15} /> Generate Report
+          </button>
+        }
+      />
 
       {/* headline stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
