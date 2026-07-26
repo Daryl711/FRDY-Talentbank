@@ -895,6 +895,76 @@ exception when undefined_table then
 end $$;
 
 -- ============================================================================
+-- UNIVERSITI MALAYA — fixed demo credentials
+-- Creates a login (admin@um.edu.my / UniversitiMalaya123!) for the university
+-- portal's demo sign-in (apps/web/app/page.tsx DEMO_CREDS.university). Unlike
+-- the CelcomDigi employer above, the university dashboard (lib/university.ts)
+-- is static demo data, not keyed off this account — so this block only needs
+-- to make the login itself succeed, no company/profile wiring required.
+-- Same GoTrue quirks apply: bcrypt password via pgcrypto, empty (not NULL)
+-- token columns, and a matching auth.identities row for the email provider.
+-- ============================================================================
+do $$
+declare
+  uni_id uuid;
+begin
+  select id into uni_id from auth.users where email = 'admin@um.edu.my';
+
+  if uni_id is null then
+    uni_id := uuid_generate_v4();
+
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password,
+      email_confirmed_at, created_at, updated_at,
+      raw_app_meta_data, raw_user_meta_data,
+      confirmation_token, recovery_token,
+      email_change, email_change_token_new
+    ) values (
+      '00000000-0000-0000-0000-000000000000', uni_id, 'authenticated', 'authenticated',
+      'admin@um.edu.my', crypt('UniversitiMalaya123!', gen_salt('bf')),
+      now(), now(), now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      '{"name":"Universiti Malaya Admin"}'::jsonb,
+      '', '', '', ''
+    );
+
+    insert into auth.identities (
+      id, user_id, provider_id, identity_data, provider,
+      last_sign_in_at, created_at, updated_at
+    ) values (
+      gen_random_uuid(), uni_id, uni_id::text,
+      jsonb_build_object('sub', uni_id::text, 'email', 'admin@um.edu.my'),
+      'email', now(), now(), now()
+    );
+  else
+    -- Re-assert the password/confirmation so the fixed credentials keep
+    -- working after a re-run, same as the CelcomDigi repair path above.
+    update auth.users set
+      encrypted_password     = crypt('UniversitiMalaya123!', gen_salt('bf')),
+      email_confirmed_at     = coalesce(email_confirmed_at, now()),
+      confirmation_token     = coalesce(confirmation_token, ''),
+      recovery_token         = coalesce(recovery_token, ''),
+      email_change           = coalesce(email_change, ''),
+      email_change_token_new = coalesce(email_change_token_new, '')
+    where id = uni_id;
+
+    insert into auth.identities (
+      id, user_id, provider_id, identity_data, provider,
+      last_sign_in_at, created_at, updated_at
+    )
+    select gen_random_uuid(), uni_id, uni_id::text,
+           jsonb_build_object('sub', uni_id::text, 'email', 'admin@um.edu.my'),
+           'email', now(), now(), now()
+    where not exists (
+      select 1 from auth.identities
+      where provider = 'email' and provider_id = uni_id::text
+    );
+  end if;
+exception when undefined_table then
+  raise notice 'auth schema not present; skipped Universiti Malaya seed';
+end $$;
+
+-- ============================================================================
 -- REALTIME — stream row changes to subscribed clients. The mobile app listens
 -- on `connections` (live Requests badge when someone adds you) and `messages`
 -- (live chat); the employer web board listens on `matches` so a new mutual
