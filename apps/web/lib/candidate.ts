@@ -920,31 +920,165 @@ export async function uploadCoverLetter(file: File): Promise<{ name: string }> {
 }
 
 // ---------------------------------------------------------------------------
-// AI CAREER ADVISOR (mirrors apps/mobile/src/services/advisor.ts)
+// AI CAREER ADVISOR
 // ---------------------------------------------------------------------------
+// Still a simulation (no real model call) — but every number and name below
+// comes from the signed-in candidate's own profile and applications instead
+// of a fixed script, so the advice tracks whoever is actually logged in and
+// changes as they apply to more roles.
 
-const CANNED: Record<string, string> = {
-  "What roles suit me best?":
-    "Based on your 8 years in B2B SaaS and fintech, you're an exceptional fit for Senior PM and Director of Product roles at growth-stage fintechs. Meridian Capital (94% fit) and Luminary Group both align tightly with your roadmap and stakeholder strengths.",
-  "My ideal salary range":
-    "For Senior PM roles in fintech with your profile, the market range is $185K–$235K base in NY. Your interview rate (62%) gives you strong leverage — I'd anchor negotiations near $220K+.",
-  "Best industries for me":
-    "Your strongest signals point to Fintech, Investment tech, and B2B SaaS. Investment Banking platforms are trending (412 open roles) and reward your data-analytics and OKR experience.",
-  "Remote vs on-site preference":
-    "Your profile is set to Hybrid, which matches 3 of your top 5 company matches. If flexibility matters most, Stratos Ventures and Apex Partners both offer flexible arrangements.",
-};
+export interface AdvisorSnapshot {
+  name: string;
+  headline: string;
+  yearsExp: number;
+  topSkills: string[];
+  applications: SubmittedJob[];
+  advancedCount: number;
+  interviewRatePct: number;
+  topMatches: SubmittedJob[];
+  topFitPct: number | null;
+  salaryRange: { min: number; max: number } | null;
+  /** Open roles not yet swiped on — what's actually available right now. */
+  openRoles: SwipeCompany[];
+}
+
+export async function getAdvisorSnapshot(): Promise<AdvisorSnapshot> {
+  const [profile, applications, openRoles] = await Promise.all([
+    getMyProfile(),
+    getSubmittedJobs(),
+    getSwipeDeck(),
+  ]);
+  const advanced = applications.filter((a) => a.stage === "interview" || a.stage === "offer");
+  const salaries = applications.map((a) => a.expectedSalary).filter((v): v is number => !!v);
+  const topMatches = [...applications].sort((a, b) => b.match - a.match).slice(0, 2);
+  return {
+    name: profile.name,
+    headline: profile.headline || "your target role",
+    yearsExp: profile.years_exp ?? 0,
+    topSkills: (profile.skills ?? []).slice(0, 3),
+    applications,
+    advancedCount: advanced.length,
+    interviewRatePct: applications.length ? Math.round((advanced.length / applications.length) * 100) : 0,
+    topMatches,
+    topFitPct: topMatches[0]?.match ?? null,
+    salaryRange: salaries.length ? { min: Math.min(...salaries), max: Math.max(...salaries) } : null,
+    openRoles: [...openRoles].sort((a, b) => b.match - a.match),
+  };
+}
+
+function fmtMoney(v: number): string {
+  return `$${v.toLocaleString()}`;
+}
+
+function years(n: number): string {
+  return `${n} year${n === 1 ? "" : "s"}`;
+}
+
+function answerRoles(s: AdvisorSnapshot): string {
+  const skillsText = s.topSkills.length ? s.topSkills.join(", ") : "the skills on your profile";
+  if (!s.applications.length) {
+    return `With ${years(s.yearsExp)} as a ${s.headline} and strengths in ${skillsText}, I don't have any applications to judge fit against yet — swipe right on a few roles in Discover and I'll tell you which ones actually suit you.`;
+  }
+  const names = s.topMatches.map((m) => `${m.name} (${m.match}% fit)`).join(" and ");
+  return `Based on your ${years(s.yearsExp)} as a ${s.headline} and your ${skillsText} background, your strongest matches so far are ${names}. ${s.interviewRatePct}% of your applications have reached interview stage — prioritize roles above that top match's fit score, they convert best for you.`;
+}
+
+function answerSalary(s: AdvisorSnapshot): string {
+  if (!s.salaryRange) {
+    return `You haven't entered an expected salary on any application yet, so I don't have a real range to work from for you as a ${s.headline}. Add one next time you apply and I can tell you where you stand.`;
+  }
+  const { min, max } = s.salaryRange;
+  const spread = min === max
+    ? fmtMoney(min)
+    : `${fmtMoney(min)}–${fmtMoney(max)}`;
+  return `Across the ${s.applications.length} role${s.applications.length === 1 ? "" : "s"} you've applied to, your expected salary has ranged ${spread}. With a ${s.interviewRatePct}% interview rate, you're in a position to anchor near the top of that range.`;
+}
+
+function answerIndustries(s: AdvisorSnapshot): string {
+  if (!s.applications.length) {
+    return `I don't have any applications from you yet, so I can't tell you which industries you're converting in. Apply to a few roles and check back.`;
+  }
+  const companies = Array.from(new Set(s.applications.map((a) => a.name))).slice(0, 3).join(", ");
+  const top = s.topMatches[0];
+  return `Looking at where you've applied — ${companies} — and a ${s.interviewRatePct}% interview rate, your strongest signal is ${top?.name ?? "your top match"} at ${top?.match ?? 0}% fit. Lean into companies similar to that one.`;
+}
+
+function answerWorkType(s: AdvisorSnapshot): string {
+  if (!s.applications.length) {
+    return `You haven't applied anywhere yet, so I can't tell what's converting for you. Apply to a mix of roles and locations and I'll tell you which is working.`;
+  }
+  const locations = Array.from(new Set(s.applications.map((a) => a.location).filter(Boolean))).slice(0, 3);
+  const locText = locations.length ? locations.join(", ") : "a few different locations";
+  const top = s.topMatches[0];
+  return `Your ${s.applications.length} application${s.applications.length === 1 ? "" : "s"} span ${locText}. Your best match, ${top?.name ?? "your top pick"}, sits at ${top?.match ?? 0}% fit — a stronger signal for you right now than location alone.`;
+}
+
+// What's actually open right now that the candidate hasn't applied to yet —
+// the swipe deck already excludes anything they've swiped on, so this is a
+// real "what's available" answer, not a recommendation from thin air.
+function answerAvailableJobs(s: AdvisorSnapshot): string {
+  if (!s.openRoles.length) {
+    return `There's nothing new in your deck right now — you've applied to or passed on everything currently open. Check back as new roles get posted.`;
+  }
+  const top = s.openRoles
+    .slice(0, 3)
+    .map((r) => `${r.role} at ${r.name} (${r.match}% fit${r.package ? `, ${r.package}` : ""})`)
+    .join("; ");
+  return `You have ${s.openRoles.length} open role${s.openRoles.length === 1 ? "" : "s"} in your deck you haven't applied to yet. Best fits right now: ${top}. Swipe right on anything above ${s.openRoles[0].match >= 90 ? 85 : 75}% — those convert best.`;
+}
+
+// "How am I doing" — a real breakdown of the candidate's own pipeline, not a
+// canned interview-rate line.
+function answerStatus(s: AdvisorSnapshot): string {
+  if (!s.applications.length) {
+    return `You don't have any active applications yet — once you apply to a role I can track how it's progressing for you.`;
+  }
+  const counts = { applied: 0, review: 0, interview: 0, offer: 0 };
+  for (const a of s.applications) counts[a.stage]++;
+  const parts = APPLICATION_STAGES
+    .filter((st) => counts[st.key] > 0)
+    .map((st) => `${counts[st.key]} ${st.label.toLowerCase()}`)
+    .join(", ");
+  const top = s.topMatches[0];
+  return `You have ${s.applications.length} application${s.applications.length === 1 ? "" : "s"} out: ${parts}. Your strongest one is ${top?.name} — ${top?.role} at ${top?.match}% fit.`;
+}
+
+function answerGeneral(s: AdvisorSnapshot): string {
+  if (!s.applications.length) {
+    return `I don't have any applications from you yet, so I can't give you data-backed advice. Head to Discover, apply to a few roles, and come back — I'll have real numbers to work with.`;
+  }
+  const top = s.topMatches[0];
+  return `You've applied to ${s.applications.length} role${s.applications.length === 1 ? "" : "s"} with a ${s.interviewRatePct}% interview rate. Your top match right now is ${top?.name} at ${top?.match}% fit — that's the one I'd focus your energy on.`;
+}
 
 export async function askAdvisor(question: string): Promise<string> {
   await new Promise((r) => setTimeout(r, 550));
-  return (
-    CANNED[question] ??
-    "Looking at your profile and live matches, prioritize roles above 88% fit — they convert best for candidates with your interview rate."
-  );
+  const snapshot = await getAdvisorSnapshot();
+  const q = question.toLowerCase();
+
+  // Order matters: check the more specific intents before generic ones like
+  // "job"/"role" so e.g. "what jobs are available" doesn't fall into the
+  // suitability branch just because it contains "job".
+  if (q.includes("available") || q.includes("opening") || q.includes("open role") || q.includes("open position") || q.includes("any jobs") || q.includes("new jobs"))
+    return answerAvailableJobs(snapshot);
+  if (q.includes("salary") || q.includes("pay") || q.includes("compensation") || q.includes("wage") || q.includes("earn"))
+    return answerSalary(snapshot);
+  if (q.includes("industr") || q.includes("sector") || q.includes("field"))
+    return answerIndustries(snapshot);
+  if (q.includes("remote") || q.includes("on-site") || q.includes("onsite") || q.includes("hybrid") || q.includes("where"))
+    return answerWorkType(snapshot);
+  if (q.includes("status") || q.includes("progress") || q.includes("how am i doing") || q.includes("how are my") || q.includes("interview"))
+    return answerStatus(snapshot);
+  if (q.includes("role") || q.includes("fit") || q.includes("suit") || q.includes("best") || q.includes("qualif") || q.includes("job"))
+    return answerRoles(snapshot);
+  return answerGeneral(snapshot);
 }
 
 export const suggestedQuestions = [
   "What roles suit me best?",
+  "What jobs are available right now?",
   "My ideal salary range",
+  "How are my applications doing?",
   "Best industries for me",
   "Remote vs on-site preference",
 ];

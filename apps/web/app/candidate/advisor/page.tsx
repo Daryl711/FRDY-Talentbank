@@ -2,21 +2,31 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, RotateCcw, Send } from "lucide-react";
-import { askAdvisor, suggestedQuestions, type ChatMessage } from "@/lib/candidate";
+import { askAdvisor, getAdvisorSnapshot, suggestedQuestions, type AdvisorSnapshot, type ChatMessage } from "@/lib/candidate";
 
-const GREETING: ChatMessage = {
-  id: "g0",
-  who: "ai",
-  text: "Hello, Alexander. I'm your personal career advisor. I've analyzed your profile and experience to help you find the ideal role. What would you like to explore today?",
-  time: "9:41 AM",
-};
+function greeting(name: string): ChatMessage {
+  return {
+    id: "g0",
+    who: "ai",
+    text: `Hello, ${name.split(" ")[0]}. I'm your personal career advisor. I've analyzed your profile and applications to help you find the ideal role. What would you like to explore today?`,
+    time: "9:41 AM",
+  };
+}
 
 export default function AdvisorPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
+  const [snapshot, setSnapshot] = useState<AdvisorSnapshot | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [started, setStarted] = useState(false);
   const [thinking, setThinking] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getAdvisorSnapshot().then((s) => {
+      setSnapshot(s);
+      setMessages([greeting(s.name)]);
+    });
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -29,12 +39,14 @@ export default function AdvisorPage() {
     setInput("");
     setThinking(true);
     const reply = await askAdvisor(question);
+    // Refresh the snapshot too — applications/profile may have changed since load.
+    getAdvisorSnapshot().then(setSnapshot);
     setThinking(false);
     setMessages((prev) => [...prev, { id: `a${Date.now()}`, who: "ai", text: reply, time: "Just now" }]);
   }
 
   function reset() {
-    setMessages([{ id: "g1", who: "ai", text: "Chat reset. What would you like to explore next, Alexander?", time: "Just now" }]);
+    setMessages([{ id: "g1", who: "ai", text: `Chat reset. What would you like to explore next, ${(snapshot?.name ?? "there").split(" ")[0]}?`, time: "Just now" }]);
     setStarted(false);
   }
 
@@ -57,13 +69,28 @@ export default function AdvisorPage() {
         </button>
       </div>
 
-      {/* preference banner */}
+      {/* snapshot banner */}
       <div className="flex justify-between items-center gap-3 bg-surface2 border border-line rounded-2xl px-4 py-4 mt-5">
         <div>
-          <div className="eyebrow">Your Job Preferences</div>
-          <div className="text-ink text-[14px] mt-2">Senior PM · Fintech · $180K – $230K · Hybrid</div>
+          <div className="eyebrow">Your Snapshot</div>
+          <div className="text-ink text-[14px] mt-2">
+            {snapshot ? (
+              <>
+                {snapshot.headline} · {snapshot.applications.length} application{snapshot.applications.length === 1 ? "" : "s"}
+                {snapshot.salaryRange && (
+                  <> · ${snapshot.salaryRange.min.toLocaleString()}
+                    {snapshot.salaryRange.max !== snapshot.salaryRange.min && ` – $${snapshot.salaryRange.max.toLocaleString()}`}
+                  </>
+                )}
+              </>
+            ) : (
+              "Loading…"
+            )}
+          </div>
         </div>
-        <span className="font-mono text-[10px] font-bold text-ok bg-ok/[0.14] border border-ok/35 rounded-lg px-[10px] py-[5px]">94% FIT</span>
+        <span className="font-mono text-[10px] font-bold text-ok bg-ok/[0.14] border border-ok/35 rounded-lg px-[10px] py-[5px]">
+          {snapshot?.topFitPct != null ? `${snapshot.topFitPct}% FIT` : "NO MATCHES YET"}
+        </span>
       </div>
 
       {/* chat */}
